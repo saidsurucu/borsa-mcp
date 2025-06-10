@@ -1,0 +1,8 @@
+fastmcp
+pydantic
+httpx
+pdfplumber
+beautifulsoup4
+lxml
+yfinance
+pandas
