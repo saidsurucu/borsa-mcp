@@ -223,16 +223,95 @@ class KAPProvider:
 
     async def search_indices(self, query: str) -> EndeksKoduAramaSonucu:
         """
-        Search for BIST indices by name or code.
-        Note: Implementation removed as part of cleanup. Returns empty result.
+        Search for BIST indices by name or code using live data from Mynet.
         """
-        logger.warning("Index search functionality has been removed. Use get_endeks_sirketleri with known index codes.")
-        return EndeksKoduAramaSonucu(
-            arama_terimi=query,
-            sonuclar=[],
-            sonuc_sayisi=0,
-            error_message="Index search functionality has been removed. Use get_endeks_sirketleri with known index codes like 'XU100', 'XBANK', etc."
-        )
+        try:
+            # Fetch indices from Mynet's main indices page
+            indices_url = "https://finans.mynet.com/borsa/endeksler/"
+            response = await self._http_client.get(indices_url)
+            response.raise_for_status()
+            
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(response.content, 'lxml')
+            
+            # Find all index cards
+            index_cards = soup.select("div.card.card-index")
+            
+            matching_indices = []
+            query_upper = query.upper()
+            
+            for card in index_cards:
+                try:
+                    # Extract index name and code
+                    title_element = card.select_one("h5.card-title a")
+                    if not title_element:
+                        continue
+                    
+                    index_name = title_element.get_text(strip=True)
+                    index_url = title_element.get("href", "")
+                    
+                    # Extract index code from URL
+                    import re
+                    code_match = re.search(r'/endeks/([^/-]+)', index_url)
+                    if not code_match:
+                        continue
+                        
+                    index_code = code_match.group(1).upper()
+                    
+                    # Extract company count if available
+                    count_element = card.select_one("span.text-muted")
+                    company_count = 0
+                    if count_element:
+                        count_text = count_element.get_text()
+                        count_match = re.search(r'(\d+)', count_text)
+                        if count_match:
+                            company_count = int(count_match.group(1))
+                    
+                    # Check if query matches index code or name
+                    if (query_upper in index_code or 
+                        query_upper in index_name.upper() or
+                        index_code.startswith(query_upper)):
+                        
+                        from borsa_models import EndeksAramaSonucu
+                        matching_indices.append(EndeksAramaSonucu(
+                            endeks_kodu=index_code,
+                            endeks_adi=index_name,
+                            sirket_sayisi=company_count,
+                            kaynak_url=f"https://finans.mynet.com{index_url}"
+                        ))
+                        
+                except Exception as e:
+                    logger.debug(f"Error parsing index card: {e}")
+                    continue
+            
+            # Sort by relevance (exact matches first, then contains)
+            def sort_key(index):
+                if index.endeks_kodu == query_upper:
+                    return 0  # Exact code match
+                elif index.endeks_kodu.startswith(query_upper):
+                    return 1  # Code starts with query
+                elif query_upper in index.endeks_adi.upper():
+                    return 2  # Name contains query
+                else:
+                    return 3  # Other matches
+            
+            matching_indices.sort(key=sort_key)
+            
+            return EndeksKoduAramaSonucu(
+                arama_terimi=query,
+                sonuclar=matching_indices,
+                sonuc_sayisi=len(matching_indices),
+                kaynak_url=indices_url
+            )
+            
+        except Exception as e:
+            logger.exception(f"Error searching indices for query '{query}'")
+            return EndeksKoduAramaSonucu(
+                arama_terimi=query,
+                sonuclar=[],
+                sonuc_sayisi=0,
+                error_message=f"Error searching indices: {str(e)}"
+            )
 
     async def check_katilim_endeksleri(self, ticker_kodu: str) -> Dict[str, Any]:
         """

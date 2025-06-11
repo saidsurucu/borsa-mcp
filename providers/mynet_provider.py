@@ -158,8 +158,8 @@ class MynetProvider:
             logger.exception(f"Error fetching KAP news for {ticker_upper}")
             return {"error": f"An unexpected error occurred: {e}"}
     
-    async def get_kap_haber_detayi(self, haber_url: str) -> Dict[str, Any]:
-        """Fetches detailed KAP news content and converts to markdown using MarkItDown."""
+    async def get_kap_haber_detayi(self, haber_url: str, sayfa_numarasi: int = 1) -> Dict[str, Any]:
+        """Fetches detailed KAP news content and converts to markdown using MarkItDown with pagination support."""
         try:
             response = await self._http_client.get(haber_url)
             response.raise_for_status()
@@ -196,10 +196,56 @@ class MynetProvider:
                 enhanced_markdown += markdown_content
                 markdown_content = enhanced_markdown
             
+            full_content = markdown_content.strip()
+            toplam_karakter = len(full_content)
+            sayfa_boyutu = 5000
+            
+            # Check if pagination is needed
+            if toplam_karakter <= sayfa_boyutu:
+                # Small document, no pagination needed
+                return {
+                    "baslik": title,
+                    "belge_turu": doc_type,
+                    "markdown_icerik": full_content,
+                    "toplam_karakter": toplam_karakter,
+                    "sayfa_numarasi": 1,
+                    "toplam_sayfa": 1,
+                    "sonraki_sayfa_var": False,
+                    "sayfa_boyutu": sayfa_boyutu,
+                    "haber_url": haber_url
+                }
+            
+            # Large document, apply pagination
+            toplam_sayfa = (toplam_karakter + sayfa_boyutu - 1) // sayfa_boyutu  # Ceiling division
+            
+            # Validate page number
+            if sayfa_numarasi < 1 or sayfa_numarasi > toplam_sayfa:
+                return {"error": f"Geçersiz sayfa numarası. Geçerli aralık: 1-{toplam_sayfa}"}
+            
+            # Extract content for the requested page
+            start_index = (sayfa_numarasi - 1) * sayfa_boyutu
+            end_index = min(start_index + sayfa_boyutu, toplam_karakter)
+            sayfa_icerik = full_content[start_index:end_index]
+            
+            # Add page indicators if it's a paginated document
+            if toplam_sayfa > 1:
+                if sayfa_numarasi == 1:
+                    sayfa_icerik += f"\n\n---\n*Sayfa {sayfa_numarasi}/{toplam_sayfa} - Sonraki sayfa için sayfa numarasını belirtin*"
+                elif sayfa_numarasi == toplam_sayfa:
+                    sayfa_icerik = f"*Sayfa {sayfa_numarasi}/{toplam_sayfa} (Son sayfa)*\n\n---\n\n" + sayfa_icerik
+                else:
+                    sayfa_icerik = f"*Sayfa {sayfa_numarasi}/{toplam_sayfa}*\n\n---\n\n" + sayfa_icerik + f"\n\n---\n*Sonraki sayfa için sayfa numarasını belirtin*"
+            
             return {
                 "baslik": title,
                 "belge_turu": doc_type,
-                "markdown_icerik": markdown_content.strip()
+                "markdown_icerik": sayfa_icerik,
+                "toplam_karakter": toplam_karakter,
+                "sayfa_numarasi": sayfa_numarasi,
+                "toplam_sayfa": toplam_sayfa,
+                "sonraki_sayfa_var": sayfa_numarasi < toplam_sayfa,
+                "sayfa_boyutu": sayfa_boyutu,
+                "haber_url": haber_url
             }
             
         except Exception as e:

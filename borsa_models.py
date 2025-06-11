@@ -735,9 +735,27 @@ class KapHaberleriSonucu(BaseModel):
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
 class KapHaberDetayi(BaseModel):
-    """Detailed KAP news content."""
+    """Detailed KAP news content with automatic pagination for large documents."""
     baslik: str = Field(description="News headline.")
     belge_turu: Optional[str] = Field(None, description="Document type (e.g., Şirket Genel Bilgi Formu).")
-    markdown_icerik: str = Field(description="News content formatted as markdown.")
+    markdown_icerik: str = Field(description="News content formatted as markdown. For large documents (>5000 chars), this contains the first page.")
+    toplam_karakter: int = Field(description="Total character count of the full document.")
+    sayfa_numarasi: int = Field(1, description="Current page number (1-based).")
+    toplam_sayfa: int = Field(description="Total number of pages.")
+    sonraki_sayfa_var: bool = Field(description="Whether there is a next page available.")
+    sayfa_boyutu: int = Field(5000, description="Characters per page.")
+    haber_url: Optional[str] = Field(None, description="Original news URL for pagination.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class KapHaberSayfasi(BaseModel):
+    """Paginated KAP news content page."""
+    baslik: str = Field(description="News headline.")
+    sayfa_icerik: str = Field(description="Markdown content for this specific page.")
+    sayfa_numarasi: int = Field(description="Current page number (1-based).")
+    toplam_sayfa: int = Field(description="Total number of pages.")
+    sonraki_sayfa_var: bool = Field(description="Whether there is a next page available.")
+    onceki_sayfa_var: bool = Field(description="Whether there is a previous page available.")
+    toplam_karakter: int = Field(description="Total character count of the full document.")
+    sayfa_boyutu: int = Field(5000, description="Characters per page.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 

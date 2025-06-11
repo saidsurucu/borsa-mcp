@@ -231,9 +231,9 @@ class BorsaApiClient:
         """Delegates KAP news fetching to MynetProvider."""
         return await self.mynet_provider.get_kap_haberleri(ticker_kodu, limit)
     
-    async def get_kap_haber_detayi_mynet(self, haber_url: str) -> Dict[str, Any]:
-        """Delegates KAP news detail fetching to MynetProvider."""
-        return await self.mynet_provider.get_kap_haber_detayi(haber_url)
+    async def get_kap_haber_detayi_mynet(self, haber_url: str, sayfa_numarasi: int = 1) -> Dict[str, Any]:
+        """Delegates KAP news detail fetching to MynetProvider with pagination support."""
+        return await self.mynet_provider.get_kap_haber_detayi(haber_url, sayfa_numarasi)
     
     async def get_sirket_bilgileri_hibrit(self, ticker_kodu: str) -> Dict[str, Any]:
         """

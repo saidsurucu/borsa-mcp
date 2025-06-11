@@ -16,7 +16,7 @@ from borsa_models import (
     SirketProfiliSonucu, FinansalTabloSonucu, AnalistVerileriSonucu,
     TemettuVeAksiyonlarSonucu, HizliBilgiSonucu, KazancTakvimSonucu,
     TeknikAnalizSonucu, SektorKarsilastirmaSonucu, KapHaberleriSonucu,
-    KapHaberDetayi, KatilimFinansUygunlukSonucu, EndeksAramaSonucu,
+    KapHaberDetayi, KapHaberSayfasi, KatilimFinansUygunlukSonucu, EndeksAramaSonucu,
     EndeksSirketleriSonucu, EndeksKoduAramaSonucu
 )
 
@@ -1118,13 +1118,15 @@ async def get_kap_haberleri(
 
 @app.tool()
 async def get_kap_haber_detayi(
-    haber_url: str = Field(..., description="The full URL of the KAP news to fetch details for. Must be a valid Mynet Finans KAP news URL (e.g., 'https://finans.mynet.com/borsa/haberdetay/68481a49b209972f87e77d92/').")
+    haber_url: str = Field(..., description="The full URL of the KAP news to fetch details for. Must be a valid Mynet Finans KAP news URL (e.g., 'https://finans.mynet.com/borsa/haberdetay/68481a49b209972f87e77d92/')."),
+    sayfa_numarasi: int = Field(1, description="Page number for large documents (1-based). Documents over 5000 characters are automatically paginated.")
 ) -> KapHaberDetayi:
     """
-    Fetches detailed content of a specific KAP news article and converts it to markdown format.
+    Fetches detailed content of a specific KAP news article and converts it to markdown format with automatic pagination.
     
     This tool retrieves the full content of KAP announcements from Mynet Finans and converts
-    complex HTML tables and structures into readable markdown format. Essential for analyzing
+    complex HTML tables and structures into readable markdown format. For large documents (>5000 characters),
+    the content is automatically paginated for better readability and performance. Essential for analyzing
     detailed corporate disclosures, financial reports, and regulatory filings.
     
     **Content Types Typically Processed:**
@@ -1174,6 +1176,13 @@ async def get_kap_haber_detayi(
     - Related information grouped together
     - Clear visual separation between sections
     - Consistent formatting throughout
+    
+    **Pagination Features:**
+    - Documents over 5000 characters automatically paginated
+    - Page size: 5000 characters per page
+    - Page indicators showing current/total pages
+    - Navigation instructions for next pages
+    - Full document statistics provided
     
     **Use Cases:**
     
@@ -1252,38 +1261,79 @@ async def get_kap_haber_detayi(
     - Cross-reference with other data sources
     - Use for detailed due diligence work
     """
-    logger.info(f"Tool 'get_kap_haber_detayi' called for URL: '{haber_url}'")
+    logger.info(f"Tool 'get_kap_haber_detayi' called for URL: '{haber_url}', page: {sayfa_numarasi}")
     
     # Basic URL validation
     if not haber_url or not haber_url.startswith("http"):
         return KapHaberDetayi(
-            url=haber_url,
             baslik="",
+            belge_turu="",
             markdown_icerik="",
+            toplam_karakter=0,
+            sayfa_numarasi=1,
+            toplam_sayfa=1,
+            sonraki_sayfa_var=False,
+            sayfa_boyutu=5000,
+            haber_url=haber_url,
             error_message="Invalid URL format. Please provide a valid HTTP/HTTPS URL."
         )
     
+    # Validate page number
+    if sayfa_numarasi < 1:
+        return KapHaberDetayi(
+            baslik="",
+            belge_turu="",
+            markdown_icerik="",
+            toplam_karakter=0,
+            sayfa_numarasi=1,
+            toplam_sayfa=1,
+            sonraki_sayfa_var=False,
+            sayfa_boyutu=5000,
+            haber_url=haber_url,
+            error_message="Page number must be 1 or greater."
+        )
+    
     try:
-        data = await borsa_client.get_kap_haber_detayi_mynet(haber_url)
+        data = await borsa_client.get_kap_haber_detayi_mynet(haber_url, sayfa_numarasi)
         
         if data.get("error"):
             return KapHaberDetayi(
                 baslik="",
+                belge_turu="",
                 markdown_icerik="",
+                toplam_karakter=0,
+                sayfa_numarasi=sayfa_numarasi,
+                toplam_sayfa=1,
+                sonraki_sayfa_var=False,
+                sayfa_boyutu=5000,
+                haber_url=haber_url,
                 error_message=data["error"]
             )
         
         return KapHaberDetayi(
             baslik=data.get("baslik", ""),
             belge_turu=data.get("belge_turu"),
-            markdown_icerik=data.get("markdown_icerik", "")
+            markdown_icerik=data.get("markdown_icerik", ""),
+            toplam_karakter=data.get("toplam_karakter", 0),
+            sayfa_numarasi=data.get("sayfa_numarasi", 1),
+            toplam_sayfa=data.get("toplam_sayfa", 1),
+            sonraki_sayfa_var=data.get("sonraki_sayfa_var", False),
+            sayfa_boyutu=data.get("sayfa_boyutu", 5000),
+            haber_url=data.get("haber_url", haber_url)
         )
         
     except Exception as e:
         logger.exception(f"Error in tool 'get_kap_haber_detayi' for URL {haber_url}.")
         return KapHaberDetayi(
             baslik="",
+            belge_turu="",
             markdown_icerik="",
+            toplam_karakter=0,
+            sayfa_numarasi=sayfa_numarasi,
+            toplam_sayfa=1,
+            sonraki_sayfa_var=False,
+            sayfa_boyutu=5000,
+            haber_url=haber_url,
             error_message=f"An unexpected error occurred: {str(e)}"
         )
 
