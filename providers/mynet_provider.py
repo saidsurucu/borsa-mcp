@@ -8,13 +8,15 @@ import logging
 import time
 import re
 import json
+import io
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from typing import List, Optional, Dict, Any
+from markitdown import MarkItDown
 from borsa_models import (
     HisseDetay, SirketGenelBilgileri, Istirak, Ortak, Yonetici, 
     PiyasaDegeri, BilancoKalemi, MevcutDonem, KarZararKalemi,
-    FinansalVeriNoktasi, ZamanAraligiEnum
+    FinansalVeriNoktasi, ZamanAraligiEnum, EndeksBilgisi
 )
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,7 @@ class MynetProvider:
         self._http_client = client
         self._ticker_to_url: Dict[str, str] = {}
         self._last_fetch_time: float = 0
+        self._markitdown = MarkItDown()
         
     async def _fetch_ticker_urls(self) -> Optional[Dict[str, str]]:
         try:
@@ -50,10 +53,17 @@ class MynetProvider:
 
     async def get_url_map(self) -> Dict[str, str]:
         current_time = time.time()
+        
+        # Type safety check to prevent the error
+        if not isinstance(self._last_fetch_time, (int, float)):
+            logger.warning(f"_last_fetch_time has wrong type: {type(self._last_fetch_time)}, resetting to 0")
+            self._last_fetch_time = 0
+        
         if not self._ticker_to_url or (current_time - self._last_fetch_time) > self.CACHE_DURATION:
             url_map = await self._fetch_ticker_urls()
             if url_map:
-                self._ticker_to_url, self._last_fetch_time = url_map, current_time
+                self._ticker_to_url = url_map
+                self._last_fetch_time = current_time
         return self._ticker_to_url
 
     def _clean_and_convert_value(self, value_str: str) -> Any:
@@ -91,6 +101,111 @@ class MynetProvider:
         except Exception as e:
             logger.exception(f"Error processing detail page for {ticker_upper}")
             return {"error": f"An unexpected error occurred: {e}"}
+    
+    async def get_kap_haberleri(self, ticker_kodu: str, limit: int = 10) -> Dict[str, Any]:
+        """Fetches KAP news for a specific ticker from Mynet."""
+        ticker_upper = ticker_kodu.upper()
+        url_map = await self.get_url_map()
+        if ticker_upper not in url_map: 
+            return {"error": "Mynet Finans page for the specified ticker could not be found."}
+        
+        target_url = url_map[ticker_upper]
+        try:
+            response = await self._http_client.get(target_url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'lxml')
+            
+            # Find KAP news section
+            kap_container = soup.select_one("div.card.kap")
+            if not kap_container:
+                return {"error": "KAP news section not found on the page."}
+            
+            # Find news list
+            news_list = kap_container.select_one("ul.list-type-link-box")
+            if not news_list:
+                return {"error": "KAP news list not found."}
+            
+            haberler = []
+            news_items = news_list.find_all("li")[:limit]  # Limit the number of news items
+            
+            for item in news_items:
+                link_tag = item.find("a")
+                if not link_tag:
+                    continue
+                
+                # Extract news data
+                title_tag = link_tag.find("em", class_="title")
+                date_tag = link_tag.find("span", class_="date")
+                
+                if title_tag and date_tag:
+                    haber = {
+                        "baslik": title_tag.get_text(strip=True),
+                        "tarih": date_tag.get_text(strip=True),
+                        "url": link_tag.get("href"),
+                        "haber_id": link_tag.get("data-id"),
+                        "title_attr": link_tag.get("title")
+                    }
+                    haberler.append(haber)
+            
+            return {
+                "ticker_kodu": ticker_kodu,
+                "kap_haberleri": haberler,
+                "toplam_haber": len(haberler),
+                "kaynak_url": target_url
+            }
+            
+        except Exception as e:
+            logger.exception(f"Error fetching KAP news for {ticker_upper}")
+            return {"error": f"An unexpected error occurred: {e}"}
+    
+    async def get_kap_haber_detayi(self, haber_url: str) -> Dict[str, Any]:
+        """Fetches detailed KAP news content and converts to markdown using MarkItDown."""
+        try:
+            response = await self._http_client.get(haber_url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'lxml')
+            
+            # Find KAP detail container
+            kap_detail = soup.select_one("div.card.kap-detail-news-page")
+            if not kap_detail:
+                return {"error": "KAP detail content not found on the page."}
+            
+            # Extract title
+            title_tag = kap_detail.select_one("h1")
+            title = title_tag.get_text(strip=True) if title_tag else "Başlık Bulunamadı"
+            
+            # Extract page header (document type)
+            page_header = kap_detail.select_one("div.page-header")
+            doc_type = page_header.get_text(strip=True) if page_header else ""
+            
+            # Use MarkItDown to convert HTML to markdown
+            kap_detail_html = str(kap_detail)
+            html_bytes = kap_detail_html.encode('utf-8')
+            html_stream = io.BytesIO(html_bytes)
+            markdown_result = self._markitdown.convert_stream(html_stream, file_extension=".html")
+            
+            # Clean up and enhance the markdown content
+            markdown_content = markdown_result.text_content if hasattr(markdown_result, 'text_content') else str(markdown_result)
+            
+            # Add custom header and document type if MarkItDown didn't capture them well
+            if title and title not in markdown_content[:200]:
+                enhanced_markdown = f"# {title}\n\n"
+                if doc_type:
+                    enhanced_markdown += f"**Belge Türü:** {doc_type}\n\n"
+                enhanced_markdown += "---\n\n"
+                enhanced_markdown += markdown_content
+                markdown_content = enhanced_markdown
+            
+            return {
+                "baslik": title,
+                "belge_turu": doc_type,
+                "markdown_icerik": markdown_content.strip()
+            }
+            
+        except Exception as e:
+            logger.exception(f"Error fetching KAP news detail from {haber_url}")
+            return {"error": f"An unexpected error occurred: {e}"}
+    
         
     async def get_sirket_bilgileri(self, ticker_kodu: str) -> Dict[str, Any]:
         ticker_upper = ticker_kodu.upper()
@@ -206,3 +321,288 @@ class MynetProvider:
         except Exception as e:
             logger.exception(f"Error parsing P/L statement for {ticker_upper}")
             return {"error": f"An unexpected error occurred: {e}"}
+    
+    async def get_endeks_listesi(self) -> List[EndeksBilgisi]:
+        """
+        Fetches BIST indices list from Mynet Finans endeks page and parses HTML table.
+        """
+        try:
+            endeks_url = "https://finans.mynet.com/borsa/endeks/"
+            response = await self._http_client.get(endeks_url)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'lxml')
+            
+            # Find the main table containing index data
+            table = soup.select_one("table.table-data")
+            if not table:
+                logger.error("Could not find indices table on Mynet page")
+                return []
+            
+            indices = []
+            
+            # Parse table rows
+            tbody = table.find("tbody")
+            if not tbody:
+                logger.error("Could not find table body in indices table")
+                return []
+            
+            for row in tbody.find_all("tr"):
+                try:
+                    cells = row.find_all("td")
+                    if len(cells) < 2:
+                        continue
+                    
+                    # First cell contains index name and possibly code
+                    name_cell = cells[0]
+                    name_link = name_cell.find("a")
+                    if name_link:
+                        index_name = name_link.get_text(strip=True)
+                        index_url = name_link.get("href", "")
+                    else:
+                        index_name = name_cell.get_text(strip=True)
+                        index_url = ""
+                    
+                    # Filter for actual BIST indices only
+                    if not self._is_bist_index(index_name):
+                        continue
+                    
+                    # Extract index code from URL first, fallback to name-based extraction
+                    index_code = self._extract_index_code_from_url(index_url) or self._extract_index_code_from_name(index_name)
+                    
+                    # Create EndeksBilgisi object with empty companies list for now
+                    # We'll populate companies separately to avoid making too many requests
+                    endeks = EndeksBilgisi(
+                        endeks_kodu=index_code,
+                        endeks_adi=index_name,
+                        sirket_sayisi=0,  # Will be updated when companies are fetched
+                        sirketler=[]     # Will be populated when needed
+                    )
+                    
+                    # Store the URL for later use in fetching companies
+                    endeks._mynet_url = index_url  # Store URL as private attribute
+                    
+                    indices.append(endeks)
+                    
+                except Exception as e:
+                    logger.warning(f"Error parsing index row: {e}")
+                    continue
+            
+            logger.info(f"Successfully fetched {len(indices)} indices from Mynet Finans")
+            return indices
+            
+        except Exception as e:
+            logger.error(f"Error fetching indices from Mynet Finans: {e}")
+            return []
+    
+    def _is_bist_index(self, name: str) -> bool:
+        """Check if the name represents a BIST index rather than a fund or portfolio."""
+        name_upper = name.upper()
+        
+        # Exclude non-BIST items
+        exclude_keywords = [
+            "PORTFOY", "FONU", "PORTFOLIO", "AK PORTFOY", "IS PORTFOY", 
+            "GARANTI PORTFOY", "YKB PORTFOY", "VAKIF PORTFOY", "HALK PORTFOY",
+            "OYAK PORTFOY", "ZİRAAT PORTFOY", "TEB PORTFOY", "HSBC PORTFOY"
+        ]
+        
+        for keyword in exclude_keywords:
+            if keyword in name_upper:
+                return False
+        
+        # Include BIST indices
+        include_patterns = [
+            "BIST",
+            "AGIRLIK SINIRLAMALI",  # These are BIST index variants
+            "KATILIM",              # Participation indices
+        ]
+        
+        for pattern in include_patterns:
+            if pattern in name_upper:
+                return True
+        
+        # Additional check for index codes
+        if any(code in name_upper for code in ["XU", "X10", "XBANK", "XTECH", "XHOLD"]):
+            return True
+        
+        return False
+    
+    def _extract_index_code_from_url(self, url: str) -> str:
+        """Extract index code from Mynet URL format.
+        
+        URL format: https://finans.mynet.com/borsa/endeks/[INDEX_CODE]-[description]/
+        Example: https://finans.mynet.com/borsa/endeks/xu100-bist-100/ -> xu100
+        """
+        if not url:
+            return ""
+        
+        try:
+            # Extract the part after '/endeks/' and before the first '-'
+            import re
+            
+            # Pattern to match: /endeks/([^-]+)-
+            pattern = r'/endeks/([^/-]+)-'
+            match = re.search(pattern, url)
+            
+            if match:
+                index_code = match.group(1).upper()
+                logger.debug(f"Extracted index code '{index_code}' from URL: {url}")
+                return index_code
+            else:
+                logger.debug(f"Could not extract index code from URL: {url}")
+                return ""
+                
+        except Exception as e:
+            logger.warning(f"Error extracting index code from URL {url}: {e}")
+            return ""
+    
+    def _extract_index_code_from_name(self, name: str) -> str:
+        """Extract or derive index code from index name."""
+        name = name.strip()
+        
+        # Look for codes in parentheses
+        parentheses_match = re.search(r'\(([A-Z0-9]+)\)', name)
+        if parentheses_match:
+            return parentheses_match.group(1)
+        
+        # Map common index names to known codes  
+        name_to_code_map = {
+            "BIST 100": "XU100",
+            "BIST 50": "XU050", 
+            "BIST 30": "XU030",
+            "BIST 100-30": "XYUZO",
+            "100 AGIRLIK SINIRLAMALI 10": "X100S",
+            "100 AGIRLIK SINIRLAMALI 25": "X100C",
+            "BIST BANKACILIĞI": "XBANK",
+            "BIST TEKNOLOJİ": "XUTEK",
+            "BIST HOLDİNG VE YATIRIM": "XHOLD",
+            "BIST SINAİ": "XUSIN",
+            "BIST MALİ": "XUMAL",
+            "BIST HİZMETLER": "XUHIZ",
+            "BIST GIDA İÇECEK": "XGIDA",
+            "BIST ELEKTRİK": "XELKT",
+            "BIST İLETİŞİM": "XILTM",
+            "BIST TEMETTÜ": "XTMTU",
+            "BIST TEMETTÜ 25": "XTM25",
+            "BIST KURUMSAL YÖNETİM": "XKURY",
+            "BIST SÜRDÜRÜLEBİLİRLİK": "XUSRD",
+            "BIST LİKİT BANKA": "XLBNK",
+            "BIST METAL ANA": "XMANA",
+            "BIST METAL EŞYA MAKİNA": "XMESY",
+            "BIST KİMYA PETROL PLASTİK": "XKMYA",
+            "BIST TAŞ TOPRAK": "XTAST",
+            "BIST TEKSTİL DERİ": "XTEKS",
+            "BIST ORMAN KAĞIT BASIM": "XKAGT",
+            "BIST İNŞAAT": "XINSA",
+            "BIST TİCARET": "XTCRT",
+            "BIST TURİZM": "XTRZM",
+            "BIST ULAŞTIRMA": "XULAS",
+            "BIST SİGORTA": "XSGRT",
+            "BIST FİNANSAL KİRALAMA FAKTORİNG": "XFINK",
+            "BIST GAYRİMENKUL YATIRIM ORTAKLIĞI": "XGMYO",
+            "BIST KATILIM TÜM": "XKTUM",
+            "BIST KATILIM 100": "XK100",
+            "BIST KATILIM 50": "XK050",
+            "BIST KATILIM 30": "XK030"
+        }
+        
+        # Check for exact matches first
+        upper_name = name.upper()
+        for name_key, code in name_to_code_map.items():
+            if name_key.upper() == upper_name:
+                return code
+        
+        # Check for partial matches
+        for name_key, code in name_to_code_map.items():
+            if name_key.upper() in upper_name or upper_name in name_key.upper():
+                return code
+        
+        # If no match found, derive code from name
+        # Remove common words and create abbreviation
+        words = name.upper().replace("BIST", "").replace("ENDEKSİ", "").strip().split()
+        if len(words) >= 2:
+            # Take first 2-3 letters from first word and first 2-3 from second word
+            code = words[0][:3] + words[1][:3]
+            return code[:6]  # Limit to 6 characters
+        elif len(words) == 1:
+            return words[0][:6]
+        else:
+            # Fallback
+            clean_name = re.sub(r'[^A-Z0-9]', '', name.upper())
+            return clean_name[:6] if clean_name else "UNKNOWN"
+    
+    async def get_endeks_sirketleri(self, endeks_url: str) -> List[str]:
+        """
+        Fetch companies in an index from Mynet Finans.
+        
+        Args:
+            endeks_url: The index URL from Mynet (e.g., 'https://finans.mynet.com/borsa/endeks/xu100-bist-100/')
+        
+        Returns:
+            List of ticker codes in the index
+        """
+        if not endeks_url:
+            return []
+        
+        try:
+            # Construct the companies URL by adding 'endekshisseleri/'
+            if not endeks_url.endswith('/'):
+                endeks_url += '/'
+            companies_url = endeks_url + 'endekshisseleri/'
+            
+            response = await self._http_client.get(companies_url)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'lxml')
+            
+            # Find the companies table
+            table = soup.select_one("table.table-data")
+            if not table:
+                logger.warning(f"Could not find companies table at {companies_url}")
+                return []
+            
+            tbody = table.find("tbody")
+            if not tbody:
+                logger.warning(f"Could not find table body at {companies_url}")
+                return []
+            
+            companies = []
+            
+            for row in tbody.find_all("tr"):
+                try:
+                    # First cell contains the company link and ticker
+                    first_cell = row.find("td")
+                    if not first_cell:
+                        continue
+                    
+                    # Find the company link
+                    company_link = first_cell.find("a")
+                    if not company_link:
+                        continue
+                    
+                    # Extract ticker from the title attribute
+                    # The title is in format: "TICKER COMPANY_NAME"
+                    title_attr = company_link.get("title", "")
+                    
+                    # Extract ticker (first word before space in title)
+                    ticker = None
+                    if title_attr:
+                        parts = title_attr.split()
+                        if parts:
+                            ticker = parts[0].upper()
+                    
+                    # Validate ticker format (3-6 uppercase letters)
+                    if ticker and re.match(r'^[A-Z]{3,6}$', ticker):
+                        companies.append(ticker)
+                        logger.debug(f"Found company: {ticker}")
+                    
+                except Exception as e:
+                    logger.warning(f"Error parsing company row: {e}")
+                    continue
+            
+            logger.info(f"Successfully fetched {len(companies)} companies from {companies_url}")
+            return companies
+            
+        except Exception as e:
+            logger.error(f"Error fetching companies from {endeks_url}: {e}")
+            return []

@@ -162,3 +162,7 @@ cython_debug/
 hello.py
 debug_client.py
 debug_grafik.py
+
+# Test files
+test_*.py
+CLAUDE.md
