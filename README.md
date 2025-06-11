@@ -2,6 +2,9 @@
 
 Bu proje, Borsa İstanbul (BIST) verilerine erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, KAP (Kamuyu Aydınlatma Platformu), Mynet Finans ve Yahoo Finance'dan hisse senedi bilgileri, finansal veriler, teknik analiz ve sektör karşılaştırmaları, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
 
+![ornek](./ornek.jpeg)
+
+
 🎯 **Temel Özellikler**
 
 * Borsa İstanbul (BIST) verilerine programatik erişim için kapsamlı bir MCP arayüzü.
