@@ -89,10 +89,15 @@ class EndeksAramaSonucu(BaseModel):
     kaynak_url: str = Field(description="Source URL of the data.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
+class EndeksAramaOgesi(BaseModel):
+    """Simple index search result item."""
+    endeks_kodu: str = Field(description="Index code (e.g., 'XU100', 'XBANK').")
+    endeks_adi: str = Field(description="Index name (e.g., 'BIST 100', 'BIST Bankacılık').")
+
 class EndeksKoduAramaSonucu(BaseModel):
     """Result of searching for BIST index codes."""
     arama_terimi: str = Field(description="The search term used (index name or code).")
-    sonuclar: List[EndeksBilgisi] = Field(description="List of matching indices.")
+    sonuclar: List[EndeksAramaOgesi] = Field(description="List of matching indices.")
     sonuc_sayisi: int = Field(description="Number of matching indices found.")
     kaynak_url: str = Field(default="https://www.kap.org.tr/tr/Endeksler", description="Source URL of the data.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")

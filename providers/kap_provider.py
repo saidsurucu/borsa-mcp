@@ -8,19 +8,19 @@ import logging
 import time
 import io
 import re
-import pdfplumber
 import pandas as pd
 from typing import List, Optional, Dict, Any
 from borsa_models import (
     SirketInfo, KatilimFinansUygunlukBilgisi, KatilimFinansUygunlukSonucu,
-    EndeksBilgisi, EndeksAramaSonucu, EndeksKoduAramaSonucu
+    EndeksBilgisi, EndeksAramaSonucu, EndeksKoduAramaSonucu, EndeksAramaOgesi
 )
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
 class KAPProvider:
-    PDF_URL = "https://www.kap.org.tr/tr/api/company/generic/pdf/IGS/A/sirketler-IGS"
+    EXCEL_URL = "https://www.kap.org.tr/tr/api/company/generic/excel/IGS/A"
+    PDF_URL = "https://www.kap.org.tr/tr/api/company/generic/pdf/IGS/A/sirketler-IGS"  # Keep as fallback
     INDICES_PDF_URL = "https://www.kap.org.tr/tr/api/company/indices/pdf/endeksler"
     INDICES_EXCEL_URL = "https://www.kap.org.tr/tr/api/company/indices/excel"
     CACHE_DURATION = 24 * 60 * 60
@@ -34,6 +34,52 @@ class KAPProvider:
 
     async def _fetch_company_data(self) -> Optional[List[SirketInfo]]:
         try:
+            # Set headers to mimic browser request
+            headers = {
+                'Accept': '*/*',
+                'Accept-Language': 'tr',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+                'Referer': 'https://www.kap.org.tr/tr/bist-sirketler'
+            }
+            
+            response = await self._http_client.get(self.EXCEL_URL, headers=headers)
+            response.raise_for_status()
+            
+            # Read Excel data using pandas
+            df = pd.read_excel(io.BytesIO(response.content))
+            
+            all_companies = []
+            for _, row in df.iterrows():
+                # Get values from Excel columns (assuming first 3 columns are ticker, name, city)
+                if len(row) >= 3:
+                    ticker_field = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ""
+                    name = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
+                    city = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else ""
+                    
+                    # Skip header rows or empty rows
+                    if ticker_field and name and ticker_field != "BIST KODU":
+                        # Handle multiple tickers separated by comma (e.g., "GARAN, TGB")
+                        # Use the first ticker as the primary ticker
+                        if ',' in ticker_field:
+                            ticker = ticker_field.split(',')[0].strip()
+                        else:
+                            ticker = ticker_field
+                            
+                        all_companies.append(SirketInfo(sirket_adi=name, ticker_kodu=ticker, sehir=city))
+            
+            logger.info(f"Successfully fetched {len(all_companies)} companies from KAP Excel.")
+            return all_companies
+            
+        except Exception as e:
+            logger.error(f"Error fetching Excel data: {e}")
+            # Fallback to PDF method if Excel fails
+            logger.info("Falling back to PDF method...")
+            return await self._fetch_company_data_from_pdf()
+    
+    async def _fetch_company_data_from_pdf(self) -> Optional[List[SirketInfo]]:
+        """Fallback method using PDF if Excel fails."""
+        try:
+            import pdfplumber
             response = await self._http_client.get(self.PDF_URL)
             response.raise_for_status()
             all_companies = []
@@ -48,7 +94,7 @@ class KAPProvider:
             logger.info(f"Successfully fetched {len(all_companies)} companies from KAP PDF.")
             return all_companies
         except Exception as e:
-            logger.exception("Error in KAPProvider._fetch_company_data")
+            logger.exception("Error in KAPProvider._fetch_company_data_from_pdf")
             return None
 
     async def get_all_companies(self) -> List[SirketInfo]:
@@ -106,8 +152,31 @@ class KAPProvider:
             html_content = response.text
             sirketler = []
             
-            # Find all self.__next_f.push() calls
+            # Find all self.__next_f.push() calls - try multiple patterns
+            push_calls = []
+            
+            # First try the standard pattern
             push_calls = re.findall(r'self\.__next_f\.push\(\[1,"([^"]+)"\]\)', html_content)
+            
+            # If no matches, try with escaped backslashes
+            if not push_calls:
+                push_calls = re.findall(r'self\\.__next_f\\.push\\(\[(\d+),"([^"]+)"\]\\)', html_content)
+                # Extract just the data part (second group)
+                if push_calls:
+                    push_calls = [match[1] for match in push_calls]
+            
+            # If still no matches, try parsing script tags
+            if not push_calls:
+                soup = BeautifulSoup(html_content, 'html.parser')
+                scripts = soup.find_all('script')
+                for script in scripts:
+                    if script.string and 'ARCLK' in script.string:
+                        # Extract push calls from this script
+                        script_content = script.string
+                        push_calls = re.findall(r'self\.__next_f\.push\(\[(\d+),"([^"]+)"\]\)', script_content)
+                        if push_calls:
+                            push_calls = [match[1] for match in push_calls]
+                            break
             
             # Look for table data in the push calls
             table_data = ""
@@ -160,9 +229,45 @@ class KAPProvider:
                         logger.warning(f"Error parsing row {row_num}: {e}")
                         continue
             
-            # If no data parsed, log the issue and continue with empty results
+            # If no data parsed from Next.js, try parsing as regular HTML table
             if not sirketler:
-                logger.warning("Could not parse table data from KAP participation finance page")
+                logger.info("Trying to parse as regular HTML table...")
+                soup = BeautifulSoup(html_content, 'html.parser')
+                
+                # Look for table with company data
+                tables = soup.find_all('table')
+                for table in tables:
+                    rows = table.find_all('tr')
+                    for row in rows:
+                        cells = row.find_all('td')
+                        if len(cells) >= 10:  # We need at least 10 cells for all data
+                            # Check if first cell contains a ticker code (uppercase letters)
+                            first_cell_text = cells[0].get_text(strip=True)
+                            if first_cell_text and first_cell_text.isupper() and len(first_cell_text) <= 6:
+                                try:
+                                    sirket = KatilimFinansUygunlukBilgisi(
+                                        ticker_kodu=cells[0].get_text(strip=True),
+                                        sirket_adi=cells[1].get_text(strip=True),
+                                        para_birimi=cells[2].get_text(strip=True),
+                                        finansal_donem=cells[3].get_text(strip=True),
+                                        tablo_niteligi=cells[4].get_text(strip=True),
+                                        uygun_olmayan_faaliyet=cells[5].get_text(strip=True),
+                                        uygun_olmayan_imtiyaz=cells[6].get_text(strip=True),
+                                        destekleme_eylemi=cells[7].get_text(strip=True),
+                                        dogrudan_uygun_olmayan_faaliyet=cells[8].get_text(strip=True),
+                                        uygun_olmayan_gelir_orani=cells[9].get_text(strip=True) if len(cells) > 9 else "0,00",
+                                        uygun_olmayan_varlik_orani=cells[10].get_text(strip=True) if len(cells) > 10 else "0,00",
+                                        uygun_olmayan_borc_orani=cells[11].get_text(strip=True) if len(cells) > 11 else "0,00"
+                                    )
+                                    sirketler.append(sirket)
+                                except Exception as e:
+                                    logger.debug(f"Error parsing HTML table row: {e}")
+                                    continue
+                
+                if sirketler:
+                    logger.info(f"Successfully parsed {len(sirketler)} companies from HTML table")
+                else:
+                    logger.warning("Could not parse table data from KAP participation finance page")
             
             # Search for the specific ticker in the data
             found_company = None
@@ -227,57 +332,52 @@ class KAPProvider:
         """
         try:
             # Fetch indices from Mynet's main indices page
-            indices_url = "https://finans.mynet.com/borsa/endeksler/"
+            indices_url = "https://finans.mynet.com/borsa/endeks/"
             response = await self._http_client.get(indices_url)
             response.raise_for_status()
             
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(response.content, 'lxml')
             
-            # Find all index cards
-            index_cards = soup.select("div.card.card-index")
+            # Find all index links
+            import re
+            index_links = soup.find_all('a', href=lambda x: x and '/endeks/' in x and x != '/borsa/endeks/')
             
             matching_indices = []
             query_upper = query.upper()
             
-            for card in index_cards:
+            # Process each index link
+            for link in index_links:
                 try:
-                    # Extract index name and code
-                    title_element = card.select_one("h5.card-title a")
-                    if not title_element:
+                    index_name = link.get_text(strip=True)
+                    index_url = link.get("href", "")
+                    
+                    # Skip non-BIST indices (funds, portfolios)
+                    if any(exclude in index_name.upper() for exclude in [
+                        "PORTFOY", "FONU", "PORTFOLIO", "AK PORTFOY", "IS PORTFOY", 
+                        "GARANTI PORTFOY", "YKB PORTFOY", "VAKIF PORTFOY", "HALK PORTFOY",
+                        "OYAK PORTFOY", "ZIRAAT PORTFOY", "TEB PORTFOY", "HSBC PORTFOY"
+                    ]):
                         continue
                     
-                    index_name = title_element.get_text(strip=True)
-                    index_url = title_element.get("href", "")
-                    
                     # Extract index code from URL
-                    import re
                     code_match = re.search(r'/endeks/([^/-]+)', index_url)
                     if not code_match:
                         continue
                         
                     index_code = code_match.group(1).upper()
                     
-                    # Extract company count if available
-                    count_element = card.select_one("span.text-muted")
+                    # For now, we don't have company count on the main page
                     company_count = 0
-                    if count_element:
-                        count_text = count_element.get_text()
-                        count_match = re.search(r'(\d+)', count_text)
-                        if count_match:
-                            company_count = int(count_match.group(1))
                     
                     # Check if query matches index code or name
                     if (query_upper in index_code or 
                         query_upper in index_name.upper() or
                         index_code.startswith(query_upper)):
                         
-                        from borsa_models import EndeksAramaSonucu
-                        matching_indices.append(EndeksAramaSonucu(
+                        matching_indices.append(EndeksAramaOgesi(
                             endeks_kodu=index_code,
-                            endeks_adi=index_name,
-                            sirket_sayisi=company_count,
-                            kaynak_url=f"https://finans.mynet.com{index_url}"
+                            endeks_adi=index_name
                         ))
                         
                 except Exception as e:
