@@ -16,7 +16,9 @@ from borsa_models import (
     SirketInfo, FinansalVeriSonucu, YFinancePeriodEnum, SirketProfiliSonucu, 
     FinansalTabloSonucu, SirketAramaSonucu, TaramaKriterleri, TaramaSonucu,
     KatilimFinansUygunlukSonucu, EndeksAramaSonucu,
-    EndeksSirketleriSonucu, EndeksSirketDetayi, EndeksKoduAramaSonucu
+    EndeksSirketleriSonucu, EndeksSirketDetayi, EndeksKoduAramaSonucu,
+    FonAramaSonucu, FonDetayBilgisi, FonPerformansSonucu, FonPortfoySonucu,
+    FonKarsilastirmaSonucu, FonTaramaKriterleri, FonTaramaSonucu
 )
 
 logger = logging.getLogger(__name__)
@@ -32,6 +34,9 @@ class BorsaApiClient:
         # Import MynetProvider for hybrid approach
         from providers.mynet_provider import MynetProvider
         self.mynet_provider = MynetProvider(self._http_client)
+        # Import TefasProvider for fund data
+        from providers.tefas_provider import TefasProvider
+        self.tefas_provider = TefasProvider()
 
     async def close(self):
         await self._http_client.aclose()
@@ -345,6 +350,106 @@ class BorsaApiClient:
             logger.exception(f"Error in client-level stock screening")
             return {"error": str(e)}
     
+    # --- TEFAS Fund Methods ---
+    async def search_funds(self, search_term: str, limit: int = 20) -> FonAramaSonucu:
+        """Search for funds by name, code, or founder."""
+        try:
+            result = self.tefas_provider.search_funds(search_term, limit)
+            return FonAramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error searching funds with term {search_term}")
+            return FonAramaSonucu(
+                arama_terimi=search_term,
+                sonuclar=[],
+                sonuc_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_detail(self, fund_code: str) -> FonDetayBilgisi:
+        """Get detailed information about a specific fund."""
+        try:
+            result = self.tefas_provider.get_fund_detail(fund_code)
+            return FonDetayBilgisi(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund detail for {fund_code}")
+            return FonDetayBilgisi(
+                fon_kodu=fund_code,
+                fon_adi="",
+                tarih="",
+                fiyat=0,
+                tedavuldeki_pay_sayisi=0,
+                toplam_deger=0,
+                birim_pay_degeri=0,
+                yatirimci_sayisi=0,
+                kurulus="",
+                yonetici="",
+                fon_turu="",
+                risk_degeri=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_performance(self, fund_code: str, start_date: str = None, end_date: str = None) -> FonPerformansSonucu:
+        """Get historical performance data for a fund."""
+        try:
+            result = self.tefas_provider.get_fund_performance(fund_code, start_date, end_date)
+            return FonPerformansSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund performance for {fund_code}")
+            return FonPerformansSonucu(
+                fon_kodu=fund_code,
+                baslangic_tarihi=start_date or "",
+                bitis_tarihi=end_date or "",
+                fiyat_geçmisi=[],
+                veri_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_portfolio(self, fund_code: str) -> FonPortfoySonucu:
+        """Get portfolio composition of a fund."""
+        try:
+            result = self.tefas_provider.get_fund_portfolio(fund_code)
+            return FonPortfoySonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund portfolio for {fund_code}")
+            return FonPortfoySonucu(
+                fon_kodu=fund_code,
+                tarih="",
+                portfoy_detayi=[],
+                varlik_dagilimi={},
+                toplam_varlik=0,
+                error_message=str(e)
+            )
+    
+    async def compare_funds(self, fund_codes: List[str]) -> FonKarsilastirmaSonucu:
+        """Compare multiple funds side by side."""
+        try:
+            result = self.tefas_provider.compare_funds(fund_codes)
+            return FonKarsilastirmaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error comparing funds")
+            return FonKarsilastirmaSonucu(
+                karsilastirilan_fonlar=fund_codes,
+                karsilastirma_verileri=[],
+                fon_sayisi=0,
+                tarih="",
+                error_message=str(e)
+            )
+    
+    async def screen_funds(self, criteria: FonTaramaKriterleri) -> FonTaramaSonucu:
+        """Screen funds based on various criteria."""
+        try:
+            result = self.tefas_provider.screen_funds(criteria.dict(exclude_none=True))
+            return FonTaramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error screening funds")
+            return FonTaramaSonucu(
+                tarama_kriterleri=criteria,
+                bulunan_fonlar=[],
+                toplam_sonuc=0,
+                tarih="",
+                error_message=str(e)
+            )
+    
     async def deger_yatirim_taramasi(self) -> Dict[str, Any]:
         """Value investing screening preset - stocks with low P/E, P/B ratios."""
         try:
@@ -357,6 +462,106 @@ class BorsaApiClient:
         except Exception as e:
             logger.exception(f"Error in value investment screening")
             return {"error": str(e)}
+    
+    # --- TEFAS Fund Methods ---
+    async def search_funds(self, search_term: str, limit: int = 20) -> FonAramaSonucu:
+        """Search for funds by name, code, or founder."""
+        try:
+            result = self.tefas_provider.search_funds(search_term, limit)
+            return FonAramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error searching funds with term {search_term}")
+            return FonAramaSonucu(
+                arama_terimi=search_term,
+                sonuclar=[],
+                sonuc_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_detail(self, fund_code: str) -> FonDetayBilgisi:
+        """Get detailed information about a specific fund."""
+        try:
+            result = self.tefas_provider.get_fund_detail(fund_code)
+            return FonDetayBilgisi(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund detail for {fund_code}")
+            return FonDetayBilgisi(
+                fon_kodu=fund_code,
+                fon_adi="",
+                tarih="",
+                fiyat=0,
+                tedavuldeki_pay_sayisi=0,
+                toplam_deger=0,
+                birim_pay_degeri=0,
+                yatirimci_sayisi=0,
+                kurulus="",
+                yonetici="",
+                fon_turu="",
+                risk_degeri=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_performance(self, fund_code: str, start_date: str = None, end_date: str = None) -> FonPerformansSonucu:
+        """Get historical performance data for a fund."""
+        try:
+            result = self.tefas_provider.get_fund_performance(fund_code, start_date, end_date)
+            return FonPerformansSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund performance for {fund_code}")
+            return FonPerformansSonucu(
+                fon_kodu=fund_code,
+                baslangic_tarihi=start_date or "",
+                bitis_tarihi=end_date or "",
+                fiyat_geçmisi=[],
+                veri_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_portfolio(self, fund_code: str) -> FonPortfoySonucu:
+        """Get portfolio composition of a fund."""
+        try:
+            result = self.tefas_provider.get_fund_portfolio(fund_code)
+            return FonPortfoySonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund portfolio for {fund_code}")
+            return FonPortfoySonucu(
+                fon_kodu=fund_code,
+                tarih="",
+                portfoy_detayi=[],
+                varlik_dagilimi={},
+                toplam_varlik=0,
+                error_message=str(e)
+            )
+    
+    async def compare_funds(self, fund_codes: List[str]) -> FonKarsilastirmaSonucu:
+        """Compare multiple funds side by side."""
+        try:
+            result = self.tefas_provider.compare_funds(fund_codes)
+            return FonKarsilastirmaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error comparing funds")
+            return FonKarsilastirmaSonucu(
+                karsilastirilan_fonlar=fund_codes,
+                karsilastirma_verileri=[],
+                fon_sayisi=0,
+                tarih="",
+                error_message=str(e)
+            )
+    
+    async def screen_funds(self, criteria: FonTaramaKriterleri) -> FonTaramaSonucu:
+        """Screen funds based on various criteria."""
+        try:
+            result = self.tefas_provider.screen_funds(criteria.dict(exclude_none=True))
+            return FonTaramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error screening funds")
+            return FonTaramaSonucu(
+                tarama_kriterleri=criteria,
+                bulunan_fonlar=[],
+                toplam_sonuc=0,
+                tarih="",
+                error_message=str(e)
+            )
     
     async def temettu_yatirim_taramasi(self) -> Dict[str, Any]:
         """Dividend investing screening preset - stocks with high dividend yields."""
@@ -371,6 +576,106 @@ class BorsaApiClient:
             logger.exception(f"Error in dividend investment screening")
             return {"error": str(e)}
     
+    # --- TEFAS Fund Methods ---
+    async def search_funds(self, search_term: str, limit: int = 20) -> FonAramaSonucu:
+        """Search for funds by name, code, or founder."""
+        try:
+            result = self.tefas_provider.search_funds(search_term, limit)
+            return FonAramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error searching funds with term {search_term}")
+            return FonAramaSonucu(
+                arama_terimi=search_term,
+                sonuclar=[],
+                sonuc_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_detail(self, fund_code: str) -> FonDetayBilgisi:
+        """Get detailed information about a specific fund."""
+        try:
+            result = self.tefas_provider.get_fund_detail(fund_code)
+            return FonDetayBilgisi(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund detail for {fund_code}")
+            return FonDetayBilgisi(
+                fon_kodu=fund_code,
+                fon_adi="",
+                tarih="",
+                fiyat=0,
+                tedavuldeki_pay_sayisi=0,
+                toplam_deger=0,
+                birim_pay_degeri=0,
+                yatirimci_sayisi=0,
+                kurulus="",
+                yonetici="",
+                fon_turu="",
+                risk_degeri=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_performance(self, fund_code: str, start_date: str = None, end_date: str = None) -> FonPerformansSonucu:
+        """Get historical performance data for a fund."""
+        try:
+            result = self.tefas_provider.get_fund_performance(fund_code, start_date, end_date)
+            return FonPerformansSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund performance for {fund_code}")
+            return FonPerformansSonucu(
+                fon_kodu=fund_code,
+                baslangic_tarihi=start_date or "",
+                bitis_tarihi=end_date or "",
+                fiyat_geçmisi=[],
+                veri_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_portfolio(self, fund_code: str) -> FonPortfoySonucu:
+        """Get portfolio composition of a fund."""
+        try:
+            result = self.tefas_provider.get_fund_portfolio(fund_code)
+            return FonPortfoySonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund portfolio for {fund_code}")
+            return FonPortfoySonucu(
+                fon_kodu=fund_code,
+                tarih="",
+                portfoy_detayi=[],
+                varlik_dagilimi={},
+                toplam_varlik=0,
+                error_message=str(e)
+            )
+    
+    async def compare_funds(self, fund_codes: List[str]) -> FonKarsilastirmaSonucu:
+        """Compare multiple funds side by side."""
+        try:
+            result = self.tefas_provider.compare_funds(fund_codes)
+            return FonKarsilastirmaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error comparing funds")
+            return FonKarsilastirmaSonucu(
+                karsilastirilan_fonlar=fund_codes,
+                karsilastirma_verileri=[],
+                fon_sayisi=0,
+                tarih="",
+                error_message=str(e)
+            )
+    
+    async def screen_funds(self, criteria: FonTaramaKriterleri) -> FonTaramaSonucu:
+        """Screen funds based on various criteria."""
+        try:
+            result = self.tefas_provider.screen_funds(criteria.dict(exclude_none=True))
+            return FonTaramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error screening funds")
+            return FonTaramaSonucu(
+                tarama_kriterleri=criteria,
+                bulunan_fonlar=[],
+                toplam_sonuc=0,
+                tarih="",
+                error_message=str(e)
+            )
+    
     async def buyume_yatirim_taramasi(self) -> Dict[str, Any]:
         """Growth investing screening preset - stocks with high revenue/earnings growth."""
         try:
@@ -383,6 +688,106 @@ class BorsaApiClient:
         except Exception as e:
             logger.exception(f"Error in growth investment screening")
             return {"error": str(e)}
+    
+    # --- TEFAS Fund Methods ---
+    async def search_funds(self, search_term: str, limit: int = 20) -> FonAramaSonucu:
+        """Search for funds by name, code, or founder."""
+        try:
+            result = self.tefas_provider.search_funds(search_term, limit)
+            return FonAramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error searching funds with term {search_term}")
+            return FonAramaSonucu(
+                arama_terimi=search_term,
+                sonuclar=[],
+                sonuc_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_detail(self, fund_code: str) -> FonDetayBilgisi:
+        """Get detailed information about a specific fund."""
+        try:
+            result = self.tefas_provider.get_fund_detail(fund_code)
+            return FonDetayBilgisi(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund detail for {fund_code}")
+            return FonDetayBilgisi(
+                fon_kodu=fund_code,
+                fon_adi="",
+                tarih="",
+                fiyat=0,
+                tedavuldeki_pay_sayisi=0,
+                toplam_deger=0,
+                birim_pay_degeri=0,
+                yatirimci_sayisi=0,
+                kurulus="",
+                yonetici="",
+                fon_turu="",
+                risk_degeri=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_performance(self, fund_code: str, start_date: str = None, end_date: str = None) -> FonPerformansSonucu:
+        """Get historical performance data for a fund."""
+        try:
+            result = self.tefas_provider.get_fund_performance(fund_code, start_date, end_date)
+            return FonPerformansSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund performance for {fund_code}")
+            return FonPerformansSonucu(
+                fon_kodu=fund_code,
+                baslangic_tarihi=start_date or "",
+                bitis_tarihi=end_date or "",
+                fiyat_geçmisi=[],
+                veri_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_portfolio(self, fund_code: str) -> FonPortfoySonucu:
+        """Get portfolio composition of a fund."""
+        try:
+            result = self.tefas_provider.get_fund_portfolio(fund_code)
+            return FonPortfoySonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund portfolio for {fund_code}")
+            return FonPortfoySonucu(
+                fon_kodu=fund_code,
+                tarih="",
+                portfoy_detayi=[],
+                varlik_dagilimi={},
+                toplam_varlik=0,
+                error_message=str(e)
+            )
+    
+    async def compare_funds(self, fund_codes: List[str]) -> FonKarsilastirmaSonucu:
+        """Compare multiple funds side by side."""
+        try:
+            result = self.tefas_provider.compare_funds(fund_codes)
+            return FonKarsilastirmaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error comparing funds")
+            return FonKarsilastirmaSonucu(
+                karsilastirilan_fonlar=fund_codes,
+                karsilastirma_verileri=[],
+                fon_sayisi=0,
+                tarih="",
+                error_message=str(e)
+            )
+    
+    async def screen_funds(self, criteria: FonTaramaKriterleri) -> FonTaramaSonucu:
+        """Screen funds based on various criteria."""
+        try:
+            result = self.tefas_provider.screen_funds(criteria.dict(exclude_none=True))
+            return FonTaramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error screening funds")
+            return FonTaramaSonucu(
+                tarama_kriterleri=criteria,
+                bulunan_fonlar=[],
+                toplam_sonuc=0,
+                tarih="",
+                error_message=str(e)
+            )
     
     async def muhafazakar_yatirim_taramasi(self) -> Dict[str, Any]:
         """Conservative investing screening preset - low-risk, stable stocks."""
@@ -397,6 +802,106 @@ class BorsaApiClient:
             logger.exception(f"Error in conservative investment screening")
             return {"error": str(e)}
     
+    # --- TEFAS Fund Methods ---
+    async def search_funds(self, search_term: str, limit: int = 20) -> FonAramaSonucu:
+        """Search for funds by name, code, or founder."""
+        try:
+            result = self.tefas_provider.search_funds(search_term, limit)
+            return FonAramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error searching funds with term {search_term}")
+            return FonAramaSonucu(
+                arama_terimi=search_term,
+                sonuclar=[],
+                sonuc_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_detail(self, fund_code: str) -> FonDetayBilgisi:
+        """Get detailed information about a specific fund."""
+        try:
+            result = self.tefas_provider.get_fund_detail(fund_code)
+            return FonDetayBilgisi(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund detail for {fund_code}")
+            return FonDetayBilgisi(
+                fon_kodu=fund_code,
+                fon_adi="",
+                tarih="",
+                fiyat=0,
+                tedavuldeki_pay_sayisi=0,
+                toplam_deger=0,
+                birim_pay_degeri=0,
+                yatirimci_sayisi=0,
+                kurulus="",
+                yonetici="",
+                fon_turu="",
+                risk_degeri=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_performance(self, fund_code: str, start_date: str = None, end_date: str = None) -> FonPerformansSonucu:
+        """Get historical performance data for a fund."""
+        try:
+            result = self.tefas_provider.get_fund_performance(fund_code, start_date, end_date)
+            return FonPerformansSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund performance for {fund_code}")
+            return FonPerformansSonucu(
+                fon_kodu=fund_code,
+                baslangic_tarihi=start_date or "",
+                bitis_tarihi=end_date or "",
+                fiyat_geçmisi=[],
+                veri_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_portfolio(self, fund_code: str) -> FonPortfoySonucu:
+        """Get portfolio composition of a fund."""
+        try:
+            result = self.tefas_provider.get_fund_portfolio(fund_code)
+            return FonPortfoySonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund portfolio for {fund_code}")
+            return FonPortfoySonucu(
+                fon_kodu=fund_code,
+                tarih="",
+                portfoy_detayi=[],
+                varlik_dagilimi={},
+                toplam_varlik=0,
+                error_message=str(e)
+            )
+    
+    async def compare_funds(self, fund_codes: List[str]) -> FonKarsilastirmaSonucu:
+        """Compare multiple funds side by side."""
+        try:
+            result = self.tefas_provider.compare_funds(fund_codes)
+            return FonKarsilastirmaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error comparing funds")
+            return FonKarsilastirmaSonucu(
+                karsilastirilan_fonlar=fund_codes,
+                karsilastirma_verileri=[],
+                fon_sayisi=0,
+                tarih="",
+                error_message=str(e)
+            )
+    
+    async def screen_funds(self, criteria: FonTaramaKriterleri) -> FonTaramaSonucu:
+        """Screen funds based on various criteria."""
+        try:
+            result = self.tefas_provider.screen_funds(criteria.dict(exclude_none=True))
+            return FonTaramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error screening funds")
+            return FonTaramaSonucu(
+                tarama_kriterleri=criteria,
+                bulunan_fonlar=[],
+                toplam_sonuc=0,
+                tarih="",
+                error_message=str(e)
+            )
+    
     async def buyuk_sirket_taramasi(self, min_market_cap: float = 50_000_000_000) -> Dict[str, Any]:
         """Large cap stocks screening - companies above specified market cap threshold."""
         try:
@@ -406,6 +911,106 @@ class BorsaApiClient:
             logger.exception(f"Error in large cap screening")
             return {"error": str(e)}
     
+    # --- TEFAS Fund Methods ---
+    async def search_funds(self, search_term: str, limit: int = 20) -> FonAramaSonucu:
+        """Search for funds by name, code, or founder."""
+        try:
+            result = self.tefas_provider.search_funds(search_term, limit)
+            return FonAramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error searching funds with term {search_term}")
+            return FonAramaSonucu(
+                arama_terimi=search_term,
+                sonuclar=[],
+                sonuc_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_detail(self, fund_code: str) -> FonDetayBilgisi:
+        """Get detailed information about a specific fund."""
+        try:
+            result = self.tefas_provider.get_fund_detail(fund_code)
+            return FonDetayBilgisi(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund detail for {fund_code}")
+            return FonDetayBilgisi(
+                fon_kodu=fund_code,
+                fon_adi="",
+                tarih="",
+                fiyat=0,
+                tedavuldeki_pay_sayisi=0,
+                toplam_deger=0,
+                birim_pay_degeri=0,
+                yatirimci_sayisi=0,
+                kurulus="",
+                yonetici="",
+                fon_turu="",
+                risk_degeri=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_performance(self, fund_code: str, start_date: str = None, end_date: str = None) -> FonPerformansSonucu:
+        """Get historical performance data for a fund."""
+        try:
+            result = self.tefas_provider.get_fund_performance(fund_code, start_date, end_date)
+            return FonPerformansSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund performance for {fund_code}")
+            return FonPerformansSonucu(
+                fon_kodu=fund_code,
+                baslangic_tarihi=start_date or "",
+                bitis_tarihi=end_date or "",
+                fiyat_geçmisi=[],
+                veri_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_portfolio(self, fund_code: str) -> FonPortfoySonucu:
+        """Get portfolio composition of a fund."""
+        try:
+            result = self.tefas_provider.get_fund_portfolio(fund_code)
+            return FonPortfoySonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund portfolio for {fund_code}")
+            return FonPortfoySonucu(
+                fon_kodu=fund_code,
+                tarih="",
+                portfoy_detayi=[],
+                varlik_dagilimi={},
+                toplam_varlik=0,
+                error_message=str(e)
+            )
+    
+    async def compare_funds(self, fund_codes: List[str]) -> FonKarsilastirmaSonucu:
+        """Compare multiple funds side by side."""
+        try:
+            result = self.tefas_provider.compare_funds(fund_codes)
+            return FonKarsilastirmaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error comparing funds")
+            return FonKarsilastirmaSonucu(
+                karsilastirilan_fonlar=fund_codes,
+                karsilastirma_verileri=[],
+                fon_sayisi=0,
+                tarih="",
+                error_message=str(e)
+            )
+    
+    async def screen_funds(self, criteria: FonTaramaKriterleri) -> FonTaramaSonucu:
+        """Screen funds based on various criteria."""
+        try:
+            result = self.tefas_provider.screen_funds(criteria.dict(exclude_none=True))
+            return FonTaramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error screening funds")
+            return FonTaramaSonucu(
+                tarama_kriterleri=criteria,
+                bulunan_fonlar=[],
+                toplam_sonuc=0,
+                tarih="",
+                error_message=str(e)
+            )
+    
     async def sektor_taramasi(self, sectors: List[str]) -> Dict[str, Any]:
         """Sector-specific screening - filter companies by specific sectors."""
         try:
@@ -414,3 +1019,103 @@ class BorsaApiClient:
         except Exception as e:
             logger.exception(f"Error in sector screening")
             return {"error": str(e)}
+    
+    # --- TEFAS Fund Methods ---
+    async def search_funds(self, search_term: str, limit: int = 20, use_takasbank: bool = True) -> FonAramaSonucu:
+        """Search for funds by name, code, or founder using Takasbank data by default."""
+        try:
+            result = self.tefas_provider.search_funds(search_term, limit, use_takasbank)
+            return FonAramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error searching funds with term {search_term}")
+            return FonAramaSonucu(
+                arama_terimi=search_term,
+                sonuclar=[],
+                sonuc_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_detail(self, fund_code: str) -> FonDetayBilgisi:
+        """Get detailed information about a specific fund."""
+        try:
+            result = self.tefas_provider.get_fund_detail(fund_code)
+            return FonDetayBilgisi(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund detail for {fund_code}")
+            return FonDetayBilgisi(
+                fon_kodu=fund_code,
+                fon_adi="",
+                tarih="",
+                fiyat=0,
+                tedavuldeki_pay_sayisi=0,
+                toplam_deger=0,
+                birim_pay_degeri=0,
+                yatirimci_sayisi=0,
+                kurulus="",
+                yonetici="",
+                fon_turu="",
+                risk_degeri=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_performance(self, fund_code: str, start_date: str = None, end_date: str = None) -> FonPerformansSonucu:
+        """Get historical performance data for a fund."""
+        try:
+            result = self.tefas_provider.get_fund_performance(fund_code, start_date, end_date)
+            return FonPerformansSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund performance for {fund_code}")
+            return FonPerformansSonucu(
+                fon_kodu=fund_code,
+                baslangic_tarihi=start_date or "",
+                bitis_tarihi=end_date or "",
+                fiyat_geçmisi=[],
+                veri_sayisi=0,
+                error_message=str(e)
+            )
+    
+    async def get_fund_portfolio(self, fund_code: str) -> FonPortfoySonucu:
+        """Get portfolio composition of a fund."""
+        try:
+            result = self.tefas_provider.get_fund_portfolio(fund_code)
+            return FonPortfoySonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error getting fund portfolio for {fund_code}")
+            return FonPortfoySonucu(
+                fon_kodu=fund_code,
+                tarih="",
+                portfoy_detayi=[],
+                varlik_dagilimi={},
+                toplam_varlik=0,
+                error_message=str(e)
+            )
+    
+    async def compare_funds(self, fund_codes: List[str]) -> FonKarsilastirmaSonucu:
+        """Compare multiple funds side by side."""
+        try:
+            result = self.tefas_provider.compare_funds(fund_codes)
+            return FonKarsilastirmaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error comparing funds")
+            return FonKarsilastirmaSonucu(
+                karsilastirilan_fonlar=fund_codes,
+                karsilastirma_verileri=[],
+                fon_sayisi=0,
+                tarih="",
+                error_message=str(e)
+            )
+    
+    async def screen_funds(self, criteria: FonTaramaKriterleri) -> FonTaramaSonucu:
+        """Screen funds based on various criteria."""
+        try:
+            result = self.tefas_provider.screen_funds(criteria.dict(exclude_none=True))
+            return FonTaramaSonucu(**result)
+        except Exception as e:
+            logger.exception(f"Error screening funds")
+            return FonTaramaSonucu(
+                tarama_kriterleri=criteria,
+                bulunan_fonlar=[],
+                toplam_sonuc=0,
+                tarih="",
+                error_message=str(e)
+            )

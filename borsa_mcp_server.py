@@ -17,7 +17,9 @@ from borsa_models import (
     TemettuVeAksiyonlarSonucu, HizliBilgiSonucu, KazancTakvimSonucu,
     TeknikAnalizSonucu, SektorKarsilastirmaSonucu, KapHaberleriSonucu,
     KapHaberDetayi, KapHaberSayfasi, KatilimFinansUygunlukSonucu, EndeksAramaSonucu,
-    EndeksSirketleriSonucu, EndeksKoduAramaSonucu
+    EndeksSirketleriSonucu, EndeksKoduAramaSonucu, FonAramaSonucu, FonDetayBilgisi,
+    FonPerformansSonucu, FonPortfoySonucu, FonKarsilastirmaSonucu, FonTaramaKriterleri,
+    FonTaramaSonucu
 )
 
 # --- Logging Configuration ---
@@ -41,8 +43,8 @@ logger = logging.getLogger(__name__)
 
 app = FastMCP(
     name="BorsaMCP",
-    instructions="An MCP server for Borsa Istanbul (BIST) data. Provides tools to search for companies (from KAP) and fetch historical financial data and statements (from Yahoo Finance).",
-    dependencies=["httpx", "pdfplumber", "yfinance", "pandas", "beautifulsoup4", "lxml"]
+    instructions="An MCP server for Borsa Istanbul (BIST) and TEFAS mutual fund data. Provides tools to search for companies (from KAP), fetch historical financial data and statements (from Yahoo Finance), and analyze Turkish mutual funds (from TEFAS).",
+    dependencies=["httpx", "pdfplumber", "yfinance", "pandas", "beautifulsoup4", "lxml", "requests"]
 )
 
 borsa_client = BorsaApiClient()
@@ -1481,7 +1483,7 @@ async def get_endeks_kodu(
         )
 
 
-@app.tool
+@app.tool()
 async def get_endeks_sirketleri(
     endeks_kodu: str = Field(description="The index code to get company details for (e.g., 'XU100', 'XBANK', 'BIST 100')")
 ) -> EndeksSirketleriSonucu:
@@ -1532,6 +1534,306 @@ async def get_endeks_sirketleri(
             endeks_kodu=endeks_kodu,
             toplam_sirket=0,
             sirketler=[],
+            error_message=f"An unexpected error occurred: {str(e)}"
+        )
+
+# --- TEFAS Fund Tools ---
+
+@app.tool()
+async def search_funds(
+    search_term: str = Field(..., description="Enter the fund's name, code, or founder to search. You can search using: fund name (e.g., 'Garanti Hisse', 'altın', 'teknoloji'), fund code (e.g., 'TGE'), or founder company (e.g., 'QNB Finans'). Search is case-insensitive and supports Turkish characters."),
+    limit: int = Field(20, description="Maximum number of results to return (default: 20, max: 50).", ge=1, le=50),
+    use_takasbank: bool = Field(True, description="Use comprehensive Takasbank fund list (True, recommended) or TEFAS API (False) for search.")
+) -> FonAramaSonucu:
+    """
+    Searches for mutual funds in TEFAS (Turkish Electronic Fund Trading Platform).
+    
+    **Enhanced with Takasbank Data:**
+    Now uses the complete official fund list from Takasbank (836 funds) by default, providing 
+    comprehensive coverage of all Turkish mutual funds with Turkish character support.
+    
+    **Turkish Character Support:**
+    Automatically handles Turkish characters - search for 'altın' or 'altin', both will work.
+    Examples: 'garanti' finds 'GARANTİ', 'katilim' finds 'KATILIM', 'hisse' finds 'HİSSE'.
+    
+    **Data Sources:**
+    - Takasbank (default): Official complete fund list with 836 funds
+    - TEFAS API (fallback): Limited API data
+    
+    Use cases:
+    - Find fund codes by Turkish names: 'altın fonları' → gold funds
+    - Search with Turkish characters: 'katılım' → participation funds  
+    - Find by company: 'garanti portföy' → Garanti funds
+    - Quick code lookup: 'TGE' → exact fund match
+    - Thematic search: 'teknoloji' → technology funds
+    
+    Returns:
+    - Fund code (e.g., AFO, BLT, DBA for gold funds)
+    - Full fund name in Turkish
+    - Basic fund information
+    
+    Examples:
+    - Search 'altın' → Returns AFO, BLT, DBA (gold funds)
+    - Search 'garanti hisse' → Returns Garanti equity funds  
+    - Search 'katılım' → Returns Islamic finance funds
+    - Search 'TGE' → Returns exact fund match
+    """
+    logger.info(f"Tool 'search_funds' called with query: '{search_term}', limit: {limit}, use_takasbank: {use_takasbank}")
+    
+    if not search_term or len(search_term) < 2:
+        raise ToolError("You must enter at least 2 characters to search.")
+    
+    try:
+        return await borsa_client.search_funds(search_term, limit, use_takasbank)
+    except Exception as e:
+        logger.exception(f"Error in tool 'search_funds' for query '{search_term}'.")
+        return FonAramaSonucu(
+            arama_terimi=search_term,
+            sonuclar=[],
+            sonuc_sayisi=0,
+            error_message=f"An unexpected error occurred: {str(e)}"
+        )
+
+@app.tool()
+async def get_fund_detail(
+    fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB'). Use search_funds to find the correct fund code first.")
+) -> FonDetayBilgisi:
+    """
+    Fetches comprehensive details and performance metrics for a specific Turkish mutual fund.
+    
+    Provides complete fund information including:
+    - Current NAV (Net Asset Value) and pricing
+    - Total AUM (Assets Under Management)
+    - Number of investors
+    - Performance metrics (1m, 3m, 6m, YTD, 1y, 3y, 5y returns)
+    - Risk metrics (standard deviation, Sharpe ratio, alpha, beta)
+    - Fund type and risk score
+    - Management and founder information
+    
+    Use cases:
+    - Analyze fund performance and risk metrics
+    - Compare fund returns across different time periods
+    - Evaluate risk-adjusted returns (Sharpe ratio)
+    - Check fund size and investor base
+    
+    Examples:
+    - get_fund_detail("TGE") → Garanti equity fund details
+    - get_fund_detail("AFA") → Ak Asset Management fund details
+    """
+    logger.info(f"Tool 'get_fund_detail' called with fund_code: '{fund_code}'")
+    
+    if not fund_code or not fund_code.strip():
+        raise ToolError("Fund code cannot be empty")
+    
+    try:
+        return await borsa_client.get_fund_detail(fund_code.strip().upper())
+    except Exception as e:
+        logger.exception(f"Error in tool 'get_fund_detail' for fund_code '{fund_code}'.")
+        return FonDetayBilgisi(
+            fon_kodu=fund_code,
+            fon_adi="",
+            tarih="",
+            fiyat=0,
+            tedavuldeki_pay_sayisi=0,
+            toplam_deger=0,
+            birim_pay_degeri=0,
+            yatirimci_sayisi=0,
+            kurulus="",
+            yonetici="",
+            fon_turu="",
+            risk_degeri=0,
+            error_message=f"An unexpected error occurred: {str(e)}"
+        )
+
+@app.tool()
+async def get_fund_performance(
+    fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB')."),
+    start_date: str = Field(None, description="Start date in YYYY-MM-DD format (default: 1 year ago)."),
+    end_date: str = Field(None, description="End date in YYYY-MM-DD format (default: today).")
+) -> FonPerformansSonucu:
+    """
+    Fetches historical performance data for a Turkish mutual fund.
+    
+    Provides historical NAV data and calculates returns over the specified period.
+    Default period is 1 year if dates are not specified.
+    
+    Returns:
+    - Daily NAV history
+    - Total return for the period
+    - Annualized return
+    - Outstanding shares and AUM history
+    - Investor count history
+    
+    Use cases:
+    - Chart fund performance over time
+    - Calculate custom period returns
+    - Analyze fund growth and investor trends
+    - Compare performance across different time windows
+    
+    Examples:
+    - get_fund_performance("TGE") → Last 1 year performance
+    - get_fund_performance("AFA", "2024-01-01", "2024-12-31") → 2024 performance
+    """
+    logger.info(f"Tool 'get_fund_performance' called with fund_code: '{fund_code}', period: {start_date} to {end_date}")
+    
+    if not fund_code or not fund_code.strip():
+        raise ToolError("Fund code cannot be empty")
+    
+    try:
+        return await borsa_client.get_fund_performance(fund_code.strip().upper(), start_date, end_date)
+    except Exception as e:
+        logger.exception(f"Error in tool 'get_fund_performance' for fund_code '{fund_code}'.")
+        return FonPerformansSonucu(
+            fon_kodu=fund_code,
+            baslangic_tarihi=start_date or "",
+            bitis_tarihi=end_date or "",
+            fiyat_geçmisi=[],
+            veri_sayisi=0,
+            error_message=f"An unexpected error occurred: {str(e)}"
+        )
+
+@app.tool()
+async def get_fund_portfolio(
+    fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB').")
+) -> FonPortfoySonucu:
+    """
+    Fetches the current portfolio composition of a Turkish mutual fund.
+    
+    Provides detailed breakdown of fund holdings by asset type:
+    - Equity holdings
+    - Fixed income securities
+    - Money market instruments
+    - Precious metals
+    - Other assets
+    
+    Each asset category shows:
+    - Amount in TRY
+    - Percentage of portfolio
+    - Sub-categories and details
+    
+    Use cases:
+    - Understand fund investment strategy
+    - Analyze asset allocation
+    - Check concentration in specific asset types
+    - Evaluate fund diversification
+    
+    Examples:
+    - get_fund_portfolio("TGE") → See equity allocations
+    - get_fund_portfolio("AAK") → Check gold fund holdings
+    """
+    logger.info(f"Tool 'get_fund_portfolio' called with fund_code: '{fund_code}'")
+    
+    if not fund_code or not fund_code.strip():
+        raise ToolError("Fund code cannot be empty")
+    
+    try:
+        return await borsa_client.get_fund_portfolio(fund_code.strip().upper())
+    except Exception as e:
+        logger.exception(f"Error in tool 'get_fund_portfolio' for fund_code '{fund_code}'.")
+        return FonPortfoySonucu(
+            fon_kodu=fund_code,
+            tarih="",
+            portfoy_detayi=[],
+            varlik_dagilimi={},
+            toplam_varlik=0,
+            error_message=f"An unexpected error occurred: {str(e)}"
+        )
+
+@app.tool()
+async def compare_funds(
+    fund_codes: List[str] = Field(..., description="List of TEFAS fund codes to compare (e.g., ['TGE', 'AFA', 'IPB']). Maximum 5 funds.")
+) -> FonKarsilastirmaSonucu:
+    """
+    Compares multiple Turkish mutual funds side by side.
+    
+    Provides comparative analysis including:
+    - Performance metrics (1m, 3m, 1y returns)
+    - Risk metrics (Sharpe ratio, standard deviation)
+    - Fund size and investor base
+    - Rankings by return, risk-adjusted return, and size
+    
+    Use cases:
+    - Choose between similar funds
+    - Evaluate fund performance within a category
+    - Compare risk-adjusted returns
+    - Identify best performers
+    
+    Examples:
+    - compare_funds(["TGE", "AFA", "IPB"]) → Compare 3 equity funds
+    - compare_funds(["AAK", "GPA"]) → Compare gold funds
+    """
+    logger.info(f"Tool 'compare_funds' called with fund_codes: {fund_codes}")
+    
+    if not fund_codes or len(fund_codes) == 0:
+        raise ToolError("You must provide at least one fund code to compare")
+    
+    if len(fund_codes) > 5:
+        raise ToolError("Maximum 5 funds can be compared at once")
+    
+    try:
+        return await borsa_client.compare_funds(fund_codes)
+    except Exception as e:
+        logger.exception(f"Error in tool 'compare_funds'.")
+        return FonKarsilastirmaSonucu(
+            karsilastirilan_fonlar=fund_codes,
+            karsilastirma_verileri=[],
+            fon_sayisi=0,
+            tarih="",
+            error_message=f"An unexpected error occurred: {str(e)}"
+        )
+
+@app.tool()
+async def screen_funds(
+    fund_type: str = Field(None, description="Fund type filter: 'HSF' (Equity), 'DEF' (Variable), 'HBF' (Debt Securities), 'KYD' (Precious Metals), 'KAT' (Participation)."),
+    min_return_1y: float = Field(None, description="Minimum 1-year return percentage (e.g., 50 for 50%)."),
+    max_risk: int = Field(None, description="Maximum risk score (1-7 scale)."),
+    min_sharpe: float = Field(None, description="Minimum Sharpe ratio."),
+    min_size: float = Field(None, description="Minimum fund size in TRY (e.g., 1000000000 for 1 billion)."),
+    founder: str = Field(None, description="Filter by founder/company name (partial match).")
+) -> FonTaramaSonucu:
+    """
+    Screens Turkish mutual funds based on various criteria.
+    
+    Filters funds by:
+    - Fund type (equity, debt, precious metals, etc.)
+    - Performance metrics (1-year return)
+    - Risk metrics (risk score, Sharpe ratio)
+    - Fund size (AUM)
+    - Management company
+    
+    Returns up to 50 funds matching the criteria, sorted by 1-year return.
+    
+    Use cases:
+    - Find top performing funds
+    - Identify low-risk funds with good returns
+    - Search funds by specific criteria
+    - Discover funds from preferred companies
+    
+    Examples:
+    - screen_funds(fund_type="HSF", min_return_1y=100) → Equity funds with >100% return
+    - screen_funds(max_risk=3, min_sharpe=1.0) → Low-risk funds with good risk-adjusted returns
+    - screen_funds(founder="Garanti") → All Garanti funds
+    """
+    logger.info(f"Tool 'screen_funds' called with criteria: type={fund_type}, min_return={min_return_1y}, max_risk={max_risk}")
+    
+    try:
+        criteria = FonTaramaKriterleri(
+            fund_type=fund_type,
+            min_return_1y=min_return_1y,
+            max_risk=max_risk,
+            min_sharpe=min_sharpe,
+            min_size=min_size,
+            founder=founder
+        )
+        
+        return await borsa_client.screen_funds(criteria)
+    except Exception as e:
+        logger.exception(f"Error in tool 'screen_funds'.")
+        return FonTaramaSonucu(
+            tarama_kriterleri=criteria if 'criteria' in locals() else FonTaramaKriterleri(),
+            bulunan_fonlar=[],
+            toplam_sonuc=0,
+            tarih="",
             error_message=f"An unexpected error occurred: {str(e)}"
         )
 

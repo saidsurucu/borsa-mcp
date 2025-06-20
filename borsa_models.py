@@ -606,6 +606,154 @@ class TaramaSonucu(BaseModel):
     
     error_message: Optional[str] = Field(None, description="Error message if the operation failed.")
 
+# --- TEFAS Fund Models ---
+class FonBilgisi(BaseModel):
+    """Basic fund information from TEFAS."""
+    fon_kodu: str = Field(description="TEFAS fund code.")
+    fon_adi: str = Field(description="Full name of the fund.")
+    fon_turu: str = Field(description="Fund type (e.g., HSF, DEF, HBF).")
+    kurulus: str = Field(description="Fund founder/issuer company.")
+    yonetici: str = Field(description="Fund management company.")
+    risk_degeri: int = Field(description="Risk score (1-7, where 7 is highest risk).")
+    tarih: str = Field(description="Data date.")
+
+class FonAramaSonucu(BaseModel):
+    """Result of fund search operation."""
+    arama_terimi: str = Field(description="Search term used.")
+    sonuclar: List[FonBilgisi] = Field(description="List of funds matching search criteria.")
+    sonuc_sayisi: int = Field(description="Number of results found.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class FonDetayBilgisi(BaseModel):
+    """Detailed fund information including performance metrics."""
+    fon_kodu: str = Field(description="TEFAS fund code.")
+    fon_adi: str = Field(description="Full name of the fund.")
+    tarih: str = Field(description="Data date.")
+    fiyat: float = Field(description="Current fund price/NAV.")
+    tedavuldeki_pay_sayisi: float = Field(description="Outstanding shares.")
+    toplam_deger: float = Field(description="Total fund value (AUM).")
+    birim_pay_degeri: float = Field(description="Net asset value per share.")
+    yatirimci_sayisi: int = Field(description="Number of investors.")
+    kurulus: str = Field(description="Fund founder/issuer.")
+    yonetici: str = Field(description="Fund manager.")
+    fon_turu: str = Field(description="Fund type.")
+    risk_degeri: int = Field(description="Risk score (1-7).")
+    
+    # Performance metrics
+    getiri_1_ay: Optional[float] = Field(None, description="1-month return (%).")
+    getiri_3_ay: Optional[float] = Field(None, description="3-month return (%).")
+    getiri_6_ay: Optional[float] = Field(None, description="6-month return (%).")
+    getiri_yil_basi: Optional[float] = Field(None, description="Year-to-date return (%).")
+    getiri_1_yil: Optional[float] = Field(None, description="1-year return (%).")
+    getiri_3_yil: Optional[float] = Field(None, description="3-year return (%).")
+    getiri_5_yil: Optional[float] = Field(None, description="5-year return (%).")
+    
+    # Risk metrics
+    standart_sapma: Optional[float] = Field(None, description="Standard deviation.")
+    sharpe_orani: Optional[float] = Field(None, description="Sharpe ratio.")
+    alpha: Optional[float] = Field(None, description="Alpha coefficient.")
+    beta: Optional[float] = Field(None, description="Beta coefficient.")
+    tracking_error: Optional[float] = Field(None, description="Tracking error.")
+    
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class FonFiyatNoktasi(BaseModel):
+    """Single price point in fund history."""
+    tarih: str = Field(description="Date of the price point.")
+    fiyat: float = Field(description="Fund NAV on this date.")
+    tedavuldeki_pay_sayisi: float = Field(description="Outstanding shares.")
+    toplam_deger: float = Field(description="Total fund value.")
+    yatirimci_sayisi: int = Field(description="Number of investors.")
+
+class FonPerformansSonucu(BaseModel):
+    """Fund performance history result."""
+    fon_kodu: str = Field(description="TEFAS fund code.")
+    baslangic_tarihi: str = Field(description="Start date of the period.")
+    bitis_tarihi: str = Field(description="End date of the period.")
+    fiyat_geçmisi: List[FonFiyatNoktasi] = Field(description="Historical price data.")
+    toplam_getiri: Optional[float] = Field(None, description="Total return for the period (%).")
+    yillik_getiri: Optional[float] = Field(None, description="Annualized return (%).")
+    veri_sayisi: int = Field(description="Number of data points.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class PortfoyVarlik(BaseModel):
+    """Single asset in fund portfolio."""
+    varlik_turu: str = Field(description="Asset type (e.g., Hisse Senedi, Tahvil).")
+    alt_varlik_turu: str = Field(description="Sub-asset type.")
+    tutar: float = Field(description="Amount in TRY.")
+    oran: float = Field(description="Percentage of portfolio.")
+    detay: str = Field(description="Additional details.")
+
+class VarlikGrubu(BaseModel):
+    """Grouped assets by type."""
+    tutar: float = Field(description="Total amount for this asset type.")
+    oran: float = Field(description="Total percentage for this asset type.")
+    alt_kalemler: List[PortfoyVarlik] = Field(description="Individual items in this group.")
+
+class FonPortfoySonucu(BaseModel):
+    """Fund portfolio composition result."""
+    fon_kodu: str = Field(description="TEFAS fund code.")
+    tarih: str = Field(description="Portfolio date.")
+    portfoy_detayi: List[PortfoyVarlik] = Field(description="Detailed portfolio items.")
+    varlik_dagilimi: Dict[str, VarlikGrubu] = Field(description="Assets grouped by type.")
+    toplam_varlik: float = Field(description="Total portfolio value.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class FonKarsilastirmaOgesi(BaseModel):
+    """Single fund in comparison."""
+    fon_kodu: str = Field(description="TEFAS fund code.")
+    fon_adi: str = Field(description="Fund name.")
+    fon_turu: str = Field(description="Fund type.")
+    risk_degeri: int = Field(description="Risk score.")
+    fiyat: float = Field(description="Current NAV.")
+    getiri_1_ay: float = Field(description="1-month return.")
+    getiri_3_ay: float = Field(description="3-month return.")
+    getiri_1_yil: float = Field(description="1-year return.")
+    sharpe_orani: float = Field(description="Sharpe ratio.")
+    standart_sapma: float = Field(description="Standard deviation.")
+    toplam_deger: float = Field(description="Total AUM.")
+    yatirimci_sayisi: int = Field(description="Number of investors.")
+    getiri_siralamasi: Optional[int] = Field(None, description="Ranking by return.")
+    risk_ayarli_getiri_siralamasi: Optional[int] = Field(None, description="Ranking by risk-adjusted return.")
+    buyukluk_siralamasi: Optional[int] = Field(None, description="Ranking by size.")
+
+class FonKarsilastirmaSonucu(BaseModel):
+    """Fund comparison result."""
+    karsilastirilan_fonlar: List[str] = Field(description="List of compared fund codes.")
+    karsilastirma_verileri: List[FonKarsilastirmaOgesi] = Field(description="Comparison data for each fund.")
+    fon_sayisi: int = Field(description="Number of funds compared.")
+    tarih: str = Field(description="Comparison date.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class FonTaramaKriterleri(BaseModel):
+    """Fund screening criteria."""
+    fund_type: Optional[str] = Field(None, description="Fund type filter (e.g., HSF, DEF, HBF).")
+    min_return_1y: Optional[float] = Field(None, description="Minimum 1-year return (%).")
+    max_risk: Optional[int] = Field(None, description="Maximum risk score (1-7).")
+    min_sharpe: Optional[float] = Field(None, description="Minimum Sharpe ratio.")
+    min_size: Optional[float] = Field(None, description="Minimum fund size (TRY).")
+    founder: Optional[str] = Field(None, description="Specific founder/company name.")
+
+class TaranmisFon(BaseModel):
+    """Screened fund result."""
+    fon_kodu: str = Field(description="TEFAS fund code.")
+    fon_adi: str = Field(description="Fund name.")
+    fon_turu: str = Field(description="Fund type.")
+    kurulus: str = Field(description="Fund founder.")
+    risk_degeri: int = Field(description="Risk score.")
+    getiri_1_yil: float = Field(description="1-year return (%).")
+    sharpe_orani: float = Field(description="Sharpe ratio.")
+    toplam_deger: float = Field(description="Total AUM.")
+    fiyat: float = Field(description="Current NAV.")
+
+class FonTaramaSonucu(BaseModel):
+    """Fund screening result."""
+    tarama_kriterleri: FonTaramaKriterleri = Field(description="Criteria used for screening.")
+    bulunan_fonlar: List[TaranmisFon] = Field(description="Funds matching criteria.")
+    toplam_sonuc: int = Field(description="Total number of matching funds.")
+    tarih: str = Field(description="Screening date.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
 # Pre-defined screening strategies
 class DegerYatirimiKriterleri(BaseModel):
     """Value investing criteria preset."""
