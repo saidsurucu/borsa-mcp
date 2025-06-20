@@ -1,6 +1,11 @@
 # Borsa MCP: Borsa İstanbul (BIST) için MCP Sunucusu
 
+[![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
+
 Bu proje, Borsa İstanbul (BIST) verilerine erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, KAP (Kamuyu Aydınlatma Platformu), Mynet Finans ve Yahoo Finance'dan hisse senedi bilgileri, finansal veriler, teknik analiz ve sektör karşılaştırmaları, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
+
+![ornek](./ornek.jpeg)
+
 
 🎯 **Temel Özellikler**
 
@@ -47,7 +52,7 @@ Bu bölüm, Borsa MCP aracını 5ire gibi Claude Desktop dışındaki MCP istemc
 
 1.  **Ön Gereksinimler:** Python, `uv`, (Windows için) Microsoft Visual C++ Redistributable'ın sisteminizde kurulu olduğundan emin olun. Detaylı bilgi için yukarıdaki "5ire için Kurulum" bölümündeki ilgili adımlara bakabilirsiniz.
 2.  Claude Desktop **Settings -> Developer -> Edit Config**.
-3.  Açılan `claude_desktop_config.json` dosyasına `mcpServers` altına ekleyin:
+3.  Açılan `claude_desktop_config.json` dosyasına `mcpServers` altına ekleyin. UYARI: // ile başlayan yorum satırını silmelisiniz:
 
     ```json
     {
