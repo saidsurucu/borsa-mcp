@@ -87,15 +87,17 @@ class TefasProvider:
     
     def _normalize_turkish(self, text: str) -> str:
         """Normalize Turkish characters for better search matching."""
-        replacements = {
-            'ı': 'i', 'İ': 'i',
-            'ğ': 'g', 'Ğ': 'g',
-            'ü': 'u', 'Ü': 'u',
-            'ş': 's', 'Ş': 's',
-            'ö': 'o', 'Ö': 'o',
-            'ç': 'c', 'Ç': 'c'
-        }
+        # First convert to lowercase
         text_norm = text.lower()
+        
+        # Then apply replacements (including i̇ from İ.lower())
+        replacements = {
+            'ı': 'i', 'i̇': 'i',  # Both ı and i̇ (from İ.lower())
+            'ğ': 'g', 'ü': 'u',
+            'ş': 's', 'ö': 'o',
+            'ç': 'c'
+        }
+        
         for tr_char, latin_char in replacements.items():
             text_norm = text_norm.replace(tr_char, latin_char)
         return text_norm
