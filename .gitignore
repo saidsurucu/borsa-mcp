@@ -166,3 +166,4 @@ debug_grafik.py
 # Test files
 test_*.py
 CLAUDE.md
+mcp_servers_config.json

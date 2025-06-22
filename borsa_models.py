@@ -611,21 +611,70 @@ class FonBilgisi(BaseModel):
     """Basic fund information from TEFAS."""
     fon_kodu: str = Field(description="TEFAS fund code.")
     fon_adi: str = Field(description="Full name of the fund.")
-    fon_turu: str = Field(description="Fund type (e.g., HSF, DEF, HBF).")
-    kurulus: str = Field(description="Fund founder/issuer company.")
-    yonetici: str = Field(description="Fund management company.")
-    risk_degeri: int = Field(description="Risk score (1-7, where 7 is highest risk).")
-    tarih: str = Field(description="Data date.")
+    fon_turu: Optional[str] = Field(None, description="Fund type (e.g., HSF, DEF, HBF).")
+    kurulus: Optional[str] = Field(None, description="Fund founder/issuer company.")
+    yonetici: Optional[str] = Field(None, description="Fund management company.")
+    risk_degeri: Optional[int] = Field(None, description="Risk score (1-7, where 7 is highest risk).")
+    tarih: Optional[str] = Field(None, description="Data date.")
+    
+    # Performance metrics from advanced API
+    getiri_1_ay: Optional[float] = Field(None, description="1-month return (%).")
+    getiri_3_ay: Optional[float] = Field(None, description="3-month return (%).")
+    getiri_6_ay: Optional[float] = Field(None, description="6-month return (%).")
+    getiri_1_yil: Optional[float] = Field(None, description="1-year return (%).")
+    getiri_yil_basi: Optional[float] = Field(None, description="Year-to-date return (%).")
+    getiri_3_yil: Optional[float] = Field(None, description="3-year return (%).")
+    getiri_5_yil: Optional[float] = Field(None, description="5-year return (%).")
+    api_source: Optional[str] = Field(None, description="Source API used for data.")
 
 class FonAramaSonucu(BaseModel):
     """Result of fund search operation."""
     arama_terimi: str = Field(description="Search term used.")
     sonuclar: List[FonBilgisi] = Field(description="List of funds matching search criteria.")
     sonuc_sayisi: int = Field(description="Number of results found.")
+    
+    # Advanced search fields
+    toplam_bulunan: Optional[int] = Field(None, description="Total number of funds found before limit.")
+    kaynak: Optional[str] = Field(None, description="Data source used for search.")
+    fund_type: Optional[str] = Field(None, description="Fund type filter applied.")
+    fund_category: Optional[str] = Field(None, description="Fund category filter applied.")
+    category_code: Optional[str] = Field(None, description="TEFAS category code used.")
+    tarih: Optional[str] = Field(None, description="Search date.")
+    performans_dahil: Optional[bool] = Field(None, description="Whether performance data is included.")
+    
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
+class FonProfil(BaseModel):
+    """Fund profile and technical information from fundProfile."""
+    isin_kod: Optional[str] = Field(None, description="ISIN code (ISINKOD).")
+    son_islem_saati: Optional[str] = Field(None, description="Last trading time (SONISSAAT).")
+    min_alis: Optional[float] = Field(None, description="Minimum purchase amount (MINALIS).")
+    min_satis: Optional[float] = Field(None, description="Minimum sale amount (MINSATIS).")
+    max_alis: Optional[float] = Field(None, description="Maximum purchase amount (MAXALIS).")
+    max_satis: Optional[float] = Field(None, description="Maximum sale amount (MAXSATIS).")
+    kap_link: Optional[str] = Field(None, description="KAP disclosure link (KAPLINK).")
+    tefas_durum: Optional[str] = Field(None, description="TEFAS trading status (TEFASDURUM).")
+    cikis_komisyonu: Optional[float] = Field(None, description="Exit commission (CIKISKOMISYONU).")
+    giris_komisyonu: Optional[float] = Field(None, description="Entry commission (GIRISKOMISYONU).")
+    basis_saat: Optional[str] = Field(None, description="Pricing time (BASISSAAT).")
+    fon_satis_valor: Optional[int] = Field(None, description="Fund sale valor (FONSATISVALOR).")
+    fon_geri_alis_valor: Optional[int] = Field(None, description="Fund redemption valor (FONGERIALISVALOR).")
+    faiz_icerigi: Optional[str] = Field(None, description="Interest content (FAIZICERIGI).")
+
+class FonPortfoyDagilimi(BaseModel):
+    """Fund portfolio allocation breakdown from fundAllocation."""
+    kiymet_tip: str = Field(description="Asset type (KIYMETTIP).")
+    portfoy_orani: float = Field(description="Portfolio percentage (PORTFOYORANI).")
+
+class FonFiyatGecmisi(BaseModel):
+    """Historical price data point with category ranking."""
+    tarih: str = Field(description="Date (YYYY-MM-DD format).")
+    fiyat: float = Field(description="Fund price on this date.")
+    kategori_derece: Optional[int] = Field(None, description="Category ranking (KATEGORIDERECE).")
+    kategori_fon_sayisi: Optional[int] = Field(None, description="Number of funds in category (KATEGORIFONSAY).")
+
 class FonDetayBilgisi(BaseModel):
-    """Detailed fund information including performance metrics."""
+    """Comprehensive fund information including all available data from GetAllFundAnalyzeData API."""
     fon_kodu: str = Field(description="TEFAS fund code.")
     fon_adi: str = Field(description="Full name of the fund.")
     tarih: str = Field(description="Data date.")
@@ -655,25 +704,61 @@ class FonDetayBilgisi(BaseModel):
     beta: Optional[float] = Field(None, description="Beta coefficient.")
     tracking_error: Optional[float] = Field(None, description="Tracking error.")
     
+    # Enhanced metrics from widget approach
+    gunluk_getiri: Optional[float] = Field(None, description="Daily return percentage.")
+    haftalik_getiri: Optional[float] = Field(None, description="Weekly return percentage.")
+    gunluk_degisim_miktar: Optional[float] = Field(None, description="Daily change amount in fund price.")
+    onceki_gun_fiyat: Optional[float] = Field(None, description="Previous day's closing price.")
+    
+    # New comprehensive data from API
+    fon_kategori: Optional[str] = Field(None, description="Fund category (FONKATEGORI).")
+    kategori_derece: Optional[str] = Field(None, description="Ranking in category (KATEGORIDERECE).")
+    kategori_fon_sayisi: Optional[int] = Field(None, description="Total funds in category (KATEGORIFONSAY).")
+    pazar_payi: Optional[float] = Field(None, description="Market share percentage (PAZARPAYI).")
+    kategori_derece_birlesik: Optional[str] = Field(None, description="Combined ranking display (KATEGORIDERECEBIRLESIK).")
+    
+    # Fund profile information
+    fon_profil: Optional[FonProfil] = Field(None, description="Technical fund profile data.")
+    
+    # Portfolio allocation
+    portfoy_dagilimi: Optional[List[FonPortfoyDagilimi]] = Field(None, description="Portfolio allocation breakdown by asset type.")
+    
+    # Price history metadata
+    fiyat_gecmisi_1ay_sayisi: Optional[int] = Field(None, description="Number of price points available for last month.")
+    fiyat_gecmisi_1ay_mevcut: Optional[bool] = Field(None, description="Whether 1-month price history is available.")
+    
+    # Optional detailed price history (on request)
+    fiyat_gecmisi_1hafta: Optional[List[FonFiyatGecmisi]] = Field(None, description="1-week price history (fundPrices1H) - optional.")
+    fiyat_gecmisi_1ay: Optional[List[FonFiyatGecmisi]] = Field(None, description="1-month price history (fundPrices1A) - optional.")
+    fiyat_gecmisi_3ay: Optional[List[FonFiyatGecmisi]] = Field(None, description="3-month price history (fundPrices3A) - optional.")
+    fiyat_gecmisi_6ay: Optional[List[FonFiyatGecmisi]] = Field(None, description="6-month price history (fundPrices6A) - optional.")
+    
+    # API and data quality information
+    api_source: Optional[str] = Field(None, description="Source API used for data retrieval.")
+    veri_kalitesi: Optional[Dict[str, Any]] = Field(None, description="Data quality metrics and completeness scores.")
+    
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
 class FonFiyatNoktasi(BaseModel):
-    """Single price point in fund history."""
-    tarih: str = Field(description="Date of the price point.")
+    """Single price point in fund history from TEFAS BindHistoryInfo API."""
+    tarih: str = Field(description="Date of the price point (YYYY-MM-DD format).")
     fiyat: float = Field(description="Fund NAV on this date.")
-    tedavuldeki_pay_sayisi: float = Field(description="Outstanding shares.")
-    toplam_deger: float = Field(description="Total fund value.")
-    yatirimci_sayisi: int = Field(description="Number of investors.")
+    tedavuldeki_pay_sayisi: float = Field(description="Outstanding shares (TEDPAYSAYISI).")
+    toplam_deger: float = Field(description="Total portfolio value (PORTFOYBUYUKLUK).")
+    yatirimci_sayisi: int = Field(description="Number of investors (KISISAYISI).")
+    fon_unvan: Optional[str] = Field(None, description="Full fund name (FONUNVAN).")
+    borsa_bulten_fiyat: Optional[str] = Field(None, description="Stock exchange bulletin price (BORSABULTENFIYAT).")
 
 class FonPerformansSonucu(BaseModel):
-    """Fund performance history result."""
+    """Fund performance history result from official TEFAS BindHistoryInfo API."""
     fon_kodu: str = Field(description="TEFAS fund code.")
     baslangic_tarihi: str = Field(description="Start date of the period.")
     bitis_tarihi: str = Field(description="End date of the period.")
-    fiyat_geçmisi: List[FonFiyatNoktasi] = Field(description="Historical price data.")
+    fiyat_geçmisi: List[FonFiyatNoktasi] = Field(description="Historical price data with timestamps.")
     toplam_getiri: Optional[float] = Field(None, description="Total return for the period (%).")
     yillik_getiri: Optional[float] = Field(None, description="Annualized return (%).")
     veri_sayisi: int = Field(description="Number of data points.")
+    kaynak: Optional[str] = Field(None, description="Data source API used.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
 class PortfoyVarlik(BaseModel):
@@ -690,13 +775,23 @@ class VarlikGrubu(BaseModel):
     oran: float = Field(description="Total percentage for this asset type.")
     alt_kalemler: List[PortfoyVarlik] = Field(description="Individual items in this group.")
 
-class FonPortfoySonucu(BaseModel):
-    """Fund portfolio composition result."""
+class PortfoyTarihselVeri(BaseModel):
+    """Single date's portfolio allocation data from TEFAS BindHistoryAllocation API."""
+    tarih: str = Field(description="Date of the allocation data (YYYY-MM-DD format).")
     fon_kodu: str = Field(description="TEFAS fund code.")
-    tarih: str = Field(description="Portfolio date.")
-    portfoy_detayi: List[PortfoyVarlik] = Field(description="Detailed portfolio items.")
-    varlik_dagilimi: Dict[str, VarlikGrubu] = Field(description="Assets grouped by type.")
-    toplam_varlik: float = Field(description="Total portfolio value.")
+    fon_unvan: str = Field(description="Full fund name.")
+    portfoy_dagilimi: Dict[str, float] = Field(description="Asset allocation percentages by category.")
+    bil_fiyat: str = Field(description="Pricing information.")
+
+class FonPortfoySonucu(BaseModel):
+    """Fund portfolio allocation history result from official TEFAS BindHistoryAllocation API."""
+    fon_kodu: str = Field(description="TEFAS fund code.")
+    baslangic_tarihi: str = Field(description="Start date of the period.")
+    bitis_tarihi: str = Field(description="End date of the period.")
+    portfoy_geçmisi: List[PortfoyTarihselVeri] = Field(description="Historical allocation data over time.")
+    son_portfoy_dagilimi: Dict[str, float] = Field(description="Latest portfolio allocation percentages.")
+    veri_sayisi: int = Field(description="Number of data points.")
+    kaynak: Optional[str] = Field(None, description="Data source API used.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
 class FonKarsilastirmaOgesi(BaseModel):
@@ -716,6 +811,13 @@ class FonKarsilastirmaOgesi(BaseModel):
     getiri_siralamasi: Optional[int] = Field(None, description="Ranking by return.")
     risk_ayarli_getiri_siralamasi: Optional[int] = Field(None, description="Ranking by risk-adjusted return.")
     buyukluk_siralamasi: Optional[int] = Field(None, description="Ranking by size.")
+    
+    # Enhanced fields from widget approach
+    gunluk_getiri: Optional[float] = Field(None, description="Daily return percentage.")
+    gunluk_degisim_miktar: Optional[float] = Field(None, description="Daily change amount.")
+    onceki_gun_fiyat: Optional[float] = Field(None, description="Previous day's price.")
+    veri_kalitesi_skoru: Optional[float] = Field(None, description="Data completeness score (0.0-1.0).")
+    api_source: Optional[str] = Field(None, description="Source API used for data.")
 
 class FonKarsilastirmaSonucu(BaseModel):
     """Fund comparison result."""
@@ -723,6 +825,15 @@ class FonKarsilastirmaSonucu(BaseModel):
     karsilastirma_verileri: List[FonKarsilastirmaOgesi] = Field(description="Comparison data for each fund.")
     fon_sayisi: int = Field(description="Number of funds compared.")
     tarih: str = Field(description="Comparison date.")
+    
+    # Enhanced summary statistics from widget approach
+    basari_orani: Optional[float] = Field(None, description="Success rate of data retrieval (0.0-1.0).")
+    basarili_fon_sayisi: Optional[int] = Field(None, description="Number of funds with successful data retrieval.")
+    basarisiz_fon_sayisi: Optional[int] = Field(None, description="Number of funds with failed data retrieval.")
+    toplam_fon_degeri: Optional[float] = Field(None, description="Total value of all compared funds.")
+    ortalama_gunluk_getiri: Optional[float] = Field(None, description="Average daily return of compared funds.")
+    veri_kalitesi_ozeti: Optional[Dict[str, Any]] = Field(None, description="Summary of data quality metrics.")
+    
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
 class FonTaramaKriterleri(BaseModel):
@@ -910,5 +1021,15 @@ class KapHaberSayfasi(BaseModel):
     onceki_sayfa_var: bool = Field(description="Whether there is a previous page available.")
     toplam_karakter: int = Field(description="Total character count of the full document.")
     sayfa_boyutu: int = Field(5000, description="Characters per page.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+# --- Fon Mevzuat Models ---
+class FonMevzuatSonucu(BaseModel):
+    """Yatırım fonları mevzuat rehber içeriği."""
+    mevzuat_adi: str = Field(description="Mevzuat dokümanının adı.")
+    icerik: str = Field(description="Fon mevzuat rehberinin tam içeriği markdown formatında.")
+    karakter_sayisi: int = Field(description="İçeriğin toplam karakter sayısı.")
+    kaynak_dosya: str = Field(description="Kaynak dosya adı.")
+    guncelleme_tarihi: Optional[str] = Field(None, description="Dosyanın son güncellenme tarihi.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 

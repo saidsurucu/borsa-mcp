@@ -5,7 +5,7 @@ This version uses KAP for company search and yfinance for all financial data.
 import logging
 import os
 from pydantic import Field
-from typing import Literal, List
+from typing import Literal, List, Dict, Any
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -19,7 +19,7 @@ from borsa_models import (
     KapHaberDetayi, KapHaberSayfasi, KatilimFinansUygunlukSonucu, EndeksAramaSonucu,
     EndeksSirketleriSonucu, EndeksKoduAramaSonucu, FonAramaSonucu, FonDetayBilgisi,
     FonPerformansSonucu, FonPortfoySonucu, FonKarsilastirmaSonucu, FonTaramaKriterleri,
-    FonTaramaSonucu
+    FonTaramaSonucu, FonMevzuatSonucu
 )
 
 # --- Logging Configuration ---
@@ -1543,48 +1543,57 @@ async def get_endeks_sirketleri(
 async def search_funds(
     search_term: str = Field(..., description="Enter the fund's name, code, or founder to search. You can search using: fund name (e.g., 'Garanti Hisse', 'altın', 'teknoloji'), fund code (e.g., 'TGE'), or founder company (e.g., 'QNB Finans'). Search is case-insensitive and supports Turkish characters."),
     limit: int = Field(20, description="Maximum number of results to return (default: 20, max: 50).", ge=1, le=50),
-    use_takasbank: bool = Field(True, description="Use comprehensive Takasbank fund list (True, recommended) or TEFAS API (False) for search.")
+    fund_category: str = Field("all", description="Filter by fund category: 'all' (all funds), 'debt' (Debt Securities), 'variable' (Variable Funds), 'basket' (Fund Baskets), 'guaranteed' (Guaranteed Funds), 'real_estate' (Real Estate), 'venture' (Venture Capital), 'equity' (Equity Funds), 'mixed' (Mixed Funds), 'participation' (Participation Funds), 'precious_metals' (Precious Metals), 'money_market' (Money Market), 'flexible' (Flexible Funds).")
 ) -> FonAramaSonucu:
     """
     Searches for mutual funds in TEFAS (Turkish Electronic Fund Trading Platform).
     
-    **Enhanced with Takasbank Data:**
-    Now uses the complete official fund list from Takasbank (836 funds) by default, providing 
-    comprehensive coverage of all Turkish mutual funds with Turkish character support.
+    **Advanced TEFAS API Integration:**
+    Uses the official TEFAS BindComparisonFundReturns API, providing comprehensive, 
+    up-to-date fund data with performance metrics included in search results.
+    
+    **Performance Data Included:**
+    Search results include real-time performance data (1M, 3M, 6M, 1Y, YTD, 3Y, 5Y returns),
+    automatically sorted by 1-year performance for better fund discovery.
     
     **Turkish Character Support:**
     Automatically handles Turkish characters - search for 'altın' or 'altin', both will work.
     Examples: 'garanti' finds 'GARANTİ', 'katilim' finds 'KATILIM', 'hisse' finds 'HİSSE'.
     
-    **Data Sources:**
-    - Takasbank (default): Official complete fund list with 836 funds
-    - TEFAS API (fallback): Limited API data
+    **Data Source:**
+    Official TEFAS API with real-time data covering 844 active funds + comprehensive performance metrics
     
     Use cases:
-    - Find fund codes by Turkish names: 'altın fonları' → gold funds
-    - Search with Turkish characters: 'katılım' → participation funds  
-    - Find by company: 'garanti portföy' → Garanti funds
-    - Quick code lookup: 'TGE' → exact fund match
-    - Thematic search: 'teknoloji' → technology funds
+    - Find top performing funds: 'altın fonları' → gold funds sorted by performance
+    - Search with performance: 'teknoloji' → technology funds with current returns
+    - Find by company: 'garanti portföy' → Garanti funds with latest performance  
+    - Quick code lookup: 'TGE' → exact fund match with metrics
+    - Thematic search: 'katılım' → participation funds with returns
+    - Category filtering: fund_category='equity' → only equity funds
+    - Mixed search: 'garanti' + fund_category='debt' → Garanti debt funds only
     
     Returns:
     - Fund code (e.g., AFO, BLT, DBA for gold funds)
     - Full fund name in Turkish
-    - Basic fund information
+    - Current performance metrics (1M, 3M, 6M, 1Y, YTD, 3Y, 5Y)
+    - Automatic sorting by 1-year return
     
     Examples:
-    - Search 'altın' → Returns AFO, BLT, DBA (gold funds)
-    - Search 'garanti hisse' → Returns Garanti equity funds  
-    - Search 'katılım' → Returns Islamic finance funds
-    - Search 'TGE' → Returns exact fund match
+    - Search 'altın' → Returns gold funds sorted by 1-year performance
+    - Search 'garanti hisse' → Returns Garanti equity funds with current returns
+    - Search 'katılım' → Returns Islamic finance funds with performance data
+    - Search 'TGE' → Returns exact fund match with full metrics
+    - Search 'teknoloji' + fund_category='equity' → Technology equity funds only
+    - Search 'garanti' + fund_category='debt' + limit=5 → Top 5 Garanti debt funds
     """
-    logger.info(f"Tool 'search_funds' called with query: '{search_term}', limit: {limit}, use_takasbank: {use_takasbank}")
+    logger.info(f"Tool 'search_funds' called with query: '{search_term}', limit: {limit}")
     
     if not search_term or len(search_term) < 2:
         raise ToolError("You must enter at least 2 characters to search.")
     
     try:
-        return await borsa_client.search_funds(search_term, limit, use_takasbank)
+        result = await borsa_client.tefas_provider.search_funds_advanced(search_term, limit, "YAT", fund_category)
+        return FonAramaSonucu(**result)
     except Exception as e:
         logger.exception(f"Error in tool 'search_funds' for query '{search_term}'.")
         return FonAramaSonucu(
@@ -1596,37 +1605,51 @@ async def search_funds(
 
 @app.tool()
 async def get_fund_detail(
-    fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB'). Use search_funds to find the correct fund code first.")
+    fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB'). Use search_funds to find the correct fund code first."),
+    include_price_history: bool = Field(False, description="Include detailed price history (1-week, 1-month, 3-month, 6-month). Default is False for faster response.")
 ) -> FonDetayBilgisi:
     """
-    Fetches comprehensive details and performance metrics for a specific Turkish mutual fund.
+    Fetches comprehensive details and performance metrics for a specific Turkish mutual fund from official TEFAS GetAllFundAnalyzeData API.
     
-    Provides complete fund information including:
-    - Current NAV (Net Asset Value) and pricing
-    - Total AUM (Assets Under Management)
-    - Number of investors
-    - Performance metrics (1m, 3m, 6m, YTD, 1y, 3y, 5y returns)
-    - Risk metrics (standard deviation, Sharpe ratio, alpha, beta)
-    - Fund type and risk score
-    - Management and founder information
+    **Complete Fund Information:**
+    - **Basic Data**: Current NAV, AUM, investor count, fund category, ranking in category
+    - **Performance**: Returns for 1m, 3m, 6m, YTD, 1y, 3y, 5y periods with daily changes
+    - **Risk Metrics**: Standard deviation, Sharpe ratio, alpha, beta, risk score (1-7)
+    - **Fund Profile**: ISIN code, trading hours, minimum amounts, commissions, KAP links
+    - **Portfolio Allocation**: Asset type breakdown (equities, bonds, repos, etc.) with percentages
+    - **Category Rankings**: Position within fund category, total funds in category, market share
     
-    Use cases:
-    - Analyze fund performance and risk metrics
-    - Compare fund returns across different time periods
-    - Evaluate risk-adjusted returns (Sharpe ratio)
-    - Check fund size and investor base
+    **Optional Price History** (include_price_history=True):
+    - 1-week price history (fundPrices1H)
+    - 1-month price history (fundPrices1A)  
+    - 3-month price history (fundPrices3A)
+    - 6-month price history (fundPrices6A)
     
-    Examples:
-    - get_fund_detail("TGE") → Garanti equity fund details
-    - get_fund_detail("AFA") → Ak Asset Management fund details
+    **New Enhanced Features:**
+    - **Category Ranking**: "84 / 163" format showing fund's position among peers
+    - **Portfolio Breakdown**: Detailed asset allocation (e.g., 27.99% Government Bonds, 25.03% Equities)
+    - **Technical Profile**: Trading parameters, valor dates, commission structure
+    - **Market Share**: Fund's percentage of total market
+    
+    **Use Cases:**
+    - **Investment Analysis**: Complete fund evaluation with all metrics
+    - **Portfolio Research**: Asset allocation strategy analysis  
+    - **Performance Comparison**: Ranking vs peers in same category
+    - **Due Diligence**: Technical details for institutional analysis
+    - **Risk Assessment**: Comprehensive risk profiling
+    
+    **Examples:**
+    - get_fund_detail("TGE") → Garanti equity fund with portfolio allocation
+    - get_fund_detail("AAK", include_price_history=True) → Full data with 6-month price history
+    - get_fund_detail("AFO") → Gold fund with category ranking and technical profile
     """
-    logger.info(f"Tool 'get_fund_detail' called with fund_code: '{fund_code}'")
+    logger.info(f"Tool 'get_fund_detail' called with fund_code: '{fund_code}', include_price_history: {include_price_history}")
     
     if not fund_code or not fund_code.strip():
         raise ToolError("Fund code cannot be empty")
     
     try:
-        return await borsa_client.get_fund_detail(fund_code.strip().upper())
+        return await borsa_client.get_fund_detail(fund_code.strip().upper(), include_price_history)
     except Exception as e:
         logger.exception(f"Error in tool 'get_fund_detail' for fund_code '{fund_code}'.")
         return FonDetayBilgisi(
@@ -1647,32 +1670,70 @@ async def get_fund_detail(
 
 @app.tool()
 async def get_fund_performance(
-    fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB')."),
-    start_date: str = Field(None, description="Start date in YYYY-MM-DD format (default: 1 year ago)."),
-    end_date: str = Field(None, description="End date in YYYY-MM-DD format (default: today).")
+    fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB', 'AAK')."),
+    start_date: str = Field(None, description="Start date in YYYY-MM-DD format (default: 1 year ago). Example: '2024-01-01'"),
+    end_date: str = Field(None, description="End date in YYYY-MM-DD format (default: today). Example: '2024-12-31'")
 ) -> FonPerformansSonucu:
     """
-    Fetches historical performance data for a Turkish mutual fund.
+    Fetches historical performance data for a Turkish mutual fund using official TEFAS BindHistoryInfo API.
     
-    Provides historical NAV data and calculates returns over the specified period.
-    Default period is 1 year if dates are not specified.
+    **Enhanced TEFAS API Integration:**
+    Uses the official TEFAS historical data endpoint (same as TEFAS website), providing
+    comprehensive fund performance data with precise timestamps and portfolio metrics.
     
-    Returns:
-    - Daily NAV history
-    - Total return for the period
-    - Annualized return
-    - Outstanding shares and AUM history
-    - Investor count history
+    **Data Provided:**
+    - Daily NAV (Net Asset Value) history with exact timestamps
+    - Fund size (AUM) and outstanding shares over time
+    - Investor count history and trends
+    - Total return calculation for the specified period
+    - Annualized return with compound growth rate
+    - Portfolio value evolution (PORTFOYBUYUKLUK)
+    - Fund title and official information
     
-    Use cases:
-    - Chart fund performance over time
-    - Calculate custom period returns
-    - Analyze fund growth and investor trends
-    - Compare performance across different time windows
+    **Performance Calculations:**
+    - **Total Return**: ((Latest Price - Oldest Price) / Oldest Price) × 100
+    - **Annualized Return**: ((Latest Price / Oldest Price)^(365/days) - 1) × 100
+    - **Date Range**: Flexible period analysis (1 day to 5 years maximum)
     
-    Examples:
-    - get_fund_performance("TGE") → Last 1 year performance
-    - get_fund_performance("AFA", "2024-01-01", "2024-12-31") → 2024 performance
+    **Time Zone & Formatting:**
+    All timestamps converted to Turkey timezone (Europe/Istanbul) and formatted as YYYY-MM-DD.
+    Data sorted by date (newest first) for easy chronological analysis.
+    
+    **Use Cases:**
+    
+    **Performance Analysis:**
+    - Chart fund NAV evolution over any time period
+    - Calculate precise returns for investment periods
+    - Compare fund performance across different market cycles
+    - Analyze volatility and return patterns
+    
+    **Portfolio Monitoring:**
+    - Track AUM growth and fund size changes
+    - Monitor investor sentiment via investor count trends
+    - Assess fund liquidity and market acceptance
+    - Evaluate management effectiveness over time
+    
+    **Investment Research:**
+    - Historical due diligence for fund selection
+    - Performance attribution and risk analysis
+    - Benchmark comparison preparation
+    - Tax planning with precise date ranges
+    
+    **Examples:**
+    - get_fund_performance("TGE") → Last 1 year Garanti equity fund performance
+    - get_fund_performance("AAK", "2024-01-01", "2024-12-31") → 2024 ATA multi-asset fund performance
+    - get_fund_performance("AFA", "2023-06-01", "2024-06-01") → 1-year AK Asset Management fund analysis
+    - get_fund_performance("IPB", "2024-06-01", "2024-06-22") → Recent 3-week İş Portföy performance
+    
+    **Response Format:**
+    Returns detailed performance data including fund code, date range, complete price history,
+    calculated returns, data point count, and source attribution for audit trails.
+    
+    **Data Quality:**
+    - Official TEFAS timestamps (milliseconds precision)
+    - Real portfolio values and investor counts
+    - Validated fund codes and comprehensive error handling
+    - Maximum 3-month date range limit (TEFAS restriction)
     """
     logger.info(f"Tool 'get_fund_performance' called with fund_code: '{fund_code}', period: {start_date} to {end_date}")
     
@@ -1694,40 +1755,108 @@ async def get_fund_performance(
 
 @app.tool()
 async def get_fund_portfolio(
-    fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB').")
+    fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB', 'AAK')."),
+    start_date: str = Field(None, description="Start date in YYYY-MM-DD format (default: 1 week ago). Example: '2024-06-15'"),
+    end_date: str = Field(None, description="End date in YYYY-MM-DD format (default: today). Example: '2024-06-22'")
 ) -> FonPortfoySonucu:
     """
-    Fetches the current portfolio composition of a Turkish mutual fund.
+    Fetches historical portfolio allocation composition of a Turkish mutual fund using official TEFAS BindHistoryAllocation API.
     
-    Provides detailed breakdown of fund holdings by asset type:
-    - Equity holdings
-    - Fixed income securities
-    - Money market instruments
-    - Precious metals
-    - Other assets
+    **Enhanced TEFAS API Integration:**
+    Uses the official TEFAS allocation history endpoint (same as TEFAS website), providing
+    comprehensive portfolio allocation data over time with detailed asset type breakdowns.
     
-    Each asset category shows:
-    - Amount in TRY
-    - Percentage of portfolio
-    - Sub-categories and details
+    **Portfolio Allocation Data:**
+    - Asset allocation percentages by category over time
+    - Complete asset type mapping (50+ categories)
+    - Historical allocation changes and trends
+    - Investment strategy evolution analysis
+    - Asset concentration and diversification metrics
     
-    Use cases:
-    - Understand fund investment strategy
-    - Analyze asset allocation
-    - Check concentration in specific asset types
-    - Evaluate fund diversification
+    **Asset Categories Tracked:**
     
-    Examples:
-    - get_fund_portfolio("TGE") → See equity allocations
-    - get_fund_portfolio("AAK") → Check gold fund holdings
+    **Equity & Securities:**
+    - Hisse Senedi (HS) - Domestic equity holdings
+    - Yabancı Hisse Senedi (YHS) - Foreign equity holdings
+    - Borsa Yatırım Fonu (BYF) - ETF holdings
+    - Yabancı Borsa Yatırım Fonu (YBYF) - Foreign ETF holdings
+    
+    **Fixed Income:**
+    - Devlet Tahvili (DT) - Government bonds
+    - Özel Sektör Tahvili (OST) - Corporate bonds
+    - Eurobond Tahvil (EUT) - Eurobond holdings
+    - Yabancı Borçlanma Araçları (YBA) - Foreign debt instruments
+    
+    **Money Market & Cash:**
+    - Vadesiz Mevduat (VM) - Demand deposits
+    - Vadeli Mevduat (VDM) - Time deposits
+    - Ters Repo (TR) - Reverse repo operations
+    - Döviz (D) - Foreign currency holdings
+    
+    **Islamic Finance:**
+    - Kira Sertifikası (KKS) - Lease certificates
+    - Katılım Hesabı (KH) - Participation accounts
+    - Özel Sektör Kira Sertifikası (OSKS) - Private sector lease certificates
+    
+    **Alternative Investments:**
+    - Kıymetli Maden (KM) - Precious metals
+    - Gayrimenkul Yatırım (GYY) - Real estate investments
+    - Girişim Sermayesi Yatırım (GSYY) - Venture capital investments
+    - Yabancı Yatırım Fonu (YYF) - Foreign mutual funds
+    
+    **Time-Series Analysis:**
+    All timestamps converted to Turkey timezone (Europe/Istanbul) with chronological sorting.
+    Data shows allocation evolution over the specified period for strategy analysis.
+    
+    **Use Cases:**
+    
+    **Investment Strategy Analysis:**
+    - Track allocation changes over time
+    - Understand fund manager's investment approach
+    - Analyze response to market conditions
+    - Evaluate strategic asset allocation consistency
+    
+    **Risk Assessment:**
+    - Monitor concentration levels in specific assets
+    - Assess diversification effectiveness
+    - Track foreign currency exposure
+    - Evaluate credit risk through bond allocations
+    
+    **Performance Attribution:**
+    - Correlate allocation changes with performance
+    - Identify best/worst performing allocations
+    - Understand style drift over time
+    - Analyze sector rotation patterns
+    
+    **Due Diligence:**
+    - Verify fund strategy alignment with prospectus
+    - Compare actual vs. stated investment approach
+    - Monitor regulatory compliance
+    - Assess manager consistency
+    
+    **Examples:**
+    - get_fund_portfolio("TGE") → Last week's Garanti equity fund allocations
+    - get_fund_portfolio("AAK", "2024-06-01", "2024-06-22") → ATA multi-asset fund allocation evolution over 3 weeks
+    - get_fund_portfolio("AFO") → Recent allocation data for AK gold fund
+    - get_fund_portfolio("IPB", "2024-06-15", "2024-06-22") → İş Portföy allocation changes over 1 week
+    
+    **Response Format:**
+    Returns historical allocation data with date range, complete allocation history,
+    latest allocation summary, data point count, and source attribution.
+    
+    **Data Quality:**
+    - Official TEFAS timestamps (milliseconds precision)
+    - Complete asset type mapping with Turkish names
+    - Validated fund codes and comprehensive error handling
+    - Default 1-week range for recent allocation analysis
     """
-    logger.info(f"Tool 'get_fund_portfolio' called with fund_code: '{fund_code}'")
+    logger.info(f"Tool 'get_fund_portfolio' called with fund_code: '{fund_code}', period: {start_date} to {end_date}")
     
     if not fund_code or not fund_code.strip():
         raise ToolError("Fund code cannot be empty")
     
     try:
-        return await borsa_client.get_fund_portfolio(fund_code.strip().upper())
+        return await borsa_client.get_fund_portfolio(fund_code.strip().upper(), start_date, end_date)
     except Exception as e:
         logger.exception(f"Error in tool 'get_fund_portfolio' for fund_code '{fund_code}'.")
         return FonPortfoySonucu(
@@ -1739,102 +1868,140 @@ async def get_fund_portfolio(
             error_message=f"An unexpected error occurred: {str(e)}"
         )
 
-@app.tool()
-async def compare_funds(
-    fund_codes: List[str] = Field(..., description="List of TEFAS fund codes to compare (e.g., ['TGE', 'AFA', 'IPB']). Maximum 5 funds.")
-) -> FonKarsilastirmaSonucu:
-    """
-    Compares multiple Turkish mutual funds side by side.
-    
-    Provides comparative analysis including:
-    - Performance metrics (1m, 3m, 1y returns)
-    - Risk metrics (Sharpe ratio, standard deviation)
-    - Fund size and investor base
-    - Rankings by return, risk-adjusted return, and size
-    
-    Use cases:
-    - Choose between similar funds
-    - Evaluate fund performance within a category
-    - Compare risk-adjusted returns
-    - Identify best performers
-    
-    Examples:
-    - compare_funds(["TGE", "AFA", "IPB"]) → Compare 3 equity funds
-    - compare_funds(["AAK", "GPA"]) → Compare gold funds
-    """
-    logger.info(f"Tool 'compare_funds' called with fund_codes: {fund_codes}")
-    
-    if not fund_codes or len(fund_codes) == 0:
-        raise ToolError("You must provide at least one fund code to compare")
-    
-    if len(fund_codes) > 5:
-        raise ToolError("Maximum 5 funds can be compared at once")
-    
-    try:
-        return await borsa_client.compare_funds(fund_codes)
-    except Exception as e:
-        logger.exception(f"Error in tool 'compare_funds'.")
-        return FonKarsilastirmaSonucu(
-            karsilastirilan_fonlar=fund_codes,
-            karsilastirma_verileri=[],
-            fon_sayisi=0,
-            tarih="",
-            error_message=f"An unexpected error occurred: {str(e)}"
-        )
+
 
 @app.tool()
-async def screen_funds(
-    fund_type: str = Field(None, description="Fund type filter: 'HSF' (Equity), 'DEF' (Variable), 'HBF' (Debt Securities), 'KYD' (Precious Metals), 'KAT' (Participation)."),
-    min_return_1y: float = Field(None, description="Minimum 1-year return percentage (e.g., 50 for 50%)."),
-    max_risk: int = Field(None, description="Maximum risk score (1-7 scale)."),
-    min_sharpe: float = Field(None, description="Minimum Sharpe ratio."),
-    min_size: float = Field(None, description="Minimum fund size in TRY (e.g., 1000000000 for 1 billion)."),
-    founder: str = Field(None, description="Filter by founder/company name (partial match).")
-) -> FonTaramaSonucu:
+async def compare_funds(
+    fund_type: str = Field("EMK", description="Fund type: 'YAT' (Investment Funds), 'EMK' (Pension Funds), 'BYF' (ETFs), 'GYF' (REITs), 'GSYF' (Venture Capital)."),
+    start_date: str = Field(None, description="Start date in DD.MM.YYYY format (e.g., '25.05.2025'). If not provided, defaults to 30 days ago."),
+    end_date: str = Field(None, description="End date in DD.MM.YYYY format (e.g., '20.06.2025'). If not provided, defaults to today."),
+    periods: List[str] = Field(["1A", "3A", "6A", "YB", "1Y"], description="List of return periods: '1A' (1 month), '3A' (3 months), '6A' (6 months), 'YB' (year-to-date), '1Y' (1 year), '3Y' (3 years), '5Y' (5 years)."),
+    founder: str = Field("Tümü", description="Filter by fund management company. Use 'Tümü' for all, or specific codes like 'AKP' (AK Portföy), 'GPY' (Garanti Portföy), 'ISP' (İş Portföy), etc."),
+    fund_codes: List[str] = Field(None, description="Optional list of specific fund codes to compare (e.g., ['AFO', 'EUN']). If provided, only these funds will be included in results.")
+) -> Dict[str, Any]:
     """
-    Screens Turkish mutual funds based on various criteria.
+    Compares and screens Turkish mutual funds using TEFAS official comparison API.
     
-    Filters funds by:
-    - Fund type (equity, debt, precious metals, etc.)
-    - Performance metrics (1-year return)
-    - Risk metrics (risk score, Sharpe ratio)
-    - Fund size (AUM)
-    - Management company
+    This unified tool serves as both fund comparison and screening tool using the exact same 
+    endpoint as TEFAS website's fund comparison page, providing comprehensive analysis with 
+    multiple return periods, filters, and statistical analysis.
     
-    Returns up to 50 funds matching the criteria, sorted by 1-year return.
+    **Key Features:**
+    - Official TEFAS comparison data (same as website)
+    - Multiple fund types: Investment, Pension, ETF, REIT, Venture Capital
+    - Flexible date ranges and return periods
+    - Filter by management company
+    - Comprehensive statistics and rankings
+    - Dual functionality: comparison and screening
     
-    Use cases:
-    - Find top performing funds
-    - Identify low-risk funds with good returns
-    - Search funds by specific criteria
-    - Discover funds from preferred companies
+    **Modes of Operation:**
     
-    Examples:
-    - screen_funds(fund_type="HSF", min_return_1y=100) → Equity funds with >100% return
-    - screen_funds(max_risk=3, min_sharpe=1.0) → Low-risk funds with good risk-adjusted returns
-    - screen_funds(founder="Garanti") → All Garanti funds
+    **1. Fund Comparison Mode:**
+    - Provide specific fund_codes to compare selected funds
+    - Examples: ['TGE', 'AFA', 'IPB'], ['AAK', 'GPA']
+    
+    **2. Fund Screening Mode:**
+    - Leave fund_codes empty (None) to screen all funds by criteria
+    - Use fund_type, founder, periods for filtering
+    - Returns all matching funds sorted by performance
+    
+    **Use Cases:**
+    - **Comparison**: compare_funds(fund_codes=['TGE', 'AFA']) → Compare specific equity funds
+    - **Screening**: compare_funds(fund_type='EMK', founder='GPY') → Screen all Garanti pension funds
+    - **Market Analysis**: compare_funds(fund_type='BYF') → Screen all ETFs
+    - **Performance Analysis**: compare_funds(fund_type='YAT', periods=['1Y', '3Y']) → Screen investment funds with 1Y and 3Y returns
+    
+    **Examples:**
+    - compare_funds(fund_codes=['TGE', 'AFA']) → Compare 2 specific equity funds
+    - compare_funds(fund_type='EMK', founder='GPY') → Screen Garanti pension funds
+    - compare_funds(fund_type='BYF') → Screen all ETFs
+    - compare_funds(fund_type='YAT', periods=['1Y']) → Screen investment funds by 1-year performance
+    
+    Returns detailed comparison/screening data including fund details, performance metrics,
+    statistical summaries, and ranking information.
     """
-    logger.info(f"Tool 'screen_funds' called with criteria: type={fund_type}, min_return={min_return_1y}, max_risk={max_risk}")
+    result = await borsa_client.compare_funds_advanced(
+        fund_codes=fund_codes,
+        fund_type=fund_type,
+        start_date=start_date,
+        end_date=end_date,
+        periods=periods,
+        founder=founder
+    )
+    return result
+
+@app.tool()
+async def get_fon_mevzuati() -> FonMevzuatSonucu:
+    """
+    Retrieves Turkish investment fund regulation guide.
     
+    This tool provides comprehensive fund regulation documentation that LLMs can reference
+    when answering legal questions about investment funds. Content covers only investment
+    fund-specific regulations, not the entire stock market regulations.
+    
+    **Covered Topics:**
+    
+    **Fund Types and Structures:**
+    - Mixed umbrella funds and their regulations
+    - Index funds and tracking rules
+    - Money market participation funds
+    - Special provisions for participation funds
+    - Private funds and special arrangements
+    
+    **Portfolio Management:**
+    - Asset restrictions and portfolio limits
+    - Derivative instrument investment rules
+    - Foreign investment guidelines
+    - Risk management requirements
+    - Liquidity management rules
+    
+    **Transactions and Restrictions:**
+    - Repo and reverse repo transaction rules
+    - Over-the-counter transactions
+    - Securities lending regulations
+    - Swap contract guidelines
+    - Maturity calculation methods
+    
+    **Special Regulations:**
+    - Issuer limits and calculations
+    - Related party transactions
+    - Asset-backed securities rules
+    - Income-indexed securities
+    - Precious metal investments
+    
+    **Fund Naming and Titles:**
+    - Fund title regulations
+    - "Participation" terminology usage
+    - "Partnership" labeled funds
+    - Special purpose fund naming
+    
+    **Use Cases:**
+    - Fund establishment and structuring
+    - Portfolio management decisions
+    - Risk management and compliance
+    - Investment strategy development
+    - Legal compliance monitoring
+    
+    **Important Note:**
+    This fund regulation guide applies only to **investment funds**. Stocks,
+    bond markets, CMB general regulations, or other capital market instruments
+    require separate regulatory documents.
+    
+    **Updates:**
+    The fund regulation document's last update date is provided in the response.
+    For critical decisions, verify current regulations from the official CMB website.
+    """
+    logger.info("Tool 'get_fon_mevzuati' called")
     try:
-        criteria = FonTaramaKriterleri(
-            fund_type=fund_type,
-            min_return_1y=min_return_1y,
-            max_risk=max_risk,
-            min_sharpe=min_sharpe,
-            min_size=min_size,
-            founder=founder
-        )
-        
-        return await borsa_client.screen_funds(criteria)
+        return await borsa_client.get_fon_mevzuati()
     except Exception as e:
-        logger.exception(f"Error in tool 'screen_funds'.")
-        return FonTaramaSonucu(
-            tarama_kriterleri=criteria if 'criteria' in locals() else FonTaramaKriterleri(),
-            bulunan_fonlar=[],
-            toplam_sonuc=0,
-            tarih="",
-            error_message=f"An unexpected error occurred: {str(e)}"
+        logger.exception("Error in tool 'get_fon_mevzuati'")
+        return FonMevzuatSonucu(
+            mevzuat_adi="Yatırım Fonları Mevzuat Rehberi",
+            icerik="",
+            karakter_sayisi=0,
+            kaynak_dosya="fon_mevzuat_kisa.md",
+            error_message=f"Fon mevzuatı dokümanı alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
 def main():
