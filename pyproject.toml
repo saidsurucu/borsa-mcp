@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "borsa-mcp"
-version = "0.6.0"
+version = "0.7.0"
 description = "A modular MCP Server for Borsa Istanbul (BIST) data using KAP and Yahoo Finance."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -30,4 +30,5 @@ where = ["."]
 include = ["providers*"]
 
 [tool.setuptools]
-py-modules = ["borsa_mcp_server", "borsa_client", "borsa_models"]
+py-modules = ["borsa_mcp_server", "borsa_client", "borsa_models", "fon_mevzuat_kisa"]
+include-package-data = true

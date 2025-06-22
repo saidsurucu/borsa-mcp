@@ -1425,27 +1425,55 @@ class BorsaApiClient:
         try:
             import os
             from datetime import datetime
+            import importlib.resources
             
-            # Mevzuat dosyasının yolu
-            mevzuat_dosya_yolu = os.path.join(os.path.dirname(__file__), "fon_mevzuat_kisa.md")
-            
-            # Dosyanın varlığını kontrol et
-            if not os.path.exists(mevzuat_dosya_yolu):
-                return FonMevzuatSonucu(
-                    mevzuat_adi="Yatırım Fonları Mevzuat Rehberi",
-                    icerik="",
-                    karakter_sayisi=0,
-                    kaynak_dosya="fon_mevzuat_kisa.md",
-                    error_message="Fon mevzuat dosyası bulunamadı"
-                )
-            
-            # Dosyayı oku
-            with open(mevzuat_dosya_yolu, 'r', encoding='utf-8') as file:
-                mevzuat_icerik = file.read()
-            
-            # Dosya bilgilerini al
-            dosya_stat = os.stat(mevzuat_dosya_yolu)
-            guncelleme_tarihi = datetime.fromtimestamp(dosya_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+            # Try different approaches to read the regulation content
+            try:
+                # Approach 1: Try to import from fon_mevzuat_kisa module (for installed package)
+                try:
+                    from fon_mevzuat_kisa import FON_MEVZUAT_KISA
+                    mevzuat_icerik = FON_MEVZUAT_KISA
+                    guncelleme_tarihi = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    logger.info("Loaded regulation from fon_mevzuat_kisa.py module")
+                except ImportError:
+                    logger.warning("fon_mevzuat_kisa module not found, trying local file")
+                    
+                    # Approach 2: Try local file (development mode)
+                    mevzuat_dosya_yolu = os.path.join(os.path.dirname(__file__), "fon_mevzuat_kisa.md")
+                    
+                    if not os.path.exists(mevzuat_dosya_yolu):
+                        return FonMevzuatSonucu(
+                            mevzuat_adi="Yatırım Fonları Mevzuat Rehberi",
+                            icerik="",
+                            karakter_sayisi=0,
+                            kaynak_dosya="fon_mevzuat_kisa.md",
+                            error_message="Fon mevzuat dosyası bulunamadı (ne Python modülü ne de .md dosyası)"
+                        )
+                    
+                    # Dosyayı oku
+                    with open(mevzuat_dosya_yolu, 'r', encoding='utf-8') as file:
+                        mevzuat_icerik = file.read()
+                    
+                    # Dosya bilgilerini al
+                    dosya_stat = os.stat(mevzuat_dosya_yolu)
+                    guncelleme_tarihi = datetime.fromtimestamp(dosya_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                    logger.info("Loaded regulation from local file")
+                    
+            except Exception as fallback_error:
+                logger.error(f"All regulation loading methods failed: {fallback_error}")
+                # Son fallback - minimal content
+                mevzuat_icerik = """# Yatırım Fonları Mevzuat Rehberi
+
+**UYARI:** Bu içerik yalnızca test amaçlıdır. Tam mevzuat içeriği package'da bulunamadı.
+
+## Temel Fon Düzenlemeleri
+- Portföy sınırlamaları
+- Risk yönetimi gereklilikleri  
+- Fon türleri ve yapıları
+
+Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
+"""
+                guncelleme_tarihi = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
             return FonMevzuatSonucu(
                 mevzuat_adi="Yatırım Fonları Mevzuat Rehberi",
