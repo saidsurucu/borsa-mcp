@@ -1,16 +1,16 @@
-# Borsa MCP: Borsa İstanbul (BIST) için MCP Sunucusu
+# Borsa MCP: Borsa İstanbul (BIST) ve TEFAS Fonları için MCP Sunucusu
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
-Bu proje, Borsa İstanbul (BIST) verilerine erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, KAP (Kamuyu Aydınlatma Platformu), Mynet Finans ve Yahoo Finance'dan hisse senedi bilgileri, finansal veriler, teknik analiz ve sektör karşılaştırmaları, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
+Bu proje, Borsa İstanbul (BIST) verilerine ve Türk yatırım fonları verilerine erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, KAP (Kamuyu Aydınlatma Platformu), TEFAS (Türkiye Elektronik Fon Alım Satım Platformu), Mynet Finans ve Yahoo Finance'dan hisse senedi bilgileri, fon verileri, finansal veriler, teknik analiz ve sektör karşılaştırmaları, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
 
 ![ornek](./ornek.jpeg)
 
 
 🎯 **Temel Özellikler**
 
-* Borsa İstanbul (BIST) verilerine programatik erişim için kapsamlı bir MCP arayüzü.
-* Aşağıdaki yetenekler:
+* Borsa İstanbul (BIST) ve Türk yatırım fonları verilerine programatik erişim için kapsamlı bir MCP arayüzü.
+* **23 Araç** ile tam finansal analiz desteği:
     * **Şirket Arama:** 793 BIST şirketi arasında ticker kodu ve şirket adına göre arama.
     * **Finansal Veriler:** Bilanço, kar-zarar, nakit akışı tabloları ve geçmiş OHLCV verileri.
     * **Teknik Analiz:** RSI, MACD, Bollinger Bantları gibi teknik göstergeler ve al-sat sinyalleri.
@@ -18,8 +18,10 @@ Bu proje, Borsa İstanbul (BIST) verilerine erişimi kolaylaştıran bir [FastMC
     * **KAP Haberleri:** Resmi şirket duyuruları ve düzenleyici başvurular.
     * **Endeks Desteği:** BIST endeksleri (XU100, XBANK, XK100 vb.) için tam destek.
     * **Katılım Finans:** Katılım finans uygunluk verileri.
+    * **TEFAS Fonları:** 800+ Türk yatırım fonu arama, performans, portföy analizi.
+    * **Fon Mevzuatı:** Yatırım fonları düzenlemeleri ve hukuki uyumluluk rehberi.
     * **Hibrit Veri:** Yahoo Finance + Mynet Finans'tan birleştirilmiş şirket bilgileri.
-* Türk hisse senetleri ve endeksler için optimize edilmiş veri işleme.
+* Türk hisse senetleri, endeksler ve yatırım fonları için optimize edilmiş veri işleme.
 * Claude Desktop uygulaması ile kolay entegrasyon.
 * Borsa MCP, [5ire](https://5ire.app) gibi Claude Desktop haricindeki MCP istemcilerini de destekler.
 
@@ -101,6 +103,16 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 ### Katılım Finans
 * **`get_katilim_finans_uygunluk`**: KAP Katılım finans uygunluk verileri ve katılım endeksi üyeliği.
 
+### TEFAS Fon Araçları
+* **`search_funds`**: Türk yatırım fonları arama (kategori filtreleme ve performans metrikleri ile).
+* **`get_fund_detail`**: Kapsamlı fon bilgileri ve analitiği.
+* **`get_fund_performance`**: Resmi TEFAS BindHistoryInfo API ile geçmiş fon performansı.
+* **`get_fund_portfolio`**: Resmi TEFAS BindHistoryAllocation API ile fon portföy dağılımı.
+* **`compare_funds`**: Resmi TEFAS karşılaştırma API ile çoklu fon karşılaştırması.
+
+### Fon Mevzuat Araçları
+* **`get_fon_mevzuati`**: Türk yatırım fonları mevzuat rehberi (hukuki uyumluluk için).
+
 🔍 **Veri Kaynakları & Kapsam**
 
 ### KAP (Kamuyu Aydınlatma Platformu)
@@ -117,6 +129,20 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Türk Özel Verileri**: Kurumsal yönetim, ortaklık yapısı, bağlı şirketler
 - **KAP Haberleri**: Gerçek zamanlı resmi duyuru akışı
 - **Endeks Kompozisyonu**: Canlı endeks şirket listeleri
+
+### TEFAS (Türkiye Elektronik Fon Alım Satım Platformu)
+- **Fon Evreni**: 800+ Türk yatırım fonu
+- **Resmi API**: TEFAS BindHistoryInfo ve BindHistoryAllocation API'leri
+- **Kategori Filtreleme**: 13 fon kategorisi (borçlanma, hisse senedi, altın vb.)
+- **Performans Metrikleri**: 7 dönemlik getiri analizi (1 günlük - 3 yıllık)
+- **Portföy Analizi**: 50+ Türk varlık kategorisi ile detaylı dağılım
+- **Güncellik**: Gerçek zamanlı fon fiyatları ve performans verileri
+
+### Fon Mevzuatı
+- **Kaynak**: `fon_mevzuat_kisa.md` - 80,820 karakter düzenleme metni
+- **Kapsam**: Yatırım fonları için kapsamlı Türk mevzuatı
+- **İçerik**: Portföy limitleri, fon türleri, uyumluluk kuralları
+- **Güncelleme**: Dosya metadata ile son güncelleme tarihi
 
 📊 **Örnek Kullanım**
 
@@ -138,6 +164,15 @@ ARCLK'nın katılım finans uygunluğunu kontrol et
 
 # Sektör karşılaştırması
 Bankacılık sektöründeki ana oyuncuları karşılaştır: GARAN, AKBNK, YKBNK
+
+# Fon arama ve analizi
+"altın" fonları ara ve en iyi performans gösteren 3 tanesini karşılaştır
+
+# Fon portföy analizi
+AAK fonunun son 6 aylık portföy dağılım değişimini analiz et
+
+# Fon mevzuat sorguları
+Yatırım fonlarında türev araç kullanım limitleri nelerdir?
 ```
 
 📜 **Lisans**
