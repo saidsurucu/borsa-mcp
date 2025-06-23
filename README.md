@@ -4,8 +4,6 @@
 
 Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine ve kripto para verilerine erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, KAP (Kamuyu Aydınlatma Platformu), TEFAS (Türkiye Elektronik Fon Alım Satım Platformu), BtcTurk, Mynet Finans ve Yahoo Finance'dan hisse senedi bilgileri, fon verileri, kripto para piyasa verileri, finansal veriler, teknik analiz ve sektör karşılaştırmaları, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
 
-**LLM Optimizasyonu:** Bu MCP sunucusu, LLM modelleri için özel olarak optimize edilmiştir. Araç açıklamaları, alan tanımları ve dokümantasyon LLM'lerin daha iyi araç seçimi yapabilmesi için FastMCP prensipleri doğrultusunda düzenlenmiştir.
-
 ![ornek](./ornek.jpeg)
 
 ![fon ornek](./fon-ornek.png)
