@@ -167,3 +167,4 @@ debug_grafik.py
 test_*.py
 CLAUDE.md
 mcp_servers_config.json
+fast-mcp-docs.md
