@@ -55,32 +55,15 @@ borsa_client = BorsaApiClient()
 YFinancePeriodLiteral = Literal["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "ytd", "max"]
 StatementPeriodLiteral = Literal["annual", "quarterly"]
 
-@app.tool()
+@app.tool(description="BIST STOCKS: Search companies by name to find ticker codes. STOCKS ONLY - use get_kripto_exchange_info for crypto.")
 async def find_ticker_code(
-    sirket_adi_veya_kodu: str = Field(..., description="Enter the company's name or code to find its official BIST ticker. You can search using: company name (e.g., 'Garanti'), partial name (e.g., 'Aselsan'), or existing ticker (e.g., 'GARAN'). Search is case-insensitive and supports Turkish characters.")
+    sirket_adi_veya_kodu: str = Field(..., description="Company name or ticker to search (e.g. 'Garanti', 'Aselsan', 'GARAN'). Case-insensitive, supports Turkish chars.")
 ) -> SirketAramaSonucu:
     """
-    Searches for companies listed on Borsa Istanbul (BIST) to find their official ticker codes.
+    Search 758 BIST companies by name to find ticker codes. Uses fuzzy matching.
     
-    This tool searches through all 793 companies currently listed on BIST using data from KAP (Public Disclosure Platform).
-    It performs fuzzy matching on company names and exact matching on ticker codes.
-    
-    Use cases:
-    - Find the ticker code for a Turkish company you want to analyze
-    - Verify the correct spelling or official name of a BIST company
-    - Discover companies in a specific city or with similar names
-    - Get the complete list of companies matching your search criteria
-    
-    Returns detailed information including:
-    - Official company name (in Turkish)
-    - BIST ticker code (e.g., GARAN, ASELS, TUPRS)
-    - Registered city location
-    - Total number of matching results
-    
-    Examples:
-    - Search 'garanti' → Returns GARAN (T. GARANTİ BANKASI A.Ş.)
-    - Search 'aselsan' → Returns ASELS (ASELSAN ELEKTRONİK SANAYİ VE TİCARET A.Ş.)
-    - Search 'istanbul' → Returns all companies with 'Istanbul' in their name
+    Examples: 'garanti' → GARAN, 'aselsan' → ASELS, 'TUPRS' → TUPRS
+    Returns: company name, ticker code, city, match count
     """
     logger.info(f"Tool 'find_ticker_code' called with query: '{sirket_adi_veya_kodu}'")
     if not sirket_adi_veya_kodu or len(sirket_adi_veya_kodu) < 2:
@@ -91,88 +74,16 @@ async def find_ticker_code(
         logger.exception(f"Error in tool 'find_ticker_code' for query '{sirket_adi_veya_kodu}'.")
         return SirketAramaSonucu(arama_terimi=sirket_adi_veya_kodu, sonuclar=[], sonuc_sayisi=0, error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool()
+@app.tool(description="BIST STOCKS: Get company/index profile with financial metrics and sector info. STOCKS ONLY - use get_kripto_ticker for crypto.")
 async def get_sirket_profili(
-    ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'ASELS', 'THYAO' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include the '.IS' suffix - it will be added automatically for Turkish stocks and indices."),
-    mynet_detaylari: bool = Field(False, description="Include detailed Turkish-specific company information from Mynet Finans (management, shareholders, subsidiaries, currency position). Default is False for faster response.")
+    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, ASELS) or index (XU100, XBANK). No .IS suffix needed."),
+    mynet_detaylari: bool = Field(False, description="Include Turkish details: management, shareholders, subsidiaries. False=faster response.")
 ) -> SirketProfiliSonucu:
     """
-    Fetches comprehensive company profile and fundamental information with optional Turkish-specific details.
+    Get company profile with financial metrics, sector, business info. Optional Turkish details.
     
-    **Standard Mode (mynet_detaylari=False):**
-    Uses Yahoo Finance for international financial data including business description, industry classification,
-    market metrics, and key financial ratios. Perfect for getting fundamental analysis data.
-    
-    **Enhanced Mode (mynet_detaylari=True):**
-    Combines Yahoo Finance data with detailed Turkish-specific information from Mynet Finans including
-    management structure, shareholder composition, subsidiaries, and currency positions.
-    
-    **Yahoo Finance Data (Always Included):**
-    
-    **Basic Information:**
-    - Company full name and ticker symbol
-    - Business sector and industry classification
-    - Number of full-time employees
-    - Headquarters city and country
-    - Official website URL
-    
-    **Market Data:**
-    - Current market capitalization
-    - 52-week price range (high/low)
-    - Beta coefficient (volatility vs market)
-    - Currency of trading
-    
-    **Valuation Metrics:**
-    - Trailing P/E ratio (price-to-earnings)
-    - Forward P/E ratio (based on estimates)
-    - Dividend yield percentage
-    
-    **Business Description:**
-    - Detailed business summary explaining company operations
-    - Core business activities and revenue sources
-    - Market position and competitive advantages
-    
-    **Mynet Finans Data (When mynet_detaylari=True):**
-    
-    **Corporate Governance:**
-    - Board of directors (Yönetim Kurulu) member names
-    - General manager information
-    - Establishment and IPO dates
-    - Employee count details
-    
-    **Ownership Structure:**
-    - Shareholders list with capital amounts and percentages
-    - Detailed ownership breakdown
-    - Corporate investor information
-    
-    **Corporate Structure:**
-    - Subsidiaries and affiliates with capital and ownership percentages
-    - Investment portfolio details
-    - Group company relationships
-    
-    **Financial Position (For Banks/Financial Institutions):**
-    - Foreign currency assets (TL equivalent)
-    - Foreign currency liabilities (TL equivalent)
-    - Net foreign currency position
-    - Derivative instruments net position
-    
-    **Use Cases:**
-    - **Standard Mode**: Quick fundamental analysis and screening
-    - **Enhanced Mode**: Deep due diligence and corporate governance analysis
-    - Investment committee reports requiring detailed company structure
-    - Regulatory compliance and know-your-customer (KYC) processes
-    - Merger & acquisition analysis
-    - Risk assessment for corporate banking
-    
-    **Performance Considerations:**
-    - Standard mode: Fast response (~1-2 seconds)
-    - Enhanced mode: Slower response (~3-5 seconds) due to web scraping
-    - Enhanced mode may occasionally timeout for some companies
-    
-    **Data Quality Notes:**
-    - Yahoo Finance: Better for large-cap, liquid BIST stocks
-    - Mynet Finans: More complete for Turkish regulatory information
-    - Combined approach provides most comprehensive company analysis
+    Standard mode: Yahoo Finance data (P/E, sector, market cap, business description)
+    Enhanced mode: Add Mynet data (board members, shareholders, subsidiaries)
     """
     logger.info(f"Tool 'get_sirket_profili' called for ticker: '{ticker_kodu}', mynet_detaylari: {mynet_detaylari}")
     try:
@@ -201,53 +112,16 @@ async def get_sirket_profili(
         logger.exception(f"Error in tool 'get_sirket_profili' for ticker {ticker_kodu}.")
         return SirketProfiliSonucu(ticker_kodu=ticker_kodu, bilgiler=None, error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool()
+@app.tool(description="BIST STOCKS: Get company balance sheet with assets, liabilities, equity. STOCKS ONLY - crypto companies don't publish balance sheets.")
 async def get_bilanco(
-    ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'AKBNK', 'ASELS' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix."),
-    periyot: StatementPeriodLiteral = Field("annual", description="Choose 'annual' for yearly statements or 'quarterly' for quarterly statements. Annual data provides longer-term trends, while quarterly shows more recent performance.")
+    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, AKBNK) or index (XU100, XBANK). No .IS suffix."),
+    periyot: StatementPeriodLiteral = Field("annual", description="'annual' for yearly data, 'quarterly' for recent quarters. Annual=trends, quarterly=recent.")
 ) -> FinansalTabloSonucu:
     """
-    Fetches the balance sheet (bilanço) for a Turkish company from Yahoo Finance.
+    Get balance sheet showing assets, liabilities, equity. Financial health snapshot.
     
-    The balance sheet provides a snapshot of the company's financial position at a specific point in time,
-    showing assets, liabilities, and shareholders' equity. This is fundamental for assessing financial health,
-    liquidity, and capital structure.
-    
-    **Key Balance Sheet Components Returned:**
-    
-    **Assets (Aktifler):**
-    - Current Assets: Cash, inventory, accounts receivable, short-term investments
-    - Non-Current Assets: Property, plant & equipment, intangible assets, long-term investments
-    - Total Assets: Sum of all company resources
-    
-    **Liabilities (Pasifler):**
-    - Current Liabilities: Short-term debt, accounts payable, accrued expenses
-    - Non-Current Liabilities: Long-term debt, deferred tax liabilities, pension obligations
-    - Total Liabilities: All company obligations
-    
-    **Equity (Özsermaye):**
-    - Share Capital: Paid-in capital from shareholders
-    - Retained Earnings: Accumulated profits reinvested in business
-    - Total Shareholders' Equity: Owners' stake in the company
-    
-    **Analysis Applications:**
-    - **Liquidity Analysis**: Current ratio, quick ratio assessment
-    - **Leverage Analysis**: Debt-to-equity, debt-to-assets ratios
-    - **Asset Quality**: Asset turnover, return on assets calculations
-    - **Financial Stability**: Working capital, equity ratios
-    - **Growth Trends**: Compare multiple periods to see expansion
-    
-    **Data Coverage:**
-    - Annual: Up to 4 years of yearly data
-    - Quarterly: Up to 4 quarters of recent data
-    - All amounts typically in Turkish Lira (TRY)
-    - Dates are automatically converted to Turkish timezone
-    
-    **Best Practices:**
-    - Compare with industry peers for context
-    - Analyze trends over multiple periods
-    - Cross-reference with cash flow and income statements
-    - Pay attention to working capital changes
+    Shows current/non-current assets, liabilities, shareholders' equity.
+    Use for liquidity, leverage, financial stability analysis.
     """
     logger.info(f"Tool 'get_bilanco' called for ticker: '{ticker_kodu}', period: {periyot}")
     try:
@@ -259,63 +133,16 @@ async def get_bilanco(
         logger.exception(f"Error in tool 'get_bilanco' for ticker {ticker_kodu}.")
         return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=[], error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool()
+@app.tool(description="BIST STOCKS: Get company income statement with revenue, profit, margins. STOCKS ONLY - crypto companies don't publish income statements.")
 async def get_kar_zarar_tablosu(
-    ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'TUPRS', 'THYAO' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix."),
+    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, TUPRS) or index (XU100, XBANK). No .IS suffix."),
     periyot: StatementPeriodLiteral = Field("annual", description="Choose 'annual' for yearly statements or 'quarterly' for quarterly statements. Annual shows full-year performance, quarterly reveals seasonal patterns and recent trends.")
 ) -> FinansalTabloSonucu:
     """
-    Fetches the income statement (kar-zarar tablosu) for a Turkish company from Yahoo Finance.
+    Get income statement showing revenue, expenses, profit over time. Performance analysis.
     
-    The income statement shows the company's financial performance over a specific period, detailing
-    revenues, expenses, and profitability. This is essential for analyzing operational efficiency,
-    growth trends, and earning power.
-    
-    **Key Income Statement Components Returned:**
-    
-    **Revenue Section (Gelirler):**
-    - Total Revenue: Primary business income from sales/services
-    - Operating Revenue: Core business activities revenue
-    - Other Revenue: Non-operating income sources
-    
-    **Expense Section (Giderler):**
-    - Cost of Revenue: Direct costs of producing goods/services
-    - Operating Expenses: Selling, general & administrative costs
-    - Research & Development: Innovation and product development costs
-    - Interest Expense: Cost of debt financing
-    - Tax Expense: Corporate income taxes
-    
-    **Profitability Metrics (Karlılık):**
-    - Gross Profit: Revenue minus cost of goods sold
-    - Operating Income: Profit from core business operations
-    - EBITDA: Earnings before interest, taxes, depreciation, amortization
-    - Net Income: Bottom-line profit after all expenses
-    - Earnings Per Share (EPS): Net income divided by shares outstanding
-    
-    **Analysis Applications:**
-    - **Profitability Analysis**: Gross, operating, and net profit margins
-    - **Growth Analysis**: Revenue and earnings growth rates over time
-    - **Efficiency Analysis**: Operating leverage and cost control
-    - **Quality of Earnings**: Recurring vs one-time items assessment
-    - **Comparative Analysis**: Performance vs industry peers
-    
-    **Key Ratios You Can Calculate:**
-    - Gross Margin = Gross Profit / Revenue
-    - Operating Margin = Operating Income / Revenue  
-    - Net Margin = Net Income / Revenue
-    - Revenue Growth = (Current Period - Prior Period) / Prior Period
-    
-    **Data Coverage:**
-    - Annual: Up to 4 years of yearly data
-    - Quarterly: Up to 4 quarters of recent data
-    - Amounts typically in Turkish Lira (TRY)
-    - All dates converted to Turkish timezone
-    
-    **Investment Insights:**
-    - Track revenue growth consistency
-    - Monitor margin expansion/compression
-    - Identify seasonal business patterns (quarterly data)
-    - Assess operational leverage and scalability
+    Shows total revenue, operating expenses, net income, EPS.
+    Use for profitability, growth, margin analysis.
     """
     logger.info(f"Tool 'get_kar_zarar_tablosu' called for ticker: '{ticker_kodu}', period: {periyot}")
     try:
@@ -327,71 +154,16 @@ async def get_kar_zarar_tablosu(
         logger.exception(f"Error in tool 'get_kar_zarar_tablosu' for ticker {ticker_kodu}.")
         return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=[], error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool()
+@app.tool(description="BIST STOCKS: Get company cash flow statement with operating/investing/financing flows. STOCKS ONLY.")
 async def get_nakit_akisi_tablosu(
-    ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'EREGL', 'BIMAS' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix."),
+    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, EREGL) or index (XU100, XBANK). No .IS suffix."),
     periyot: StatementPeriodLiteral = Field("annual", description="Choose 'annual' for yearly cash flows or 'quarterly' for quarterly cash flows. Annual data shows longer-term cash generation patterns, quarterly reveals seasonal cash flow variations.")
 ) -> FinansalTabloSonucu:
     """
-    Fetches the cash flow statement (nakit akışı tablosu) for a Turkish company from Yahoo Finance.
+    Get cash flow statement showing operating, investing, financing cash flows.
     
-    The cash flow statement tracks actual cash movements in and out of the business, providing insight
-    into liquidity, cash generation ability, and financial flexibility. This is crucial for assessing
-    the quality of earnings and the company's ability to fund operations, investments, and dividends.
-    
-    **Key Cash Flow Components Returned:**
-    
-    **Operating Cash Flow (Faaliyet Nakit Akışı):**
-    - Cash from Sales: Actual cash received from customers
-    - Cash Paid to Suppliers: Cash outflows for inventory and services
-    - Cash Paid to Employees: Salary and wage payments
-    - Tax Payments: Actual cash taxes paid
-    - Net Operating Cash Flow: Cash generated from core business operations
-    
-    **Investing Cash Flow (Yatırım Nakit Akışı):**
-    - Capital Expenditures: Cash spent on property, plant & equipment
-    - Acquisitions: Cash spent on purchasing other companies
-    - Asset Sales: Cash received from selling assets
-    - Investment Purchases/Sales: Cash flows from financial investments
-    - Net Investing Cash Flow: Cash used for/generated from investments
-    
-    **Financing Cash Flow (Finansman Nakit Akışı):**
-    - Debt Proceeds: Cash received from borrowing
-    - Debt Repayments: Cash used to pay down debt
-    - Dividends Paid: Cash distributed to shareholders
-    - Share Buybacks: Cash used to repurchase company stock
-    - Share Issuances: Cash received from issuing new shares
-    - Net Financing Cash Flow: Cash flows from financing activities
-    
-    **Key Metrics (Önemli Metrikler):**
-    - Free Cash Flow: Operating Cash Flow - Capital Expenditures
-    - Cash Flow Margin: Operating Cash Flow / Revenue
-    - Cash Conversion: How efficiently profits convert to cash
-    
-    **Analysis Applications:**
-    - **Liquidity Assessment**: Company's ability to meet short-term obligations
-    - **Quality of Earnings**: Comparing net income to operating cash flow
-    - **Capital Allocation**: How management invests and finances the business
-    - **Dividend Sustainability**: Whether cash flow supports dividend payments
-    - **Financial Flexibility**: Ability to fund growth and handle downturns
-    
-    **Key Insights:**
-    - Positive operating cash flow indicates healthy core business
-    - Negative investing cash flow often shows growth investments
-    - Financing cash flows reveal capital structure decisions
-    - Free cash flow measures cash available for shareholders
-    
-    **Warning Signs:**
-    - Operating cash flow consistently below net income
-    - Heavy reliance on external financing
-    - Declining free cash flow trends
-    - Inability to self-fund capital expenditures
-    
-    **Data Coverage:**
-    - Annual: Up to 4 years of yearly data
-    - Quarterly: Up to 4 quarters of recent data
-    - All amounts typically in Turkish Lira (TRY)
-    - Dates converted to Turkish timezone
+    Shows operating cash flow, capital expenditures, free cash flow.
+    Use for liquidity, cash generation, quality of earnings analysis.
     """
     logger.info(f"Tool 'get_nakit_akisi_tablosu' called for ticker: '{ticker_kodu}', period: {periyot}")
     try:
@@ -403,20 +175,16 @@ async def get_nakit_akisi_tablosu(
         logger.exception(f"Error in tool 'get_nakit_akisi_tablosu' for ticker {ticker_kodu}.")
         return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=[], error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool()
+@app.tool(description="BIST STOCKS: Get stock/index historical OHLCV data for prices, volumes, charts. STOCKS ONLY - use get_kripto_ohlc for crypto.")
 async def get_finansal_veri(
-    ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'TUPRS', 'AKBNK' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix."),
-    zaman_araligi: YFinancePeriodLiteral = Field("1mo", description="Time period for historical data: '1d'=1 day, '5d'=5 days, '1mo'=1 month, '3mo'=3 months, '6mo'=6 months, '1y'=1 year, '2y'=2 years, '5y'=5 years, 'ytd'=year to date, 'max'=all available data. Choose based on your analysis needs: short-term trading (1d-1mo), medium-term analysis (3mo-1y), long-term trends (2y-max).")
+    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, TUPRS) or index (XU100, XBANK). No .IS suffix."),
+    zaman_araligi: YFinancePeriodLiteral = Field("1mo", description="Time period: 1d/5d/1mo/3mo/6mo/1y/2y/5y/ytd/max. Trading=1d-1mo, analysis=3mo-1y, trends=2y-max.")
 ) -> FinansalVeriSonucu:
     """
-    Fetches historical OHLCV (Open, High, Low, Close, Volume) price data for Turkish stocks and BIST indices.
+    Get historical OHLCV price data for BIST stocks and indices. For charts and returns.
     
-    **IMPORTANT: This tool is ONLY for STOCKS (BIST). For cryptocurrency OHLCV data, use get_kripto_ohlc or get_kripto_kline instead.**
-    
-    This tool provides comprehensive historical price and volume data essential for technical analysis,
-    performance tracking, volatility assessment, and trend identification. The data is sourced from
-    Yahoo Finance and automatically adjusted for stock splits and dividends. Works with both individual
-    stocks and BIST indices for market-wide analysis.
+    Returns open, high, low, close, volume data over time period.
+    Use for technical analysis, performance tracking, volatility assessment.
     
     **Data Components Returned:**
     
@@ -495,9 +263,9 @@ async def get_finansal_veri(
         logger.exception(f"Error in tool 'get_finansal_veri' for ticker {ticker_kodu}.")
         return FinansalVeriSonucu(ticker_kodu=ticker_kodu, zaman_araligi=YFinancePeriodEnum(zaman_araligi), veri_noktalari=[], error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool()
+@app.tool(description="BIST STOCKS: Get analyst recommendations with buy/sell ratings and price targets. STOCKS ONLY.")
 async def get_analist_tahminleri(
-    ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'TUPRS', 'ASELS' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix.")
+    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, TUPRS) or index (XU100, XBANK). No .IS suffix.")
 ) -> AnalistVerileriSonucu:
     """
     Fetches comprehensive analyst research data including recommendations, price targets, and trends.
@@ -602,7 +370,7 @@ async def get_analist_tahminleri(
         logger.exception(f"Error in tool 'get_analist_tahminleri' for ticker {ticker_kodu}.")
         return AnalistVerileriSonucu(ticker_kodu=ticker_kodu, error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool()
+@app.tool(description="BIST STOCKS: Get stock dividends and corporate actions with dividend history, splits. STOCKS ONLY.")
 async def get_temettu_ve_aksiyonlar(
     ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'AKBNK', 'SISE' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix.")
 ) -> TemettuVeAksiyonlarSonucu:
@@ -656,7 +424,7 @@ async def get_temettu_ve_aksiyonlar(
         logger.exception(f"Error in tool 'get_temettu_ve_aksiyonlar' for ticker {ticker_kodu}.")
         return TemettuVeAksiyonlarSonucu(ticker_kodu=ticker_kodu, error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool()
+@app.tool(description="BIST STOCKS: Get stock/index quick metrics with P/E, market cap, ratios. STOCKS ONLY - use get_kripto_ticker for crypto.")
 async def get_hizli_bilgi(
     ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'TUPRS', 'EREGL' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix.")
 ) -> HizliBilgiSonucu:
@@ -721,7 +489,7 @@ async def get_hizli_bilgi(
         logger.exception(f"Error in tool 'get_hizli_bilgi' for ticker {ticker_kodu}.")
         return HizliBilgiSonucu(ticker_kodu=ticker_kodu, error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool()
+@app.tool(description="Get BIST stock earnings calendar: upcoming/past earnings dates, growth. STOCKS ONLY.")
 async def get_kazanc_takvimi(
     ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'AKBNK', 'TUPRS' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix.")
 ) -> KazancTakvimSonucu:
@@ -787,7 +555,7 @@ async def get_kazanc_takvimi(
         logger.exception(f"Error in tool 'get_kazanc_takvimi' for ticker {ticker_kodu}.")
         return KazancTakvimSonucu(ticker_kodu=ticker_kodu, error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool()
+@app.tool(description="Get BIST stock/index technical analysis: indicators, signals, trends. STOCKS ONLY - use get_kripto_ohlc for crypto.")
 async def get_teknik_analiz(
     ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'ASELS', 'THYAO' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix.")
 ) -> TeknikAnalizSonucu:
@@ -881,7 +649,7 @@ async def get_teknik_analiz(
             error_message=f"An unexpected error occurred: {str(e)}"
         )
 
-@app.tool()
+@app.tool(description="Get BIST sector comparison: performance, valuations, rankings. STOCKS ONLY.")
 async def get_sektor_karsilastirmasi(
     ticker_listesi: List[str] = Field(..., description="List of BIST ticker codes to analyze by sector (e.g., ['GARAN', 'AKBNK', 'YKBNK'] for banking comparison, or ['ASELS', 'HAZER', 'HKMAT'] for defense). Do not include '.IS' suffix. Minimum 3 tickers recommended for meaningful sector analysis.")
 ) -> SektorKarsilastirmaSonucu:
@@ -986,7 +754,7 @@ async def get_sektor_karsilastirmasi(
             error_message=f"An unexpected error occurred: {str(e)}"
         )
 
-@app.tool()
+@app.tool(description="Get BIST company KAP news: official announcements, regulatory filings. STOCKS ONLY.")
 async def get_kap_haberleri(
     ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'ASELS', 'AEFES' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix."),
     haber_sayisi: int = Field(10, description="Number of recent KAP news items to retrieve (1-20). Default is 10 for optimal performance.")
@@ -1126,7 +894,7 @@ async def get_kap_haberleri(
             error_message=f"An unexpected error occurred: {str(e)}"
         )
 
-@app.tool()
+@app.tool(description="Get detailed KAP news content: full announcement text in markdown. STOCKS ONLY.")
 async def get_kap_haber_detayi(
     haber_url: str = Field(..., description="The full URL of the KAP news to fetch details for. Must be a valid Mynet Finans KAP news URL (e.g., 'https://finans.mynet.com/borsa/haberdetay/68481a49b209972f87e77d92/')."),
     sayfa_numarasi: int = Field(1, description="Page number for large documents (1-based). Documents over 5000 characters are automatically paginated.")
@@ -1347,7 +1115,7 @@ async def get_kap_haber_detayi(
             error_message=f"An unexpected error occurred: {str(e)}"
         )
 
-@app.tool()
+@app.tool(description="Get BIST stock Islamic finance compatibility: Sharia compliance assessment. STOCKS ONLY.")
 async def get_katilim_finans_uygunluk(
     ticker_kodu: str = Field(description="The ticker code of the company to check for participation finance compatibility (e.g., 'ARCLK', 'GARAN')")
 ) -> KatilimFinansUygunlukSonucu:
@@ -1435,7 +1203,7 @@ async def get_katilim_finans_uygunluk(
             error_message=f"An unexpected error occurred: {str(e)}"
         )
 
-@app.tool()
+@app.tool(description="Search BIST index codes by name: find index symbols like XU100, XBANK. INDICES ONLY.")
 async def get_endeks_kodu(
     endeks_adi_veya_kodu: str = Field(..., description="Enter the index name or code to find BIST indices. You can search using: index name (e.g., 'Bankacılık', 'Teknoloji'), partial name (e.g., 'BIST 100'), or index code (e.g., 'XU100', 'XBANK'). Search is case-insensitive and supports Turkish characters.")
 ) -> EndeksKoduAramaSonucu:
@@ -1491,7 +1259,7 @@ async def get_endeks_kodu(
         )
 
 
-@app.tool()
+@app.tool(description="Get companies in BIST index: list of stocks in index like XU100, XBANK. INDICES ONLY.")
 async def get_endeks_sirketleri(
     endeks_kodu: str = Field(description="The index code to get company details for (e.g., 'XU100', 'XBANK', 'BIST 100')")
 ) -> EndeksSirketleriSonucu:
@@ -1547,7 +1315,7 @@ async def get_endeks_sirketleri(
 
 # --- TEFAS Fund Tools ---
 
-@app.tool()
+@app.tool(description="Search Turkish mutual funds: find funds by name/category with performance data. FUNDS ONLY.")
 async def search_funds(
     search_term: str = Field(..., description="Enter the fund's name, code, or founder to search. You can search using: fund name (e.g., 'Garanti Hisse', 'altın', 'teknoloji'), fund code (e.g., 'TGE'), or founder company (e.g., 'QNB Finans'). Search is case-insensitive and supports Turkish characters."),
     limit: int = Field(20, description="Maximum number of results to return (default: 20, max: 50).", ge=1, le=50),
@@ -1611,7 +1379,7 @@ async def search_funds(
             error_message=f"An unexpected error occurred: {str(e)}"
         )
 
-@app.tool()
+@app.tool(description="Get Turkish fund details: comprehensive fund info, performance, metrics. FUNDS ONLY.")
 async def get_fund_detail(
     fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB'). Use search_funds to find the correct fund code first."),
     include_price_history: bool = Field(False, description="Include detailed price history (1-week, 1-month, 3-month, 6-month). Default is False for faster response.")
@@ -1676,7 +1444,7 @@ async def get_fund_detail(
             error_message=f"An unexpected error occurred: {str(e)}"
         )
 
-@app.tool()
+@app.tool(description="Get Turkish fund historical performance: returns over time periods. FUNDS ONLY.")
 async def get_fund_performance(
     fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB', 'AAK')."),
     start_date: str = Field(None, description="Start date in YYYY-MM-DD format (default: 1 year ago). Example: '2024-01-01'"),
@@ -1761,7 +1529,7 @@ async def get_fund_performance(
             error_message=f"An unexpected error occurred: {str(e)}"
         )
 
-@app.tool()
+@app.tool(description="Get Turkish fund portfolio allocation: asset breakdown over time. FUNDS ONLY.")
 async def get_fund_portfolio(
     fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB', 'AAK')."),
     start_date: str = Field(None, description="Start date in YYYY-MM-DD format (default: 1 week ago). Example: '2024-06-15'"),
@@ -1878,7 +1646,7 @@ async def get_fund_portfolio(
 
 
 
-@app.tool()
+@app.tool(description="Compare Turkish mutual funds: side-by-side performance analysis. FUNDS ONLY.")
 async def compare_funds(
     fund_type: str = Field("EMK", description="Fund type: 'YAT' (Investment Funds), 'EMK' (Pension Funds), 'BYF' (ETFs), 'GYF' (REITs), 'GSYF' (Venture Capital)."),
     start_date: str = Field(None, description="Start date in DD.MM.YYYY format (e.g., '25.05.2025'). If not provided, defaults to 30 days ago."),
@@ -1938,7 +1706,7 @@ async def compare_funds(
     )
     return result
 
-@app.tool()
+@app.tool(description="Get Turkish fund regulations: legal compliance guide for investment funds. REGULATIONS ONLY.")
 async def get_fon_mevzuati() -> FonMevzuatSonucu:
     """
     Retrieves Turkish investment fund regulation guide.
@@ -2014,7 +1782,7 @@ async def get_fon_mevzuati() -> FonMevzuatSonucu:
 
 # --- BtcTurk Kripto Tools ---
 
-@app.tool(description="Get detailed information about all CRYPTOCURRENCY trading pairs and currencies on BtcTurk exchange. For stocks use find_ticker_code instead.")
+@app.tool(description="CRYPTO BtcTurk: Get exchange info with trading pairs, currencies, limits. CRYPTO ONLY - use find_ticker_code for stocks.")
 async def get_kripto_exchange_info() -> KriptoExchangeInfoSonucu:
     """
     Get comprehensive exchange information from BtcTurk including all trading pairs, 
@@ -2065,10 +1833,10 @@ async def get_kripto_exchange_info() -> KriptoExchangeInfoSonucu:
             error_message=f"Kripto borsa bilgisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
-@app.tool(description="Get real-time ticker data for CRYPTOCURRENCY trading pairs on BtcTurk. For stock prices use get_hizli_bilgi or get_finansal_veri instead.")
+@app.tool(description="CRYPTO BtcTurk: Get crypto price data with current prices, 24h changes, volumes. CRYPTO ONLY - use get_hizli_bilgi for stocks.")
 async def get_kripto_ticker(
-    pair_symbol: str = Field(None, description="Specific trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT'). Leave empty for all pairs."),
-    quote_currency: str = Field(None, description="Quote currency to filter pairs (e.g., 'TRY', 'USDT', 'BTC'). Only used if pair_symbol is not provided.")
+    pair_symbol: str = Field(None, description="Crypto pair (BTCTRY, ETHUSDT) or leave empty for all pairs."),
+    quote_currency: str = Field(None, description="Filter by quote currency (TRY, USDT, BTC). Only if pair_symbol empty.")
 ) -> KriptoTickerSonucu:
     """
     Get real-time market ticker data for cryptocurrency trading pairs on BtcTurk.
@@ -2115,10 +1883,10 @@ async def get_kripto_ticker(
             error_message=f"Kripto fiyat bilgisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
-@app.tool(description="Get order book data showing current buy and sell orders for a CRYPTOCURRENCY pair. For stock market depth, this data is not available.")
+@app.tool(description="CRYPTO BtcTurk: Get crypto order book with bid/ask prices and quantities. CRYPTO ONLY - stock order books unavailable.")
 async def get_kripto_orderbook(
     pair_symbol: str = Field(description="Trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
-    limit: int = Field(100, description="Number of orders to return (max 100)")
+    limit: int = Field(100, description="Number of orders (max 100)")
 ) -> KriptoOrderbookSonucu:
     """
     Get detailed order book data showing current buy (bid) and sell (ask) orders 
@@ -2167,7 +1935,7 @@ async def get_kripto_orderbook(
             error_message=f"Kripto emir defteri alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
-@app.tool(description="Get recent trade history for a CRYPTOCURRENCY trading pair. For stock trades use get_finansal_veri with period='1d'.")
+@app.tool(description="CRYPTO BtcTurk: Get recent crypto trades with prices, amounts, timestamps. CRYPTO ONLY - use get_finansal_veri for stocks.")
 async def get_kripto_trades(
     pair_symbol: str = Field(description="Trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
     last: int = Field(50, description="Number of recent trades to return (max 50)")
@@ -2221,7 +1989,7 @@ async def get_kripto_trades(
             error_message=f"Kripto işlem geçmişi alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
-@app.tool(description="Get OHLC (Open, High, Low, Close) data for CRYPTOCURRENCY charting. For stock OHLC data use get_finansal_veri.")
+@app.tool(description="CRYPTO BtcTurk: Get crypto OHLC chart data with open/high/low/close prices. CRYPTO ONLY - use get_finansal_veri for stocks.")
 async def get_kripto_ohlc(
     pair: str = Field(description="Trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
     from_time: int = Field(None, description="Start time as Unix timestamp in seconds (optional)"),
@@ -2285,12 +2053,12 @@ async def get_kripto_ohlc(
             error_message=f"Kripto OHLC verisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
-@app.tool(description="Get Kline (candlestick) data for advanced CRYPTOCURRENCY charting. For stock candlesticks use get_finansal_veri or get_teknik_analiz.")
+@app.tool(description="CRYPTO BtcTurk: Get crypto candlestick data with OHLCV arrays for charts. CRYPTO ONLY - use get_teknik_analiz for stocks.")
 async def get_kripto_kline(
-    symbol: str = Field(description="Trading symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
-    resolution: str = Field(description="Candlestick resolution: '1','5','15','30','60','240' (minutes), '1D','1W','1M','1Y' (daily/weekly/monthly/yearly)"),
-    from_time: int = Field(description="Start time as Unix timestamp in seconds"),
-    to_time: int = Field(description="End time as Unix timestamp in seconds")
+    symbol: str = Field(description="Crypto symbol (BTCTRY, ETHUSDT)"),
+    resolution: str = Field(description="Time resolution: 1,5,15,30,60,240 (minutes) or 1D,1W,1M,1Y"),
+    from_time: int = Field(description="Start time (Unix timestamp seconds)"),
+    to_time: int = Field(description="End time (Unix timestamp seconds)")
 ) -> KriptoKlineSonucu:
     """
     Get Kline (candlestick) data for advanced cryptocurrency charting and technical analysis.
