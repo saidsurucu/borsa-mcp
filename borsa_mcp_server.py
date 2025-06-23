@@ -411,6 +411,8 @@ async def get_finansal_veri(
     """
     Fetches historical OHLCV (Open, High, Low, Close, Volume) price data for Turkish stocks and BIST indices.
     
+    **IMPORTANT: This tool is ONLY for STOCKS (BIST). For cryptocurrency OHLCV data, use get_kripto_ohlc or get_kripto_kline instead.**
+    
     This tool provides comprehensive historical price and volume data essential for technical analysis,
     performance tracking, volatility assessment, and trend identification. The data is sourced from
     Yahoo Finance and automatically adjusted for stock splits and dividends. Works with both individual
@@ -661,6 +663,8 @@ async def get_hizli_bilgi(
     """
     Fetches essential financial metrics and key ratios for quick company assessment.
     
+    **IMPORTANT: This tool is ONLY for STOCKS (BIST). For cryptocurrency data, use get_kripto_ticker instead.**
+    
     This tool provides the most important financial metrics in a single call, perfect for rapid
     screening, portfolio monitoring, or getting a quick overview before deeper analysis.
     Optimized for speed without heavy data processing.
@@ -789,6 +793,8 @@ async def get_teknik_analiz(
 ) -> TeknikAnalizSonucu:
     """
     Comprehensive technical analysis with indicators, trends, and trading signals for stocks and BIST indices.
+    
+    **IMPORTANT: This tool is ONLY for STOCKS (BIST). For cryptocurrency technical analysis, use get_kripto_ohlc or get_kripto_kline with your own analysis.**
     
     This tool performs complete technical analysis using 6 months of price data, calculating
     essential technical indicators and providing clear buy/sell signals. Perfect for traders
@@ -2008,11 +2014,13 @@ async def get_fon_mevzuati() -> FonMevzuatSonucu:
 
 # --- BtcTurk Kripto Tools ---
 
-@app.tool(description="Get detailed information about all trading pairs and currencies on BtcTurk exchange")
+@app.tool(description="Get detailed information about all CRYPTOCURRENCY trading pairs and currencies on BtcTurk exchange. For stocks use find_ticker_code instead.")
 async def get_kripto_exchange_info() -> KriptoExchangeInfoSonucu:
     """
     Get comprehensive exchange information from BtcTurk including all trading pairs, 
     currencies, and operational status.
+    
+    **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES. For stock market data (BIST), use the stock-specific tools like find_ticker_code, get_sirket_profili, etc.**
     
     **What this tool returns:**
     - **Trading Pairs:** All available cryptocurrency trading pairs (e.g., BTCTRY, ETHUSDT)
@@ -2057,13 +2065,15 @@ async def get_kripto_exchange_info() -> KriptoExchangeInfoSonucu:
             error_message=f"Kripto borsa bilgisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
-@app.tool(description="Get real-time ticker data for cryptocurrency trading pairs on BtcTurk")
+@app.tool(description="Get real-time ticker data for CRYPTOCURRENCY trading pairs on BtcTurk. For stock prices use get_hizli_bilgi or get_finansal_veri instead.")
 async def get_kripto_ticker(
     pair_symbol: str = Field(None, description="Specific trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT'). Leave empty for all pairs."),
     quote_currency: str = Field(None, description="Quote currency to filter pairs (e.g., 'TRY', 'USDT', 'BTC'). Only used if pair_symbol is not provided.")
 ) -> KriptoTickerSonucu:
     """
     Get real-time market ticker data for cryptocurrency trading pairs on BtcTurk.
+    
+    **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES. For stock market (BIST) technical analysis, use get_teknik_analiz. For stock prices, use get_hizli_bilgi or get_finansal_veri.**
     
     **Input Options:**
     1. **Specific Pair:** Provide pair_symbol (e.g., "BTCTRY") for single pair data
@@ -2105,7 +2115,7 @@ async def get_kripto_ticker(
             error_message=f"Kripto fiyat bilgisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
-@app.tool(description="Get order book data showing current buy and sell orders for a cryptocurrency pair")
+@app.tool(description="Get order book data showing current buy and sell orders for a CRYPTOCURRENCY pair. For stock market depth, this data is not available.")
 async def get_kripto_orderbook(
     pair_symbol: str = Field(description="Trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
     limit: int = Field(100, description="Number of orders to return (max 100)")
@@ -2114,7 +2124,9 @@ async def get_kripto_orderbook(
     Get detailed order book data showing current buy (bid) and sell (ask) orders 
     for a specific cryptocurrency trading pair on BtcTurk.
     
-    **Order Book Analysis:**
+    **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES. Stock market (BIST) order book data is not available through our tools.**
+    
+    **Order Book Analysis:"
     - **Bid Orders:** Buy orders sorted by price (highest first)
     - **Ask Orders:** Sell orders sorted by price (lowest first)
     - **Market Depth:** Price levels and quantities available
@@ -2155,7 +2167,7 @@ async def get_kripto_orderbook(
             error_message=f"Kripto emir defteri alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
-@app.tool(description="Get recent trade history for a cryptocurrency trading pair")
+@app.tool(description="Get recent trade history for a CRYPTOCURRENCY trading pair. For stock trades use get_finansal_veri with period='1d'.")
 async def get_kripto_trades(
     pair_symbol: str = Field(description="Trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
     last: int = Field(50, description="Number of recent trades to return (max 50)")
@@ -2163,7 +2175,9 @@ async def get_kripto_trades(
     """
     Get recent trade history for a specific cryptocurrency trading pair on BtcTurk.
     
-    **Trade Data Includes:**
+    **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES. For stock market (BIST) historical data, use get_finansal_veri.**
+    
+    **Trade Data Includes:"
     - **Trade Price:** Execution price for each trade
     - **Trade Amount:** Quantity of cryptocurrency traded
     - **Timestamp:** Exact time of trade execution
@@ -2207,7 +2221,7 @@ async def get_kripto_trades(
             error_message=f"Kripto işlem geçmişi alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
-@app.tool(description="Get OHLC (Open, High, Low, Close) data for cryptocurrency charting and analysis")
+@app.tool(description="Get OHLC (Open, High, Low, Close) data for CRYPTOCURRENCY charting. For stock OHLC data use get_finansal_veri.")
 async def get_kripto_ohlc(
     pair: str = Field(description="Trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
     from_time: int = Field(None, description="Start time as Unix timestamp in seconds (optional)"),
@@ -2216,7 +2230,9 @@ async def get_kripto_ohlc(
     """
     Get OHLC (Open, High, Low, Close) data for cryptocurrency charting and technical analysis.
     
-    **OHLC Data Components:**
+    **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES. For stock market (BIST) OHLC/candlestick data, use get_finansal_veri with appropriate period and interval parameters.**
+    
+    **OHLC Data Components:"
     - **Open:** Opening price for the time period
     - **High:** Highest price reached during the period
     - **Low:** Lowest price reached during the period
@@ -2269,7 +2285,7 @@ async def get_kripto_ohlc(
             error_message=f"Kripto OHLC verisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
-@app.tool(description="Get Kline (candlestick) data for advanced cryptocurrency charting")
+@app.tool(description="Get Kline (candlestick) data for advanced CRYPTOCURRENCY charting. For stock candlesticks use get_finansal_veri or get_teknik_analiz.")
 async def get_kripto_kline(
     symbol: str = Field(description="Trading symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
     resolution: str = Field(description="Candlestick resolution: '1','5','15','30','60','240' (minutes), '1D','1W','1M','1Y' (daily/weekly/monthly/yearly)"),
@@ -2279,7 +2295,9 @@ async def get_kripto_kline(
     """
     Get Kline (candlestick) data for advanced cryptocurrency charting and technical analysis.
     
-    **Resolution Options:**
+    **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES. For stock market (BIST) technical analysis and candlestick patterns, use get_teknik_analiz. For historical stock data, use get_finansal_veri.**
+    
+    **Resolution Options:"
     - **Minute Charts:** '1', '5', '15', '30', '60', '240' (minutes)
     - **Daily Charts:** '1D' (daily candlesticks)
     - **Weekly Charts:** '1W' (weekly candlesticks)
