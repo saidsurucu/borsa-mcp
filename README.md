@@ -1,8 +1,10 @@
-# Borsa MCP: Borsa İstanbul (BIST) ve TEFAS Fonları için MCP Sunucusu
+# Borsa MCP: Borsa İstanbul (BIST), TEFAS Fonları ve Kripto Para için MCP Sunucusu
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
-Bu proje, Borsa İstanbul (BIST) verilerine ve Türk yatırım fonları verilerine erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, KAP (Kamuyu Aydınlatma Platformu), TEFAS (Türkiye Elektronik Fon Alım Satım Platformu), Mynet Finans ve Yahoo Finance'dan hisse senedi bilgileri, fon verileri, finansal veriler, teknik analiz ve sektör karşılaştırmaları, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
+Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine ve kripto para verilerine erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, KAP (Kamuyu Aydınlatma Platformu), TEFAS (Türkiye Elektronik Fon Alım Satım Platformu), BtcTurk, Mynet Finans ve Yahoo Finance'dan hisse senedi bilgileri, fon verileri, kripto para piyasa verileri, finansal veriler, teknik analiz ve sektör karşılaştırmaları, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
+
+**LLM Optimizasyonu:** Bu MCP sunucusu, LLM modelleri için özel olarak optimize edilmiştir. Araç açıklamaları, alan tanımları ve dokümantasyon LLM'lerin daha iyi araç seçimi yapabilmesi için FastMCP prensipleri doğrultusunda düzenlenmiştir.
 
 ![ornek](./ornek.jpeg)
 
@@ -11,9 +13,9 @@ Bu proje, Borsa İstanbul (BIST) verilerine ve Türk yatırım fonları verileri
 
 🎯 **Temel Özellikler**
 
-* Borsa İstanbul (BIST) ve Türk yatırım fonları verilerine programatik erişim için kapsamlı bir MCP arayüzü.
-* **23 Araç** ile tam finansal analiz desteği:
-    * **Şirket Arama:** 793 BIST şirketi arasında ticker kodu ve şirket adına göre arama.
+* Borsa İstanbul (BIST), Türk yatırım fonları ve kripto para verilerine programatik erişim için kapsamlı bir MCP arayüzü.
+* **29 Araç** ile tam finansal analiz desteği:
+    * **Şirket Arama:** 758 BIST şirketi arasında ticker kodu ve şirket adına göre arama (çoklu ticker desteği ile).
     * **Finansal Veriler:** Bilanço, kar-zarar, nakit akışı tabloları ve geçmiş OHLCV verileri.
     * **Teknik Analiz:** RSI, MACD, Bollinger Bantları gibi teknik göstergeler ve al-sat sinyalleri.
     * **Analist Verileri:** Analist tavsiyeleri, fiyat hedefleri ve kazanç takvimi.
@@ -22,8 +24,12 @@ Bu proje, Borsa İstanbul (BIST) verilerine ve Türk yatırım fonları verileri
     * **Katılım Finans:** Katılım finans uygunluk verileri.
     * **TEFAS Fonları:** 800+ Türk yatırım fonu arama, performans, portföy analizi.
     * **Fon Mevzuatı:** Yatırım fonları düzenlemeleri ve hukuki uyumluluk rehberi.
+    * **BtcTurk Kripto:** 295+ kripto para çifti, gerçek zamanlı fiyatlar, emir defteri, işlem geçmişi.
+    * **Kripto Analiz:** OHLC grafikleri, Kline verileri, teknik analiz için kripto piyasa verileri.
     * **Hibrit Veri:** Yahoo Finance + Mynet Finans'tan birleştirilmiş şirket bilgileri.
-* Türk hisse senetleri, endeksler ve yatırım fonları için optimize edilmiş veri işleme.
+* Türk hisse senetleri, endeksler, yatırım fonları ve kripto para için optimize edilmiş veri işleme.
+* **LLM Optimizasyonu:** Domain-özel araç ön ekleri ("BIST STOCKS:", "CRYPTO BtcTurk:") ile gelişmiş araç seçimi.
+* **Hızlı İşleme:** Kısa araç açıklamaları ve LLM-dostu dokümantasyon ile optimize edilmiş performans.
 * Claude Desktop uygulaması ile kolay entegrasyon.
 * Borsa MCP, [5ire](https://5ire.app) gibi Claude Desktop haricindeki MCP istemcilerini de destekler.
 
@@ -115,10 +121,18 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 ### Fon Mevzuat Araçları
 * **`get_fon_mevzuati`**: Türk yatırım fonları mevzuat rehberi (hukuki uyumluluk için).
 
+### BtcTurk Kripto Para Araçları
+* **`get_kripto_exchange_info`**: Tüm kripto çiftleri, para birimleri ve borsa operasyonel durumu.
+* **`get_kripto_ticker`**: Kripto çiftler için gerçek zamanlı fiyat verileri (çift veya kote para birimi filtresi ile).
+* **`get_kripto_orderbook`**: Güncel alış/satış emirlerini içeren emir defteri derinliği.
+* **`get_kripto_trades`**: Piyasa analizi için son işlem geçmişi.
+* **`get_kripto_ohlc`**: Kripto grafikleri ve teknik analiz için OHLC verileri.
+* **`get_kripto_kline`**: Çoklu zaman çözünürlükleri ile Kline (mum grafik) verileri.
+
 🔍 **Veri Kaynakları & Kapsam**
 
 ### KAP (Kamuyu Aydınlatma Platformu)
-- **Şirketler**: 793 BIST şirketi (ticker kodları, adlar, şehirler)
+- **Şirketler**: 758 BIST şirketi (ticker kodları, adlar, şehirler, çoklu ticker desteği)
 - **Katılım Finans**: Resmi katılım finans uygunluk değerlendirmeleri
 - **Güncelleme**: Otomatik önbellek ve yenileme
 
@@ -145,6 +159,15 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Kapsam**: Yatırım fonları için kapsamlı Türk mevzuatı
 - **İçerik**: Portföy limitleri, fon türleri, uyumluluk kuralları
 - **Güncelleme**: Dosya metadata ile son güncelleme tarihi
+
+### BtcTurk Kripto Para Borsası
+- **İşlem Çiftleri**: 295+ kripto para işlem çifti (ana TRY ve USDT piyasaları dahil)
+- **Para Birimleri**: 158+ desteklenen kripto para ve fiat para birimi (BTC, ETH, TRY, USDT vb.)
+- **API Endpoint**: Resmi BtcTurk Public API v2 (https://api.btcturk.com/api/v2)
+- **Piyasa Verileri**: Gerçek zamanlı ticker fiyatları, emir defterleri, işlem geçmişi, OHLC/Kline grafikleri
+- **Türk Odak**: TRY çiftleri için optimize edilmiş (BTCTRY, ETHTRY, ADATRY vb.)
+- **Güncelleme Sıklığı**: Borsa bilgileri için 1 dakika önbellek ile gerçek zamanlı piyasa verileri
+- **Veri Kalitesi**: Milisaniye hassasiyetli zaman damgaları ile profesyonel seviye borsa verileri
 
 📊 **Örnek Kullanım**
 
@@ -175,6 +198,18 @@ AAK fonunun son 6 aylık portföy dağılım değişimini analiz et
 
 # Fon mevzuat sorguları
 Yatırım fonlarında türev araç kullanım limitleri nelerdir?
+
+# Kripto para analizi
+Bitcoin'in TRY cinsinden son 1 aylık fiyat hareketlerini analiz et
+
+# Kripto piyasa takibi
+BtcTurk'te en çok işlem gören kripto çiftleri listele ve fiyat değişimlerini göster
+
+# Kripto emir defteri analizi
+BTCTRY çiftinin emir defterini görüntüle ve derinlik analizini yap
+
+# Kripto teknik analiz
+Ethereum'un USDT çiftindeki son 3 aylık OHLC verilerini kullanarak teknik analiz yap
 ```
 
 📜 **Lisans**
