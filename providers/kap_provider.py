@@ -58,14 +58,15 @@ class KAPProvider:
                     
                     # Skip header rows or empty rows
                     if ticker_field and name and ticker_field != "BIST KODU":
-                        # Handle multiple tickers separated by comma (e.g., "GARAN, TGB")
-                        # Use the first ticker as the primary ticker
+                        # Handle multiple tickers separated by comma (e.g., "GARAN, TGB" or "ISATR, ISBTR, ISCTR")
+                        # Create separate entries for each ticker code
                         if ',' in ticker_field:
-                            ticker = ticker_field.split(',')[0].strip()
+                            tickers = [t.strip() for t in ticker_field.split(',')]
+                            for ticker in tickers:
+                                if ticker:  # Skip empty strings
+                                    all_companies.append(SirketInfo(sirket_adi=name, ticker_kodu=ticker, sehir=city))
                         else:
-                            ticker = ticker_field
-                            
-                        all_companies.append(SirketInfo(sirket_adi=name, ticker_kodu=ticker, sehir=city))
+                            all_companies.append(SirketInfo(sirket_adi=name, ticker_kodu=ticker_field, sehir=city))
             
             logger.info(f"Successfully fetched {len(all_companies)} companies from KAP Excel.")
             return all_companies
