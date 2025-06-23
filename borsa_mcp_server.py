@@ -19,7 +19,9 @@ from borsa_models import (
     KapHaberDetayi, KapHaberSayfasi, KatilimFinansUygunlukSonucu, EndeksAramaSonucu,
     EndeksSirketleriSonucu, EndeksKoduAramaSonucu, FonAramaSonucu, FonDetayBilgisi,
     FonPerformansSonucu, FonPortfoySonucu, FonKarsilastirmaSonucu, FonTaramaKriterleri,
-    FonTaramaSonucu, FonMevzuatSonucu
+    FonTaramaSonucu, FonMevzuatSonucu,
+    KriptoExchangeInfoSonucu, KriptoTickerSonucu, KriptoOrderbookSonucu,
+    KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu
 )
 
 # --- Logging Configuration ---
@@ -2002,6 +2004,338 @@ async def get_fon_mevzuati() -> FonMevzuatSonucu:
             karakter_sayisi=0,
             kaynak_dosya="fon_mevzuat_kisa.md",
             error_message=f"Fon mevzuatı dokümanı alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+# --- BtcTurk Kripto Tools ---
+
+@app.tool(description="Get detailed information about all trading pairs and currencies on BtcTurk exchange")
+async def get_kripto_exchange_info() -> KriptoExchangeInfoSonucu:
+    """
+    Get comprehensive exchange information from BtcTurk including all trading pairs, 
+    currencies, and operational status.
+    
+    **What this tool returns:**
+    - **Trading Pairs:** All available cryptocurrency trading pairs (e.g., BTCTRY, ETHUSDT)
+    - **Currencies:** All supported cryptocurrencies and fiat currencies
+    - **Trading Rules:** Price precision, minimum/maximum limits, supported order types
+    - **Operation Status:** Deposit/withdrawal status for each currency
+    
+    **Trading Pair Information Includes:**
+    - Pair symbol and status
+    - Base currency (numerator) and quote currency (denominator)
+    - Price and quantity precision settings
+    - Minimum and maximum order limits
+    - Supported order methods (MARKET, LIMIT, etc.)
+    
+    **Currency Information Includes:**
+    - Currency symbol and full name
+    - Minimum deposit and withdrawal amounts
+    - Currency type (FIAT or CRYPTO)
+    - Address requirements for crypto deposits
+    - Current operational status
+    
+    **Use Cases:**
+    - Market overview and available trading options
+    - Trading bot configuration and rule setup
+    - Portfolio diversification research
+    - Exchange feature discovery
+    - Compliance and operational status monitoring
+    
+    **Response Time:** ~1-2 seconds (with 1-minute caching)
+    """
+    logger.info("Tool 'get_kripto_exchange_info' called")
+    try:
+        return await borsa_client.get_kripto_exchange_info()
+    except Exception as e:
+        logger.exception("Error in tool 'get_kripto_exchange_info'")
+        return KriptoExchangeInfoSonucu(
+            trading_pairs=[],
+            currencies=[],
+            currency_operation_blocks=[],
+            toplam_cift=0,
+            toplam_para_birimi=0,
+            error_message=f"Kripto borsa bilgisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(description="Get real-time ticker data for cryptocurrency trading pairs on BtcTurk")
+async def get_kripto_ticker(
+    pair_symbol: str = Field(None, description="Specific trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT'). Leave empty for all pairs."),
+    quote_currency: str = Field(None, description="Quote currency to filter pairs (e.g., 'TRY', 'USDT', 'BTC'). Only used if pair_symbol is not provided.")
+) -> KriptoTickerSonucu:
+    """
+    Get real-time market ticker data for cryptocurrency trading pairs on BtcTurk.
+    
+    **Input Options:**
+    1. **Specific Pair:** Provide pair_symbol (e.g., "BTCTRY") for single pair data
+    2. **By Quote Currency:** Provide quote_currency (e.g., "TRY") for all pairs in that currency
+    3. **All Pairs:** Leave both empty to get data for all trading pairs
+    
+    **Market Data Includes:**
+    - **Current Price:** Last trade price
+    - **24h Statistics:** High, low, opening price, volume
+    - **Order Book:** Best bid and ask prices
+    - **Price Changes:** 24h change amount and percentage
+    - **Market Activity:** Trading volume and average price
+    
+    **Popular Trading Pairs:**
+    - **TRY Pairs:** BTCTRY, ETHTRY, ADATRY, AVAXTR, DOTTR
+    - **USDT Pairs:** BTCUSDT, ETHUSDT, ADAUSDT, AVAXUSDT
+    - **Major Cryptos:** BTC, ETH, ADA, AVAX, DOT, LTC, XRP
+    
+    **Use Cases:**
+    - Real-time price monitoring
+    - Trading decision support
+    - Market analysis and comparison
+    - Portfolio valuation
+    - Alert and notification systems
+    
+    **Response Time:** ~1-2 seconds
+    **Data Freshness:** Real-time market data
+    """
+    logger.info(f"Tool 'get_kripto_ticker' called with pair_symbol='{pair_symbol}', quote_currency='{quote_currency}'")
+    try:
+        return await borsa_client.get_kripto_ticker(pair_symbol, quote_currency)
+    except Exception as e:
+        logger.exception("Error in tool 'get_kripto_ticker'")
+        return KriptoTickerSonucu(
+            tickers=[],
+            toplam_cift=0,
+            pair_symbol=pair_symbol,
+            quote_currency=quote_currency,
+            error_message=f"Kripto fiyat bilgisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(description="Get order book data showing current buy and sell orders for a cryptocurrency pair")
+async def get_kripto_orderbook(
+    pair_symbol: str = Field(description="Trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
+    limit: int = Field(100, description="Number of orders to return (max 100)")
+) -> KriptoOrderbookSonucu:
+    """
+    Get detailed order book data showing current buy (bid) and sell (ask) orders 
+    for a specific cryptocurrency trading pair on BtcTurk.
+    
+    **Order Book Analysis:**
+    - **Bid Orders:** Buy orders sorted by price (highest first)
+    - **Ask Orders:** Sell orders sorted by price (lowest first)
+    - **Market Depth:** Price levels and quantities available
+    - **Spread Analysis:** Gap between best bid and ask prices
+    
+    **Each Order Shows:**
+    - **Price Level:** The price at which orders are placed
+    - **Quantity:** Total amount available at that price level
+    - **Market Impact:** How large orders might affect prices
+    
+    **Trading Applications:**
+    - **Entry/Exit Strategy:** Identify optimal price levels
+    - **Market Liquidity:** Assess trading depth and volume
+    - **Spread Analysis:** Calculate trading costs
+    - **Large Order Planning:** Minimize market impact
+    - **Arbitrage Opportunities:** Compare with other exchanges
+    
+    **Popular Pairs for Analysis:**
+    - **High Liquidity:** BTCTRY, ETHTR, BTCUSDT, ETHUSDT
+    - **TRY Markets:** ADATRY, AVAXTR, DOTTR, LNKTR
+    - **Stablecoin Pairs:** USDTTRY, USDCTRY
+    
+    **Important Notes:**
+    - Data is real-time and changes rapidly
+    - Higher limits show deeper market structure
+    - May return HTTP 503 during system maintenance
+    
+    **Response Time:** ~1-2 seconds
+    """
+    logger.info(f"Tool 'get_kripto_orderbook' called with pair_symbol='{pair_symbol}', limit={limit}")
+    try:
+        return await borsa_client.get_kripto_orderbook(pair_symbol, limit)
+    except Exception as e:
+        logger.exception("Error in tool 'get_kripto_orderbook'")
+        return KriptoOrderbookSonucu(
+            pair_symbol=pair_symbol,
+            orderbook=None,
+            error_message=f"Kripto emir defteri alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(description="Get recent trade history for a cryptocurrency trading pair")
+async def get_kripto_trades(
+    pair_symbol: str = Field(description="Trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
+    last: int = Field(50, description="Number of recent trades to return (max 50)")
+) -> KriptoTradesSonucu:
+    """
+    Get recent trade history for a specific cryptocurrency trading pair on BtcTurk.
+    
+    **Trade Data Includes:**
+    - **Trade Price:** Execution price for each trade
+    - **Trade Amount:** Quantity of cryptocurrency traded
+    - **Timestamp:** Exact time of trade execution
+    - **Trade ID:** Unique identifier for each transaction
+    - **Currency Info:** Base and quote currency details
+    
+    **Market Analysis Applications:**
+    - **Price Trend Analysis:** Recent price movements and direction
+    - **Volume Analysis:** Trading activity and market interest
+    - **Market Timing:** Identify trading patterns and timing
+    - **Liquidity Assessment:** Frequency and size of trades
+    - **Support/Resistance:** Price levels with significant activity
+    
+    **Trading Insights:**
+    - **Market Momentum:** Direction and strength of recent moves
+    - **Entry/Exit Timing:** Optimal trade execution timing
+    - **Price Discovery:** Fair value assessment
+    - **Volume Profile:** Trading activity at different price levels
+    
+    **Popular Pairs for Trade Analysis:**
+    - **High Activity:** BTCTRY, ETHTR, BTCUSDT, ETHUSDT
+    - **TRY Markets:** ADATRY, AVAXTR, DOTTR
+    - **Alt Coins:** ADAUSDT, AVAXUSDT, DOTUSD
+    
+    **Data Characteristics:**
+    - **Chronological Order:** Most recent trades first
+    - **Real-time Updates:** Latest market activity
+    - **Trade Granularity:** Individual transaction level data
+    
+    **Response Time:** ~1-2 seconds
+    """
+    logger.info(f"Tool 'get_kripto_trades' called with pair_symbol='{pair_symbol}', last={last}")
+    try:
+        return await borsa_client.get_kripto_trades(pair_symbol, last)
+    except Exception as e:
+        logger.exception("Error in tool 'get_kripto_trades'")
+        return KriptoTradesSonucu(
+            pair_symbol=pair_symbol,
+            trades=[],
+            toplam_islem=0,
+            error_message=f"Kripto işlem geçmişi alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(description="Get OHLC (Open, High, Low, Close) data for cryptocurrency charting and analysis")
+async def get_kripto_ohlc(
+    pair: str = Field(description="Trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
+    from_time: int = Field(None, description="Start time as Unix timestamp in seconds (optional)"),
+    to_time: int = Field(None, description="End time as Unix timestamp in seconds (optional)")
+) -> KriptoOHLCSonucu:
+    """
+    Get OHLC (Open, High, Low, Close) data for cryptocurrency charting and technical analysis.
+    
+    **OHLC Data Components:**
+    - **Open:** Opening price for the time period
+    - **High:** Highest price reached during the period
+    - **Low:** Lowest price reached during the period
+    - **Close:** Closing price for the time period
+    - **Volume:** Total trading volume during the period
+    - **Total Value:** Total monetary value traded
+    - **Average Price:** Volume-weighted average price
+    
+    **Time Period Options:**
+    - **No time filter:** Returns recent OHLC data
+    - **Custom range:** Use from_time and to_time (Unix timestamps)
+    - **Analysis periods:** Minutes, hours, days depending on data availability
+    
+    **Technical Analysis Applications:**
+    - **Chart Patterns:** Candlestick patterns and formations
+    - **Trend Analysis:** Price direction and momentum
+    - **Support/Resistance:** Key price levels
+    - **Volatility Assessment:** Price range and movement analysis
+    - **Volume Analysis:** Trading activity correlation with price
+    
+    **Trading Strategy Uses:**
+    - **Entry/Exit Points:** Identify optimal trading levels
+    - **Risk Management:** Set stop-loss and take-profit levels
+    - **Market Timing:** Understand price cycles and trends
+    - **Breakout Trading:** Identify price breakouts from ranges
+    
+    **Popular Pairs for Analysis:**
+    - **Major Pairs:** BTCTRY, ETHTR, BTCUSDT, ETHUSDT
+    - **Alt Coins:** ADATRY, AVAXTR, DOTTR, LNKTR
+    - **Stablecoins:** USDTTRY, USDCTRY
+    
+    **Unix Timestamp Examples:**
+    - 1 hour ago: current_timestamp - 3600
+    - 1 day ago: current_timestamp - 86400
+    - 1 week ago: current_timestamp - 604800
+    
+    **Response Time:** ~2-4 seconds (depends on data range)
+    """
+    logger.info(f"Tool 'get_kripto_ohlc' called with pair='{pair}', from_time={from_time}, to_time={to_time}")
+    try:
+        return await borsa_client.get_kripto_ohlc(pair, from_time, to_time)
+    except Exception as e:
+        logger.exception("Error in tool 'get_kripto_ohlc'")
+        return KriptoOHLCSonucu(
+            pair=pair,
+            ohlc_data=[],
+            toplam_veri=0,
+            from_time=from_time,
+            to_time=to_time,
+            error_message=f"Kripto OHLC verisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(description="Get Kline (candlestick) data for advanced cryptocurrency charting")
+async def get_kripto_kline(
+    symbol: str = Field(description="Trading symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
+    resolution: str = Field(description="Candlestick resolution: '1','5','15','30','60','240' (minutes), '1D','1W','1M','1Y' (daily/weekly/monthly/yearly)"),
+    from_time: int = Field(description="Start time as Unix timestamp in seconds"),
+    to_time: int = Field(description="End time as Unix timestamp in seconds")
+) -> KriptoKlineSonucu:
+    """
+    Get Kline (candlestick) data for advanced cryptocurrency charting and technical analysis.
+    
+    **Resolution Options:**
+    - **Minute Charts:** '1', '5', '15', '30', '60', '240' (minutes)
+    - **Daily Charts:** '1D' (daily candlesticks)
+    - **Weekly Charts:** '1W' (weekly candlesticks)
+    - **Monthly Charts:** '1M' (monthly candlesticks)
+    - **Yearly Charts:** '1Y' (yearly candlesticks)
+    
+    **Kline Data Components:**
+    - **Timestamp:** Start time of each candlestick
+    - **OHLC Values:** Open, High, Low, Close prices
+    - **Volume:** Trading volume during the period
+    - **Systematic Format:** Arrays optimized for charting libraries
+    
+    **Chart Analysis Applications:**
+    - **Candlestick Patterns:** Doji, hammer, engulfing patterns
+    - **Technical Indicators:** Moving averages, RSI, MACD
+    - **Trend Identification:** Uptrends, downtrends, sideways markets
+    - **Price Action Trading:** Pure price-based trading strategies
+    - **Multi-timeframe Analysis:** Compare different time horizons
+    
+    **Time Range Examples:**
+    - **Intraday Trading:** 1-minute, 5-minute, 15-minute charts
+    - **Swing Trading:** 1-hour, 4-hour, daily charts
+    - **Position Trading:** Daily, weekly, monthly charts
+    - **Long-term Analysis:** Weekly, monthly, yearly charts
+    
+    **Unix Timestamp Calculation:**
+    - Current time: Use current Unix timestamp
+    - 1 day ago: current_timestamp - 86400
+    - 1 week ago: current_timestamp - 604800
+    - 1 month ago: current_timestamp - 2592000
+    
+    **Popular Trading Symbols:**
+    - **Major Cryptos:** BTCTRY, ETHTR, BTCUSDT, ETHUSDT
+    - **Altcoins:** ADATRY, AVAXTR, DOTTR, LNKTR
+    - **DeFi Tokens:** UNIUSD, SNXUSD, AAVEUSD
+    
+    **Response Format:**
+    Returns arrays of timestamps, open, high, low, close, and volume data
+    optimized for charting libraries like TradingView, Chart.js, or custom implementations.
+    
+    **Response Time:** ~2-5 seconds (depends on data range and resolution)
+    """
+    logger.info(f"Tool 'get_kripto_kline' called with symbol='{symbol}', resolution='{resolution}', from_time={from_time}, to_time={to_time}")
+    try:
+        return await borsa_client.get_kripto_kline(symbol, resolution, from_time, to_time)
+    except Exception as e:
+        logger.exception("Error in tool 'get_kripto_kline'")
+        return KriptoKlineSonucu(
+            symbol=symbol,
+            resolution=resolution,
+            klines=[],
+            toplam_veri=0,
+            from_time=from_time,
+            to_time=to_time,
+            status='error',
+            error_message=f"Kripto Kline verisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
 def main():

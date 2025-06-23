@@ -1033,3 +1033,154 @@ class FonMevzuatSonucu(BaseModel):
     guncelleme_tarihi: Optional[str] = Field(None, description="Dosyanın son güncellenme tarihi.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
+# --- BtcTurk Kripto Models ---
+
+class TradingPair(BaseModel):
+    """Trading pair information from BtcTurk."""
+    id: Optional[int] = Field(None, description="Trading pair ID.")
+    name: str = Field(description="Trading pair name (e.g., BTCTRY).")
+    name_normalized: Optional[str] = Field(None, description="Normalized trading pair name.")
+    status: str = Field(description="Trading pair status.")
+    numerator: str = Field(description="Base currency symbol.")
+    denominator: str = Field(description="Quote currency symbol.")
+    numerator_scale: Optional[int] = Field(None, description="Base currency decimal precision.")
+    denominator_scale: Optional[int] = Field(None, description="Quote currency decimal precision.")
+    has_fraction: Optional[bool] = Field(None, description="Whether fractional trading is supported.")
+    filters: Optional[List[Dict[str, Any]]] = Field(None, description="Trading filters and limits.")
+    order_methods: Optional[List[str]] = Field(None, description="Supported order methods.")
+    display_format: Optional[str] = Field(None, description="Display format.")
+    maximum_limit_order_price: Optional[float] = Field(None, description="Maximum limit order price.")
+    minimum_limit_order_price: Optional[float] = Field(None, description="Minimum limit order price.")
+
+class Currency(BaseModel):
+    """Currency information from BtcTurk."""
+    id: Optional[int] = Field(None, description="Currency ID.")
+    symbol: str = Field(description="Currency symbol (e.g., BTC, TRY).")
+    min_withdrawal: Optional[float] = Field(None, description="Minimum withdrawal amount.")
+    min_deposit: Optional[float] = Field(None, description="Minimum deposit amount.")
+    precision: Optional[int] = Field(None, description="Currency precision.")
+    address: Optional[Dict[str, Any]] = Field(None, description="Address information.")
+    currency_type: Optional[str] = Field(None, description="Currency type (FIAT or CRYPTO).")
+    tag: Optional[Dict[str, Any]] = Field(None, description="Tag information.")
+    color: Optional[str] = Field(None, description="Currency color code.")
+    name: Optional[str] = Field(None, description="Full currency name.")
+    is_address_renewable: Optional[bool] = Field(None, description="Whether address is renewable.")
+    get_auto_address_disabled: Optional[bool] = Field(None, description="Whether auto address generation is disabled.")
+    is_partial_withdrawal_enabled: Optional[bool] = Field(None, description="Whether partial withdrawals are enabled.")
+
+class CurrencyOperationBlock(BaseModel):
+    """Currency operation block status."""
+    currency_symbol: str = Field(description="Currency symbol.")
+    withdrawal_disabled: Optional[bool] = Field(None, description="Whether withdrawals are disabled.")
+    deposit_disabled: Optional[bool] = Field(None, description="Whether deposits are disabled.")
+
+class KriptoExchangeInfoSonucu(BaseModel):
+    """Exchange information result from BtcTurk."""
+    trading_pairs: List[TradingPair] = Field(description="List of all trading pairs.")
+    currencies: List[Currency] = Field(description="List of all currencies.")
+    currency_operation_blocks: List[CurrencyOperationBlock] = Field(description="Currency operation status.")
+    toplam_cift: int = Field(description="Total number of trading pairs.")
+    toplam_para_birimi: int = Field(description="Total number of currencies.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class KriptoTicker(BaseModel):
+    """Ticker data for a trading pair."""
+    pair: str = Field(description="Trading pair symbol.")
+    pair_normalized: Optional[str] = Field(None, description="Normalized pair symbol.")
+    timestamp: Optional[int] = Field(None, description="Data timestamp.")
+    last: float = Field(description="Last trade price.")
+    high: float = Field(description="24h highest price.")
+    low: float = Field(description="24h lowest price.")
+    bid: float = Field(description="Best bid price.")
+    ask: float = Field(description="Best ask price.")
+    open: float = Field(description="24h opening price.")
+    volume: float = Field(description="24h trading volume.")
+    average: float = Field(description="24h average price.")
+    daily: float = Field(description="24h price change amount.")
+    daily_percent: float = Field(description="24h price change percentage.")
+    denominator_symbol: Optional[str] = Field(None, description="Quote currency symbol.")
+    numerator_symbol: Optional[str] = Field(None, description="Base currency symbol.")
+
+class KriptoTickerSonucu(BaseModel):
+    """Ticker data result."""
+    tickers: List[KriptoTicker] = Field(description="List of ticker data.")
+    toplam_cift: int = Field(description="Total number of trading pairs.")
+    pair_symbol: Optional[str] = Field(None, description="Specific pair symbol if requested.")
+    quote_currency: Optional[str] = Field(None, description="Quote currency if requested.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class KriptoOrderbook(BaseModel):
+    """Order book data for a trading pair."""
+    timestamp: Optional[int] = Field(None, description="Data timestamp.")
+    bids: List[tuple] = Field(description="List of bid orders (price, quantity).")
+    asks: List[tuple] = Field(description="List of ask orders (price, quantity).")
+    bid_count: int = Field(description="Number of bid orders.")
+    ask_count: int = Field(description="Number of ask orders.")
+
+class KriptoOrderbookSonucu(BaseModel):
+    """Order book result."""
+    pair_symbol: str = Field(description="Trading pair symbol.")
+    orderbook: Optional[KriptoOrderbook] = Field(None, description="Order book data.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class KriptoTrade(BaseModel):
+    """Individual trade data."""
+    pair: str = Field(description="Trading pair symbol.")
+    pair_normalized: Optional[str] = Field(None, description="Normalized pair symbol.")
+    numerator: Optional[str] = Field(None, description="Base currency.")
+    denominator: Optional[str] = Field(None, description="Quote currency.")
+    date: Optional[int] = Field(None, description="Trade timestamp.")
+    tid: Optional[str] = Field(None, description="Trade ID.")
+    price: float = Field(description="Trade price.")
+    amount: float = Field(description="Trade amount.")
+
+class KriptoTradesSonucu(BaseModel):
+    """Recent trades result."""
+    pair_symbol: str = Field(description="Trading pair symbol.")
+    trades: List[KriptoTrade] = Field(description="List of recent trades.")
+    toplam_islem: int = Field(description="Total number of trades.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class KriptoOHLC(BaseModel):
+    """OHLC data for a time period."""
+    pair: str = Field(description="Trading pair symbol.")
+    time: Optional[int] = Field(None, description="Period timestamp.")
+    open: float = Field(description="Opening price.")
+    high: float = Field(description="Highest price.")
+    low: float = Field(description="Lowest price.")
+    close: float = Field(description="Closing price.")
+    volume: float = Field(description="Trading volume.")
+    total: float = Field(description="Total trade value.")
+    average: float = Field(description="Average price.")
+    daily_change_amount: float = Field(description="Daily change amount.")
+    daily_change_percentage: float = Field(description="Daily change percentage.")
+
+class KriptoOHLCSonucu(BaseModel):
+    """OHLC data result."""
+    pair: str = Field(description="Trading pair symbol.")
+    ohlc_data: List[KriptoOHLC] = Field(description="List of OHLC data.")
+    toplam_veri: int = Field(description="Total number of data points.")
+    from_time: Optional[int] = Field(None, description="Start time filter.")
+    to_time: Optional[int] = Field(None, description="End time filter.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class KriptoKline(BaseModel):
+    """Kline (candlestick) data."""
+    timestamp: int = Field(description="Candlestick timestamp.")
+    open: float = Field(description="Opening price.")
+    high: float = Field(description="Highest price.")
+    low: float = Field(description="Lowest price.")
+    close: float = Field(description="Closing price.")
+    volume: float = Field(description="Trading volume.")
+
+class KriptoKlineSonucu(BaseModel):
+    """Kline data result."""
+    symbol: str = Field(description="Trading symbol.")
+    resolution: str = Field(description="Candlestick resolution.")
+    klines: List[KriptoKline] = Field(description="List of kline data.")
+    toplam_veri: int = Field(description="Total number of data points.")
+    from_time: int = Field(description="Start time.")
+    to_time: int = Field(description="End time.")
+    status: str = Field(description="API response status.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+

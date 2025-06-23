@@ -6,7 +6,7 @@ appropriate provider.
 """
 import httpx
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 # Assuming provider files are in a 'providers' directory
 from providers.kap_provider import KAPProvider
@@ -19,7 +19,9 @@ from borsa_models import (
     EndeksSirketleriSonucu, EndeksSirketDetayi, EndeksKoduAramaSonucu,
     FonAramaSonucu, FonDetayBilgisi, FonPerformansSonucu, FonPortfoySonucu,
     FonKarsilastirmaSonucu, FonTaramaKriterleri, FonTaramaSonucu,
-    FonMevzuatSonucu
+    FonMevzuatSonucu,
+    KriptoExchangeInfoSonucu, KriptoTickerSonucu, KriptoOrderbookSonucu,
+    KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu
 )
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,9 @@ class BorsaApiClient:
         # Import TefasProvider for fund data
         from providers.tefas_provider import TefasProvider
         self.tefas_provider = TefasProvider()
+        # Import BtcTurkProvider for crypto data
+        from providers.btcturk_provider import BtcTurkProvider
+        self.btcturk_provider = BtcTurkProvider(self._http_client)
 
     async def close(self):
         await self._http_client.aclose()
@@ -1492,3 +1497,29 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
                 kaynak_dosya="fon_mevzuat_kisa.md",
                 error_message=f"Fon mevzuat dosyası okunurken hata: {str(e)}"
             )
+
+    # --- BtcTurk Kripto Provider Methods ---
+    
+    async def get_kripto_exchange_info(self) -> KriptoExchangeInfoSonucu:
+        """Get detailed information about all trading pairs and currencies on BtcTurk."""
+        return await self.btcturk_provider.get_exchange_info()
+    
+    async def get_kripto_ticker(self, pair_symbol: Optional[str] = None, quote_currency: Optional[str] = None) -> KriptoTickerSonucu:
+        """Get ticker data for specific trading pair(s) or all pairs."""
+        return await self.btcturk_provider.get_ticker(pair_symbol, quote_currency)
+    
+    async def get_kripto_orderbook(self, pair_symbol: str, limit: int = 100) -> KriptoOrderbookSonucu:
+        """Get order book data for a specific trading pair."""
+        return await self.btcturk_provider.get_orderbook(pair_symbol, limit)
+    
+    async def get_kripto_trades(self, pair_symbol: str, last: int = 50) -> KriptoTradesSonucu:
+        """Get recent trades for a specific trading pair."""
+        return await self.btcturk_provider.get_trades(pair_symbol, last)
+    
+    async def get_kripto_ohlc(self, pair: str, from_time: Optional[int] = None, to_time: Optional[int] = None) -> KriptoOHLCSonucu:
+        """Get OHLC data for a specific trading pair."""
+        return await self.btcturk_provider.get_ohlc(pair, from_time, to_time)
+    
+    async def get_kripto_kline(self, symbol: str, resolution: str, from_time: int, to_time: int) -> KriptoKlineSonucu:
+        """Get Kline (candlestick) data for a specific symbol."""
+        return await self.btcturk_provider.get_kline(symbol, resolution, from_time, to_time)
