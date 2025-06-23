@@ -6,6 +6,8 @@ Bu proje, Borsa İstanbul (BIST) verilerine ve Türk yatırım fonları verileri
 
 ![ornek](./ornek.jpeg)
 
+![fon ornek](./fon-ornek.png)
+
 
 🎯 **Temel Özellikler**
 
