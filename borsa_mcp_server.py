@@ -5,7 +5,7 @@ This version uses KAP for company search and yfinance for all financial data.
 import logging
 import os
 from pydantic import Field
-from typing import Literal, List, Dict, Any
+from typing import Literal, List, Dict, Any, Annotated
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -21,7 +21,9 @@ from borsa_models import (
     FonPerformansSonucu, FonPortfoySonucu, FonKarsilastirmaSonucu, FonTaramaKriterleri,
     FonTaramaSonucu, FonMevzuatSonucu,
     KriptoExchangeInfoSonucu, KriptoTickerSonucu, KriptoOrderbookSonucu,
-    KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu
+    KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu,
+    CoinbaseExchangeInfoSonucu, CoinbaseTickerSonucu, CoinbaseOrderbookSonucu,
+    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu
 )
 
 # --- Logging Configuration ---
@@ -54,10 +56,19 @@ borsa_client = BorsaApiClient()
 # Define Literal types for yfinance periods to ensure clean schema generation
 YFinancePeriodLiteral = Literal["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "ytd", "max"]
 StatementPeriodLiteral = Literal["annual", "quarterly"]
+FundCategoryLiteral = Literal["all", "debt", "variable", "basket", "guaranteed", "real_estate", "venture", "equity", "mixed", "participation", "precious_metals", "money_market", "flexible"]
+CryptoCurrencyLiteral = Literal["TRY", "USDT", "BTC", "ETH", "USD", "EUR"]
 
-@app.tool(description="BIST STOCKS: Search companies by name to find ticker codes. STOCKS ONLY - use get_kripto_exchange_info for crypto.")
+@app.tool(
+    description="BIST STOCKS: Search companies by name to find ticker codes. STOCKS ONLY - use get_kripto_exchange_info for crypto.",
+    tags=["stocks", "search", "readonly"]
+)
 async def find_ticker_code(
-    sirket_adi_veya_kodu: str = Field(..., description="Company name or ticker to search (e.g. 'Garanti', 'Aselsan', 'GARAN'). Case-insensitive, supports Turkish chars.")
+    sirket_adi_veya_kodu: Annotated[str, Field(
+        description="Company name or ticker to search (e.g. 'Garanti', 'Aselsan', 'GARAN'). Case-insensitive, supports Turkish chars.",
+        min_length=2,
+        examples=["GARAN", "Garanti", "Aselsan", "TUPRS"]
+    )]
 ) -> SirketAramaSonucu:
     """
     Search 758 BIST companies by name to find ticker codes. Uses fuzzy matching.
@@ -74,10 +85,20 @@ async def find_ticker_code(
         logger.exception(f"Error in tool 'find_ticker_code' for query '{sirket_adi_veya_kodu}'.")
         return SirketAramaSonucu(arama_terimi=sirket_adi_veya_kodu, sonuclar=[], sonuc_sayisi=0, error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool(description="BIST STOCKS: Get company/index profile with financial metrics and sector info. STOCKS ONLY - use get_kripto_ticker for crypto.")
+@app.tool(
+    description="BIST STOCKS: Get company/index profile with financial metrics and sector info. STOCKS ONLY - use get_kripto_ticker for crypto.",
+    tags=["stocks", "profile", "readonly", "external"]
+)
 async def get_sirket_profili(
-    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, ASELS) or index (XU100, XBANK). No .IS suffix needed."),
-    mynet_detaylari: bool = Field(False, description="Include Turkish details: management, shareholders, subsidiaries. False=faster response.")
+    ticker_kodu: Annotated[str, Field(
+        description="BIST ticker: stock (GARAN, ASELS) or index (XU100, XBANK). No .IS suffix needed.",
+        pattern=r"^[A-Z]{2,6}$",
+        examples=["GARAN", "ASELS", "TUPRS", "XU100", "XBANK"]
+    )],
+    mynet_detaylari: Annotated[bool, Field(
+        description="Include Turkish details: management, shareholders, subsidiaries. False=faster response.",
+        default=False
+    )] = False
 ) -> SirketProfiliSonucu:
     """
     Get company profile with financial metrics, sector, business info. Optional Turkish details.
@@ -114,8 +135,15 @@ async def get_sirket_profili(
 
 @app.tool(description="BIST STOCKS: Get company balance sheet with assets, liabilities, equity. STOCKS ONLY - crypto companies don't publish balance sheets.")
 async def get_bilanco(
-    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, AKBNK) or index (XU100, XBANK). No .IS suffix."),
-    periyot: StatementPeriodLiteral = Field("annual", description="'annual' for yearly data, 'quarterly' for recent quarters. Annual=trends, quarterly=recent.")
+    ticker_kodu: Annotated[str, Field(
+        description="BIST ticker: stock (GARAN, AKBNK) or index (XU100, XBANK). No .IS suffix.",
+        pattern=r"^[A-Z]{2,6}$",
+        examples=["GARAN", "AKBNK", "XU100"]
+    )],
+    periyot: Annotated[StatementPeriodLiteral, Field(
+        description="'annual' for yearly data, 'quarterly' for recent quarters. Annual=trends, quarterly=recent.",
+        default="annual"
+    )] = "annual"
 ) -> FinansalTabloSonucu:
     """
     Get balance sheet showing assets, liabilities, equity. Financial health snapshot.
@@ -175,10 +203,20 @@ async def get_nakit_akisi_tablosu(
         logger.exception(f"Error in tool 'get_nakit_akisi_tablosu' for ticker {ticker_kodu}.")
         return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=[], error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool(description="BIST STOCKS: Get stock/index historical OHLCV data for prices, volumes, charts. STOCKS ONLY - use get_kripto_ohlc for crypto.")
+@app.tool(
+    description="BIST STOCKS: Get stock/index historical OHLCV data for prices, volumes, charts. STOCKS ONLY - use get_kripto_ohlc for crypto.",
+    tags=["stocks", "historical", "readonly", "external", "charts"]
+)
 async def get_finansal_veri(
-    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, TUPRS) or index (XU100, XBANK). No .IS suffix."),
-    zaman_araligi: YFinancePeriodLiteral = Field("1mo", description="Time period: 1d/5d/1mo/3mo/6mo/1y/2y/5y/ytd/max. Trading=1d-1mo, analysis=3mo-1y, trends=2y-max.")
+    ticker_kodu: Annotated[str, Field(
+        description="BIST ticker: stock (GARAN, TUPRS) or index (XU100, XBANK). No .IS suffix.",
+        pattern=r"^[A-Z]{2,6}$",
+        examples=["GARAN", "TUPRS", "XU100", "XBANK"]
+    )],
+    zaman_araligi: Annotated[YFinancePeriodLiteral, Field(
+        description="Time period: 1d/5d/1mo/3mo/6mo/1y/2y/5y/ytd/max. Trading=1d-1mo, analysis=3mo-1y, trends=2y-max.",
+        default="1mo"
+    )] = "1mo"
 ) -> FinansalVeriSonucu:
     """
     Get historical OHLCV price data for BIST stocks and indices. For charts and returns.
@@ -816,11 +854,26 @@ async def get_endeks_sirketleri(
 
 # --- TEFAS Fund Tools ---
 
-@app.tool(description="Search Turkish mutual funds: find funds by name/category with performance data. FUNDS ONLY.")
+@app.tool(
+    description="Search Turkish mutual funds: find funds by name/category with performance data. FUNDS ONLY.",
+    tags=["funds", "search", "readonly", "external", "performance"]
+)
 async def search_funds(
-    search_term: str = Field(..., description="Enter the fund's name, code, or founder to search. You can search using: fund name (e.g., 'Garanti Hisse', 'altın', 'teknoloji'), fund code (e.g., 'TGE'), or founder company (e.g., 'QNB Finans'). Search is case-insensitive and supports Turkish characters."),
-    limit: int = Field(20, description="Maximum number of results to return (default: 20, max: 50).", ge=1, le=50),
-    fund_category: str = Field("all", description="Filter by fund category: 'all' (all funds), 'debt' (Debt Securities), 'variable' (Variable Funds), 'basket' (Fund Baskets), 'guaranteed' (Guaranteed Funds), 'real_estate' (Real Estate), 'venture' (Venture Capital), 'equity' (Equity Funds), 'mixed' (Mixed Funds), 'participation' (Participation Funds), 'precious_metals' (Precious Metals), 'money_market' (Money Market), 'flexible' (Flexible Funds).")
+    search_term: Annotated[str, Field(
+        description="Fund name, code, or founder (e.g., 'Garanti Hisse', 'TGE', 'QNB'). Turkish chars supported.",
+        min_length=2,
+        examples=["Garanti Hisse", "altın", "teknoloji", "TGE", "QNB Finans"]
+    )],
+    limit: Annotated[int, Field(
+        description="Maximum results (default: 20, max: 50).",
+        default=20,
+        ge=1,
+        le=50
+    )] = 20,
+    fund_category: Annotated[FundCategoryLiteral, Field(
+        description="Fund category: 'all', 'debt', 'equity', 'mixed', 'precious_metals', 'money_market', etc.",
+        default="all"
+    )] = "all"
 ) -> FonAramaSonucu:
     """
     Searches for mutual funds in TEFAS (Turkish Electronic Fund Trading Platform).
@@ -1334,10 +1387,21 @@ async def get_kripto_exchange_info() -> KriptoExchangeInfoSonucu:
             error_message=f"Kripto borsa bilgisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
-@app.tool(description="CRYPTO BtcTurk: Get crypto price data with current prices, 24h changes, volumes. CRYPTO ONLY - use get_hizli_bilgi for stocks.")
+@app.tool(
+    description="CRYPTO BtcTurk: Get crypto price data with current prices, 24h changes, volumes. CRYPTO ONLY - use get_hizli_bilgi for stocks.",
+    tags=["crypto", "prices", "readonly", "external", "realtime"]
+)
 async def get_kripto_ticker(
-    pair_symbol: str = Field(None, description="Crypto pair (BTCTRY, ETHUSDT) or leave empty for all pairs."),
-    quote_currency: str = Field(None, description="Filter by quote currency (TRY, USDT, BTC). Only if pair_symbol empty.")
+    pair_symbol: Annotated[str, Field(
+        description="Crypto pair (BTCTRY, ETHUSDT) or leave empty for all pairs.",
+        default=None,
+        pattern=r"^[A-Z]{3,8}$",
+        examples=["BTCTRY", "ETHUSDT", "ADATRY", "AVAXTR"]
+    )] = None,
+    quote_currency: Annotated[CryptoCurrencyLiteral, Field(
+        description="Filter by quote currency (TRY, USDT, BTC). Only if pair_symbol empty.",
+        default=None
+    )] = None
 ) -> KriptoTickerSonucu:
     """
     Get real-time market ticker data for cryptocurrency trading pairs on BtcTurk.
@@ -1623,6 +1687,415 @@ async def get_kripto_kline(
             to_time=to_time,
             status='error',
             error_message=f"Kripto Kline verisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+# --- Coinbase Global Crypto Tools ---
+
+@app.tool(
+    description="CRYPTO Coinbase: Get global exchange info with trading pairs and currencies. CRYPTO ONLY - use find_ticker_code for stocks.",
+    tags=["crypto", "global", "readonly", "external"]
+)
+async def get_coinbase_exchange_info() -> CoinbaseExchangeInfoSonucu:
+    """
+    Get comprehensive exchange information from Coinbase including all global trading pairs and currencies.
+    
+    **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES on global markets. For Turkish crypto data, use get_kripto_exchange_info. For stock market data (BIST), use the stock-specific tools like find_ticker_code.**
+    
+    **Global Market Coverage:**
+    - **USD Pairs:** BTC-USD, ETH-USD, ADA-USD (international standard)
+    - **EUR Pairs:** BTC-EUR, ETH-EUR for European markets
+    - **Stablecoin Pairs:** BTC-USDC, ETH-USDT for stable value tracking
+    - **Major Altcoins:** Full coverage of top 50 cryptocurrencies
+    
+    **What this tool returns:**
+    - **Trading Pairs:** All available global cryptocurrency products (e.g., BTC-USD, ETH-EUR)
+    - **Currencies:** All supported cryptocurrencies and fiat currencies
+    - **Product Details:** Price data, volume, market status, trading rules
+    - **Market Status:** Active/disabled status, new listings, trading restrictions
+    
+    **Product Information Includes:**
+    - Product ID and status (active/disabled)
+    - Base and quote currency information
+    - Current price and 24h change data
+    - Volume metrics and percentage changes
+    - Trading restrictions (cancel-only, limit-only, etc.)
+    - Minimum order amounts and precision
+    
+    **Currency Information Includes:**
+    - Currency ID, name, and status
+    - Minimum transaction sizes
+    - Supported networks and deposit/withdrawal info
+    - Convertible currency pairs
+    
+    **Use Cases:**
+    - Global crypto market overview
+    - International trading pair discovery
+    - Cross-exchange arbitrage research
+    - Global portfolio diversification
+    - International crypto investment research
+    
+    **Response Time:** ~2-3 seconds (with 5-minute caching)
+    """
+    logger.info("Tool 'get_coinbase_exchange_info' called")
+    try:
+        return await borsa_client.get_coinbase_exchange_info()
+    except Exception as e:
+        logger.exception("Error in tool 'get_coinbase_exchange_info'")
+        return CoinbaseExchangeInfoSonucu(
+            trading_pairs=[],
+            currencies=[],
+            toplam_cift=0,
+            toplam_para_birimi=0,
+            error_message=f"Coinbase exchange info alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(
+    description="CRYPTO Coinbase: Get global crypto price data with USD/EUR prices. CRYPTO ONLY - use get_hizli_bilgi for stocks.",
+    tags=["crypto", "global", "prices", "readonly", "external", "realtime"]
+)
+async def get_coinbase_ticker(
+    product_id: Annotated[str, Field(
+        description="Coinbase product ID (BTC-USD, ETH-EUR) or leave empty for all products.",
+        default=None,
+        pattern=r"^[A-Z]{2,6}-[A-Z]{2,4}$",
+        examples=["BTC-USD", "ETH-EUR", "ADA-USD", "BTC-USDC"]
+    )] = None,
+    quote_currency: Annotated[str, Field(
+        description="Filter by quote currency (USD, EUR, USDC). Only if product_id empty.",
+        default=None,
+        pattern=r"^[A-Z]{2,4}$",
+        examples=["USD", "EUR", "USDC", "USDT"]
+    )] = None
+) -> CoinbaseTickerSonucu:
+    """
+    Get real-time market ticker data for global cryptocurrency trading pairs on Coinbase.
+    
+    **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES on global markets. For Turkish crypto data, use get_kripto_ticker. For stock prices, use get_hizli_bilgi or get_finansal_veri.**
+    
+    **Input Options:**
+    1. **Specific Product:** Provide product_id (e.g., "BTC-USD") for single product data
+    2. **By Quote Currency:** Provide quote_currency (e.g., "USD") for all pairs in that currency
+    3. **All Products:** Leave both empty to get data for all trading products
+    
+    **Global Market Data Includes:**
+    - **Current Price:** Last trade price in quote currency
+    - **Trading Activity:** Trade size, volume, and timestamps
+    - **Market Depth:** Best bid and ask prices (when available)
+    - **Trade Direction:** Buy/sell side information
+    
+    **Popular Global Trading Pairs:**
+    - **USD Markets:** BTC-USD, ETH-USD, ADA-USD, SOL-USD, AVAX-USD
+    - **EUR Markets:** BTC-EUR, ETH-EUR, ADA-EUR for European traders
+    - **Stablecoin Pairs:** BTC-USDC, ETH-USDT for stable value tracking
+    - **Major Altcoins:** LINK-USD, UNI-USD, AAVE-USD, MATIC-USD
+    
+    **Market Comparison Benefits:**
+    - **Global vs Turkish Markets:** Compare BTC-USD (Coinbase) vs BTCTRY (BtcTurk)
+    - **Arbitrage Opportunities:** Price differences between exchanges
+    - **International Reference:** USD/EUR prices for global context
+    - **Portfolio Valuation:** Multi-currency crypto holdings
+    
+    **Use Cases:**
+    - Global crypto price monitoring
+    - International market analysis
+    - Cross-exchange price comparison
+    - USD/EUR based portfolio tracking
+    - Arbitrage opportunity identification
+    
+    **Response Time:** ~1-3 seconds
+    **Data Freshness:** Real-time global market data
+    """
+    logger.info(f"Tool 'get_coinbase_ticker' called with product_id='{product_id}', quote_currency='{quote_currency}'")
+    try:
+        return await borsa_client.get_coinbase_ticker(product_id, quote_currency)
+    except Exception as e:
+        logger.exception("Error in tool 'get_coinbase_ticker'")
+        return CoinbaseTickerSonucu(
+            tickers=[],
+            toplam_cift=0,
+            product_id=product_id,
+            quote_currency=quote_currency,
+            error_message=f"Coinbase ticker verisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(
+    description="CRYPTO Coinbase: Get global crypto order book with USD/EUR bid/ask prices. CRYPTO ONLY - stock order books unavailable.",
+    tags=["crypto", "global", "orderbook", "readonly", "external", "realtime"]
+)
+async def get_coinbase_orderbook(
+    product_id: Annotated[str, Field(
+        description="Coinbase product ID (e.g., 'BTC-USD', 'ETH-EUR').",
+        pattern=r"^[A-Z]{2,6}-[A-Z]{2,4}$",
+        examples=["BTC-USD", "ETH-EUR", "ADA-USD", "BTC-USDC"]
+    )],
+    limit: Annotated[int, Field(
+        description="Number of orders to return (default: 100, max: 100).",
+        default=100,
+        ge=1,
+        le=100
+    )] = 100
+) -> CoinbaseOrderbookSonucu:
+    """
+    Get detailed order book data showing current buy (bid) and sell (ask) orders for global cryptocurrency markets.
+    
+    **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES on global exchanges. For Turkish crypto order books, use get_kripto_orderbook. Stock market (BIST) order book data is not available.**
+    
+    **Global Order Book Analysis:**
+    - **Bid Orders:** Buy orders in USD/EUR sorted by price (highest first)
+    - **Ask Orders:** Sell orders in USD/EUR sorted by price (lowest first)
+    - **Global Market Depth:** International price levels and liquidity
+    - **Cross-Exchange Comparison:** Compare with Turkish crypto markets
+    
+    **Each Order Level Shows:**
+    - **Price Level:** USD/EUR price at which orders are placed
+    - **Order Size:** Total cryptocurrency amount at that price level
+    - **Market Impact:** How large orders affect global prices
+    - **Liquidity Assessment:** Available trading depth
+    
+    **Trading Applications:**
+    - **Global Entry/Exit Strategy:** Optimal price levels in international markets
+    - **Arbitrage Analysis:** Compare USD/EUR prices with TRY markets
+    - **Large Order Planning:** Minimize market impact in global markets
+    - **Spread Analysis:** Calculate trading costs in major currencies
+    - **International Liquidity:** Assess global trading depth
+    
+    **Popular Global Products:**
+    - **High Liquidity:** BTC-USD, ETH-USD, BTC-EUR, ETH-EUR
+    - **Major Altcoins:** ADA-USD, SOL-USD, AVAX-USD, LINK-USD
+    - **Stablecoin Markets:** BTC-USDC, ETH-USDT, ETH-USDC
+    - **DeFi Tokens:** UNI-USD, AAVE-USD, COMP-USD
+    
+    **Market Comparison Insights:**
+    - **Global vs Turkish:** Compare BTC-USD order book with BTCTRY
+    - **Currency Arbitrage:** USD/EUR vs TRY pricing differences
+    - **International Reference:** Global market sentiment and levels
+    
+    **Response Time:** ~1-3 seconds
+    **Data Freshness:** Real-time global order book data
+    """
+    logger.info(f"Tool 'get_coinbase_orderbook' called with product_id='{product_id}', limit={limit}")
+    try:
+        return await borsa_client.get_coinbase_orderbook(product_id, limit)
+    except Exception as e:
+        logger.exception("Error in tool 'get_coinbase_orderbook'")
+        return CoinbaseOrderbookSonucu(
+            product_id=product_id,
+            orderbook=None,
+            error_message=f"Coinbase order book alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(
+    description="CRYPTO Coinbase: Get recent global crypto trades with USD/EUR prices. CRYPTO ONLY - use get_finansal_veri for stocks.",
+    tags=["crypto", "global", "trades", "readonly", "external", "realtime"]
+)
+async def get_coinbase_trades(
+    product_id: Annotated[str, Field(
+        description="Coinbase product ID (e.g., 'BTC-USD', 'ETH-EUR').",
+        pattern=r"^[A-Z]{2,6}-[A-Z]{2,4}$",
+        examples=["BTC-USD", "ETH-EUR", "ADA-USD", "SOL-USD"]
+    )],
+    limit: Annotated[int, Field(
+        description="Number of recent trades to return (default: 100, max: 100).",
+        default=100,
+        ge=1,
+        le=100
+    )] = 100
+) -> CoinbaseTradesSonucu:
+    """
+    Get recent trade history for global cryptocurrency markets on Coinbase.
+    
+    **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES on global exchanges. For Turkish crypto trade data, use get_kripto_trades. For stock market (BIST) historical data, use get_finansal_veri.**
+    
+    **Global Trade Data Includes:**
+    - **Trade Price:** Execution price in USD/EUR
+    - **Trade Size:** Cryptocurrency amount traded
+    - **Timestamp:** Exact time of trade execution
+    - **Trade ID:** Unique identifier for each transaction
+    - **Trade Side:** Buy/sell direction information
+    
+    **Global Market Analysis Applications:**
+    - **International Price Trends:** USD/EUR price movements and direction
+    - **Global Volume Analysis:** International trading activity patterns
+    - **Cross-Market Comparison:** Compare with Turkish TRY markets
+    - **Arbitrage Opportunities:** Price differences between global and local markets
+    - **Global Liquidity Assessment:** International trading frequency and size
+    
+    **Trading Insights for Global Markets:**
+    - **International Momentum:** Direction and strength of USD/EUR moves
+    - **Global Entry/Exit Timing:** Optimal execution in major currencies
+    - **International Price Discovery:** Fair value in global context
+    - **Currency-Specific Patterns:** USD vs EUR vs other currency behaviors
+    
+    **Popular Global Products for Analysis:**
+    - **Major Pairs:** BTC-USD, ETH-USD, BTC-EUR, ETH-EUR
+    - **High Activity Altcoins:** ADA-USD, SOL-USD, AVAX-USD, LINK-USD
+    - **Stablecoin Markets:** BTC-USDC, ETH-USDT for stable value analysis
+    - **DeFi Tokens:** UNI-USD, AAVE-USD, COMP-USD
+    
+    **Cross-Market Analysis Benefits:**
+    - **Global vs Local:** Compare BTC-USD trades with BTCTRY activity
+    - **Currency Impact:** How USD/EUR markets affect TRY prices
+    - **International Sentiment:** Global market mood and direction
+    - **Arbitrage Timing:** When price differences are most profitable
+    
+    **Data Characteristics:**
+    - **Chronological Order:** Most recent global trades first
+    - **Real-time Updates:** Latest international market activity
+    - **Global Granularity:** Individual transaction level from major exchanges
+    
+    **Response Time:** ~1-3 seconds
+    """
+    logger.info(f"Tool 'get_coinbase_trades' called with product_id='{product_id}', limit={limit}")
+    try:
+        return await borsa_client.get_coinbase_trades(product_id, limit)
+    except Exception as e:
+        logger.exception("Error in tool 'get_coinbase_trades'")
+        return CoinbaseTradesSonucu(
+            product_id=product_id,
+            trades=[],
+            toplam_islem=0,
+            error_message=f"Coinbase trades alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(
+    description="CRYPTO Coinbase: Get global crypto OHLC data for USD/EUR charts. CRYPTO ONLY - use get_finansal_veri for stocks.",
+    tags=["crypto", "global", "ohlc", "charts", "readonly", "external"]
+)
+async def get_coinbase_ohlc(
+    product_id: Annotated[str, Field(
+        description="Coinbase product ID (e.g., 'BTC-USD', 'ETH-EUR').",
+        pattern=r"^[A-Z]{2,6}-[A-Z]{2,4}$",
+        examples=["BTC-USD", "ETH-EUR", "ADA-USD", "SOL-USD"]
+    )],
+    start: Annotated[str, Field(
+        description="Start time (ISO format: 2024-01-01T00:00:00Z) - optional.",
+        default=None,
+        examples=["2024-01-01T00:00:00Z", "2024-06-01T12:00:00Z"]
+    )] = None,
+    end: Annotated[str, Field(
+        description="End time (ISO format: 2024-01-01T00:00:00Z) - optional.",
+        default=None,
+        examples=["2024-01-31T23:59:59Z", "2024-06-30T12:00:00Z"]
+    )] = None,
+    granularity: Annotated[str, Field(
+        description="Candle granularity: ONE_MINUTE, FIVE_MINUTE, FIFTEEN_MINUTE, ONE_HOUR, SIX_HOUR, ONE_DAY.",
+        default="ONE_HOUR",
+        examples=["ONE_HOUR", "ONE_DAY", "FIFTEEN_MINUTE"]
+    )] = "ONE_HOUR"
+) -> CoinbaseOHLCSonucu:
+    """
+    Get OHLC (Open, High, Low, Close) data for global cryptocurrency charting and technical analysis.
+    
+    **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES on global exchanges. For Turkish crypto OHLC data, use get_kripto_ohlc. For stock market (BIST) candlestick data, use get_finansal_veri.**
+    
+    **Global OHLC Data Components:**
+    - **Open:** Opening price in USD/EUR for the time period
+    - **High:** Highest price reached in global markets
+    - **Low:** Lowest price reached in global markets
+    - **Close:** Closing price in USD/EUR for the period
+    - **Volume:** Total cryptocurrency volume traded globally
+    
+    **Granularity Options:**
+    - **ONE_MINUTE:** 1-minute candlesticks for scalping
+    - **FIVE_MINUTE:** 5-minute candlesticks for short-term trading
+    - **FIFTEEN_MINUTE:** 15-minute candlesticks for intraday analysis
+    - **ONE_HOUR:** 1-hour candlesticks for swing trading (default)
+    - **SIX_HOUR:** 6-hour candlesticks for position trading
+    - **ONE_DAY:** Daily candlesticks for long-term analysis
+    
+    **Global Technical Analysis Applications:**
+    - **International Chart Patterns:** Global market candlestick formations
+    - **USD/EUR Trend Analysis:** Price direction in major currencies
+    - **Global Support/Resistance:** Key price levels in international markets
+    - **Cross-Market Volatility:** Compare global vs Turkish market volatility
+    - **Currency-Specific Analysis:** USD vs EUR price behavior differences
+    
+    **Trading Strategy Uses for Global Markets:**
+    - **International Entry/Exit:** Optimal trading levels in USD/EUR
+    - **Global Risk Management:** Set stops based on international levels
+    - **Cross-Market Timing:** Understand global vs local market cycles
+    - **Arbitrage Strategy:** Identify breakouts for cross-exchange trading
+    
+    **Popular Products for Global Analysis:**
+    - **Major Pairs:** BTC-USD, ETH-USD, BTC-EUR, ETH-EUR
+    - **High-Volume Altcoins:** ADA-USD, SOL-USD, AVAX-USD, LINK-USD
+    - **Stablecoin Analysis:** BTC-USDC, ETH-USDT for stable reference
+    - **DeFi Ecosystem:** UNI-USD, AAVE-USD, COMP-USD
+    
+    **Time Range Examples:**
+    - **Recent Data:** Leave start/end empty for recent candles
+    - **Specific Period:** Use ISO format timestamps for exact ranges
+    - **Analysis Periods:** Hours, days, weeks depending on granularity
+    
+    **Cross-Market Benefits:**
+    - **Global Context:** How international markets affect local TRY prices
+    - **Currency Hedge:** USD/EUR exposure vs TRY currency risk
+    - **International Reference:** Global price levels and trends
+    - **Arbitrage Signals:** When price differences create opportunities
+    
+    **Response Time:** ~2-4 seconds (depends on data range)
+    """
+    logger.info(f"Tool 'get_coinbase_ohlc' called with product_id='{product_id}', start={start}, end={end}, granularity='{granularity}'")
+    try:
+        return await borsa_client.get_coinbase_ohlc(product_id, start, end, granularity)
+    except Exception as e:
+        logger.exception("Error in tool 'get_coinbase_ohlc'")
+        return CoinbaseOHLCSonucu(
+            product_id=product_id,
+            candles=[],
+            toplam_veri=0,
+            start=start,
+            end=end,
+            granularity=granularity,
+            error_message=f"Coinbase OHLC verisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(
+    description="CRYPTO Coinbase: Get global server time and API status. CRYPTO ONLY - informational tool.",
+    tags=["crypto", "global", "status", "readonly", "external"]
+)
+async def get_coinbase_server_time() -> CoinbaseServerTimeSonucu:
+    """
+    Get Coinbase server time and API status for global cryptocurrency markets.
+    
+    **IMPORTANT: This tool is for COINBASE API STATUS only. For Turkish crypto API status, use the appropriate BtcTurk tools.**
+    
+    **Server Information Includes:**
+    - **ISO Timestamp:** Current server time in ISO 8601 format
+    - **Unix Timestamp:** Current server time as Unix epoch
+    - **API Status:** Connectivity and operational status
+    - **Server Health:** Global Coinbase API availability
+    
+    **Use Cases:**
+    - **API Connectivity Testing:** Verify Coinbase API access
+    - **Time Synchronization:** Align with Coinbase server time
+    - **System Health Monitoring:** Check global crypto API status
+    - **Timestamp Reference:** Get accurate time for trading calculations
+    - **Debugging:** Troubleshoot API connection issues
+    
+    **Integration Benefits:**
+    - **Global Market Access:** Confirm international crypto API availability
+    - **Cross-Exchange Monitoring:** Compare with Turkish crypto API status
+    - **System Reliability:** Verify global market data access
+    - **Time Accuracy:** Ensure synchronized timestamps for analysis
+    
+    **Technical Information:**
+    - **Time Zone:** UTC (Coordinated Universal Time)
+    - **Format:** ISO 8601 standard timestamp format
+    - **Precision:** Accurate to the second
+    - **Reliability:** Coinbase production server time
+    
+    **Response Time:** ~1-2 seconds
+    """
+    logger.info("Tool 'get_coinbase_server_time' called")
+    try:
+        return await borsa_client.get_coinbase_server_time()
+    except Exception as e:
+        logger.exception("Error in tool 'get_coinbase_server_time'")
+        return CoinbaseServerTimeSonucu(
+            iso=None,
+            epoch=None,
+            error_message=f"Coinbase server time alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
 def main():

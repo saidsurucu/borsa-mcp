@@ -1184,3 +1184,124 @@ class KriptoKlineSonucu(BaseModel):
     status: str = Field(description="API response status.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
+# --- Coinbase Crypto Models ---
+
+class CoinbaseProduct(BaseModel):
+    """Trading pair information from Coinbase."""
+    product_id: str = Field(description="Product identifier (e.g., BTC-USD).")
+    price: float = Field(description="Current price.")
+    price_percentage_change_24h: float = Field(description="24h price change percentage.")
+    volume_24h: float = Field(description="24h trading volume.")
+    volume_percentage_change_24h: float = Field(description="24h volume change percentage.")
+    base_currency_id: str = Field(description="Base currency symbol.")
+    quote_currency_id: str = Field(description="Quote currency symbol.")
+    base_display_symbol: Optional[str] = Field(None, description="Base currency display symbol.")
+    quote_display_symbol: Optional[str] = Field(None, description="Quote currency display symbol.")
+    base_name: Optional[str] = Field(None, description="Base currency name.")
+    quote_name: Optional[str] = Field(None, description="Quote currency name.")
+    min_market_funds: float = Field(description="Minimum market order funds.")
+    is_disabled: bool = Field(description="Whether trading is disabled.")
+    new_listing: bool = Field(description="Whether this is a new listing.")
+    status: Optional[str] = Field(None, description="Product status.")
+    cancel_only: bool = Field(description="Whether only cancellations are allowed.")
+    limit_only: bool = Field(description="Whether only limit orders are allowed.")
+    post_only: bool = Field(description="Whether only post-only orders are allowed.")
+    trading_disabled: bool = Field(description="Whether trading is disabled.")
+    auction_mode: bool = Field(description="Whether in auction mode.")
+    product_type: Optional[str] = Field(None, description="Product type.")
+    quote_currency_type: Optional[str] = Field(None, description="Quote currency type.")
+    base_currency_type: Optional[str] = Field(None, description="Base currency type.")
+
+class CoinbaseCurrency(BaseModel):
+    """Currency information from Coinbase."""
+    id: str = Field(description="Currency identifier.")
+    name: str = Field(description="Currency name.")
+    min_size: Optional[str] = Field(None, description="Minimum transaction size.")
+    status: Optional[str] = Field(None, description="Currency status.")
+    message: Optional[str] = Field(None, description="Status message.")
+    max_precision: Optional[int] = Field(None, description="Maximum decimal precision.")
+    convertible_to: List[str] = Field(description="Currencies this can be converted to.")
+    details: Dict[str, Any] = Field(description="Additional currency details.")
+
+class CoinbaseExchangeInfoSonucu(BaseModel):
+    """Exchange information result from Coinbase."""
+    trading_pairs: List[CoinbaseProduct] = Field(description="List of trading pairs.")
+    currencies: List[CoinbaseCurrency] = Field(description="List of supported currencies.")
+    toplam_cift: int = Field(description="Total number of trading pairs.")
+    toplam_para_birimi: int = Field(description="Total number of currencies.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class CoinbaseTicker(BaseModel):
+    """Ticker data for a trading pair from Coinbase."""
+    product_id: str = Field(description="Product identifier.")
+    price: float = Field(description="Current price.")
+    size: float = Field(description="Trade size.")
+    time: Optional[str] = Field(None, description="Trade timestamp.")
+    side: Optional[str] = Field(None, description="Trade side (buy/sell).")
+    bid: float = Field(description="Best bid price.")
+    ask: float = Field(description="Best ask price.")
+    volume: float = Field(description="24h trading volume.")
+
+class CoinbaseTickerSonucu(BaseModel):
+    """Ticker data result from Coinbase."""
+    tickers: List[CoinbaseTicker] = Field(description="List of ticker data.")
+    toplam_cift: int = Field(description="Total number of trading pairs.")
+    product_id: Optional[str] = Field(None, description="Specific product ID if requested.")
+    quote_currency: Optional[str] = Field(None, description="Quote currency if requested.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class CoinbaseOrderbook(BaseModel):
+    """Order book data for a trading pair from Coinbase."""
+    time: Optional[str] = Field(None, description="Order book timestamp.")
+    bids: List[tuple] = Field(description="List of bid orders (price, size).")
+    asks: List[tuple] = Field(description="List of ask orders (price, size).")
+    bid_count: int = Field(description="Number of bid orders.")
+    ask_count: int = Field(description="Number of ask orders.")
+
+class CoinbaseOrderbookSonucu(BaseModel):
+    """Order book result from Coinbase."""
+    product_id: str = Field(description="Product identifier.")
+    orderbook: Optional[CoinbaseOrderbook] = Field(None, description="Order book data.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class CoinbaseTrade(BaseModel):
+    """Individual trade data from Coinbase."""
+    trade_id: Optional[str] = Field(None, description="Trade identifier.")
+    product_id: str = Field(description="Product identifier.")
+    price: float = Field(description="Trade price.")
+    size: float = Field(description="Trade size.")
+    time: Optional[str] = Field(None, description="Trade timestamp.")
+    side: Optional[str] = Field(None, description="Trade side (buy/sell).")
+
+class CoinbaseTradesSonucu(BaseModel):
+    """Recent trades result from Coinbase."""
+    product_id: str = Field(description="Product identifier.")
+    trades: List[CoinbaseTrade] = Field(description="List of recent trades.")
+    toplam_islem: int = Field(description="Total number of trades.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class CoinbaseCandle(BaseModel):
+    """OHLC candlestick data from Coinbase."""
+    start: Optional[str] = Field(None, description="Candle start time.")
+    low: float = Field(description="Lowest price.")
+    high: float = Field(description="Highest price.")
+    open: float = Field(description="Opening price.")
+    close: float = Field(description="Closing price.")
+    volume: float = Field(description="Trading volume.")
+
+class CoinbaseOHLCSonucu(BaseModel):
+    """OHLC data result from Coinbase."""
+    product_id: str = Field(description="Product identifier.")
+    candles: List[CoinbaseCandle] = Field(description="List of candle data.")
+    toplam_veri: int = Field(description="Total number of data points.")
+    start: Optional[str] = Field(None, description="Start time filter.")
+    end: Optional[str] = Field(None, description="End time filter.")
+    granularity: str = Field(description="Candle granularity.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class CoinbaseServerTimeSonucu(BaseModel):
+    """Server time result from Coinbase."""
+    iso: Optional[str] = Field(None, description="ISO timestamp.")
+    epoch: Optional[int] = Field(None, description="Unix timestamp.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+

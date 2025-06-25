@@ -1,8 +1,8 @@
-# Borsa MCP: Borsa İstanbul (BIST), TEFAS Fonları ve Kripto Para için MCP Sunucusu
+# Borsa MCP: Borsa İstanbul (BIST), TEFAS Fonları ve Global Kripto Para için MCP Sunucusu
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
-Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine ve kripto para verilerine erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, KAP (Kamuyu Aydınlatma Platformu), TEFAS (Türkiye Elektronik Fon Alım Satım Platformu), BtcTurk, Mynet Finans ve Yahoo Finance'dan hisse senedi bilgileri, fon verileri, kripto para piyasa verileri, finansal veriler, teknik analiz ve sektör karşılaştırmaları, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
+Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine ve global kripto para verilerine erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, KAP (Kamuyu Aydınlatma Platformu), TEFAS (Türkiye Elektronik Fon Alım Satım Platformu), BtcTurk, Coinbase, Mynet Finans ve Yahoo Finance'dan hisse senedi bilgileri, fon verileri, hem Türk hem de global kripto para piyasa verileri, finansal veriler, teknik analiz ve sektör karşılaştırmaları, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
 
 ![ornek](./ornek.jpeg)
 
@@ -11,8 +11,8 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
 
 🎯 **Temel Özellikler**
 
-* Borsa İstanbul (BIST), Türk yatırım fonları ve kripto para verilerine programatik erişim için kapsamlı bir MCP arayüzü.
-* **29 Araç** ile tam finansal analiz desteği:
+* Borsa İstanbul (BIST), Türk yatırım fonları ve global kripto para verilerine programatik erişim için kapsamlı bir MCP arayüzü.
+* **35 Araç** ile tam finansal analiz desteği:
     * **Şirket Arama:** 758 BIST şirketi arasında ticker kodu ve şirket adına göre arama (çoklu ticker desteği ile).
     * **Finansal Veriler:** Bilanço, kar-zarar, nakit akışı tabloları ve geçmiş OHLCV verileri.
     * **Teknik Analiz:** RSI, MACD, Bollinger Bantları gibi teknik göstergeler ve al-sat sinyalleri.
@@ -22,11 +22,12 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
     * **Katılım Finans:** Katılım finans uygunluk verileri.
     * **TEFAS Fonları:** 800+ Türk yatırım fonu arama, performans, portföy analizi.
     * **Fon Mevzuatı:** Yatırım fonları düzenlemeleri ve hukuki uyumluluk rehberi.
-    * **BtcTurk Kripto:** 295+ kripto para çifti, gerçek zamanlı fiyatlar, emir defteri, işlem geçmişi.
-    * **Kripto Analiz:** OHLC grafikleri, Kline verileri, teknik analiz için kripto piyasa verileri.
+    * **BtcTurk Kripto:** 295+ Türk kripto para çifti (TRY/USDT), gerçek zamanlı fiyatlar, emir defteri, işlem geçmişi.
+    * **Coinbase Global:** 500+ global kripto para çifti (USD/EUR), uluslararası piyasa verileri, çapraz piyasa analizi.
+    * **Kripto Analiz:** OHLC grafikleri, Kline verileri, teknik analiz için Türk ve global kripto piyasa verileri.
     * **Hibrit Veri:** Yahoo Finance + Mynet Finans'tan birleştirilmiş şirket bilgileri.
 * Türk hisse senetleri, endeksler, yatırım fonları ve kripto para için optimize edilmiş veri işleme.
-* **LLM Optimizasyonu:** Domain-özel araç ön ekleri ("BIST STOCKS:", "CRYPTO BtcTurk:") ile gelişmiş araç seçimi.
+* **LLM Optimizasyonu:** Domain-özel araç ön ekleri ("BIST STOCKS:", "CRYPTO BtcTurk:", "CRYPTO Coinbase:") ile gelişmiş araç seçimi.
 * **Hızlı İşleme:** Kısa araç açıklamaları ve LLM-dostu dokümantasyon ile optimize edilmiş performans.
 * Claude Desktop uygulaması ile kolay entegrasyon.
 * Borsa MCP, [5ire](https://5ire.app) gibi Claude Desktop haricindeki MCP istemcilerini de destekler.
@@ -119,13 +120,21 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 ### Fon Mevzuat Araçları
 * **`get_fon_mevzuati`**: Türk yatırım fonları mevzuat rehberi (hukuki uyumluluk için).
 
-### BtcTurk Kripto Para Araçları
+### BtcTurk Kripto Para Araçları (Türk Piyasası)
 * **`get_kripto_exchange_info`**: Tüm kripto çiftleri, para birimleri ve borsa operasyonel durumu.
 * **`get_kripto_ticker`**: Kripto çiftler için gerçek zamanlı fiyat verileri (çift veya kote para birimi filtresi ile).
 * **`get_kripto_orderbook`**: Güncel alış/satış emirlerini içeren emir defteri derinliği.
 * **`get_kripto_trades`**: Piyasa analizi için son işlem geçmişi.
 * **`get_kripto_ohlc`**: Kripto grafikleri ve teknik analiz için OHLC verileri.
 * **`get_kripto_kline`**: Çoklu zaman çözünürlükleri ile Kline (mum grafik) verileri.
+
+### Coinbase Global Kripto Para Araçları (Uluslararası Piyasalar)
+* **`get_coinbase_exchange_info`**: Global işlem çiftleri ve para birimleri (USD/EUR piyasaları ile).
+* **`get_coinbase_ticker`**: Uluslararası piyasalar için gerçek zamanlı global kripto fiyatları (USD/EUR).
+* **`get_coinbase_orderbook`**: USD/EUR alış/satış fiyatları ile global emir defteri derinliği.
+* **`get_coinbase_trades`**: Çapraz piyasa analizi için son global işlem geçmişi.
+* **`get_coinbase_ohlc`**: USD/EUR kripto grafikleri için global OHLC verileri.
+* **`get_coinbase_server_time`**: Coinbase sunucu zamanı ve API durumu.
 
 🔍 **Veri Kaynakları & Kapsam**
 
@@ -158,7 +167,7 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **İçerik**: Portföy limitleri, fon türleri, uyumluluk kuralları
 - **Güncelleme**: Dosya metadata ile son güncelleme tarihi
 
-### BtcTurk Kripto Para Borsası
+### BtcTurk Kripto Para Borsası (Türk Piyasası)
 - **İşlem Çiftleri**: 295+ kripto para işlem çifti (ana TRY ve USDT piyasaları dahil)
 - **Para Birimleri**: 158+ desteklenen kripto para ve fiat para birimi (BTC, ETH, TRY, USDT vb.)
 - **API Endpoint**: Resmi BtcTurk Public API v2 (https://api.btcturk.com/api/v2)
@@ -166,6 +175,17 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Türk Odak**: TRY çiftleri için optimize edilmiş (BTCTRY, ETHTRY, ADATRY vb.)
 - **Güncelleme Sıklığı**: Borsa bilgileri için 1 dakika önbellek ile gerçek zamanlı piyasa verileri
 - **Veri Kalitesi**: Milisaniye hassasiyetli zaman damgaları ile profesyonel seviye borsa verileri
+
+### Coinbase Global Kripto Para Borsası (Uluslararası Piyasalar)
+- **İşlem Çiftleri**: 500+ global kripto para işlem çifti (ana USD, EUR ve GBP piyasaları dahil)
+- **Para Birimleri**: 200+ desteklenen kripto para ve fiat para birimi (BTC, ETH, USD, EUR, GBP vb.)
+- **API Endpoint**: Resmi Coinbase Advanced Trade API v3 ve App API v2 (https://api.coinbase.com)
+- **Piyasa Verileri**: Gerçek zamanlı ticker fiyatları, emir defterleri, işlem geçmişi, OHLC/mum grafikleri, sunucu zamanı
+- **Global Odak**: Uluslararası piyasalar için USD/EUR çiftleri (BTC-USD, ETH-EUR vb.)
+- **Güncelleme Sıklığı**: Borsa bilgileri için 5 dakika önbellek ile gerçek zamanlı piyasa verileri
+- **Veri Kalitesi**: Coinbase (NASDAQ: COIN) kurumsal seviye global likidite ile işletme düzeyinde borsa verileri
+- **Kapsam**: Tam global piyasa kapsama, kurumsal seviye işlem verileri, çapraz piyasa arbitraj fırsatları
+- **Çapraz Piyasa Analizi**: Türk kripto piyasaları (BtcTurk TRY çiftleri) ile global piyasaları (Coinbase USD/EUR çiftleri) karşılaştırma
 
 📊 **Örnek Kullanım**
 
@@ -197,17 +217,32 @@ AAK fonunun son 6 aylık portföy dağılım değişimini analiz et
 # Fon mevzuat sorguları
 Yatırım fonlarında türev araç kullanım limitleri nelerdir?
 
-# Kripto para analizi
+# Türk kripto para analizi
 Bitcoin'in TRY cinsinden son 1 aylık fiyat hareketlerini analiz et
 
-# Kripto piyasa takibi
+# Türk kripto piyasa takibi
 BtcTurk'te en çok işlem gören kripto çiftleri listele ve fiyat değişimlerini göster
 
-# Kripto emir defteri analizi
+# Türk kripto emir defteri analizi
 BTCTRY çiftinin emir defterini görüntüle ve derinlik analizini yap
 
+# Global kripto para analizi
+Bitcoin'in USD cinsinden Coinbase'deki son 1 aylık fiyat hareketlerini analiz et
+
+# Global kripto piyasa takibi
+Coinbase'de en popüler USD/EUR kripto çiftlerini listele ve global piyasa trendlerini göster
+
+# Global kripto emir defteri analizi
+BTC-USD çiftinin Coinbase emir defterini görüntüle ve global likidite analizini yap
+
+# Çapraz piyasa kripto analizi
+Bitcoin fiyatını Türk (BTCTRY) ve global (BTC-USD) piyasalarda karşılaştır
+
+# Arbitraj fırsatı analizi
+ETH fiyatlarını BtcTurk (ETHUSDT) ve Coinbase (ETH-USD) arasında karşılaştırarak arbitraj fırsatlarını tespit et
+
 # Kripto teknik analiz
-Ethereum'un USDT çiftindeki son 3 aylık OHLC verilerini kullanarak teknik analiz yap
+Ethereum'un hem TRY (BtcTurk) hem USD (Coinbase) çiftlerindeki son 3 aylık OHLC verilerini kullanarak teknik analiz yap
 ```
 
 📜 **Lisans**

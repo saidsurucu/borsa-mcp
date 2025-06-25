@@ -21,7 +21,9 @@ from borsa_models import (
     FonKarsilastirmaSonucu, FonTaramaKriterleri, FonTaramaSonucu,
     FonMevzuatSonucu,
     KriptoExchangeInfoSonucu, KriptoTickerSonucu, KriptoOrderbookSonucu,
-    KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu
+    KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu,
+    CoinbaseExchangeInfoSonucu, CoinbaseTickerSonucu, CoinbaseOrderbookSonucu,
+    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu
 )
 
 logger = logging.getLogger(__name__)
@@ -43,6 +45,9 @@ class BorsaApiClient:
         # Import BtcTurkProvider for crypto data
         from providers.btcturk_provider import BtcTurkProvider
         self.btcturk_provider = BtcTurkProvider(self._http_client)
+        # Import CoinbaseProvider for global crypto data
+        from providers.coinbase_provider import CoinbaseProvider
+        self.coinbase_provider = CoinbaseProvider(self._http_client)
 
     async def close(self):
         await self._http_client.aclose()
@@ -1523,3 +1528,29 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
     async def get_kripto_kline(self, symbol: str, resolution: str, from_time: int, to_time: int) -> KriptoKlineSonucu:
         """Get Kline (candlestick) data for a specific symbol."""
         return await self.btcturk_provider.get_kline(symbol, resolution, from_time, to_time)
+
+    # --- Coinbase Global Crypto Provider Methods ---
+    
+    async def get_coinbase_exchange_info(self) -> CoinbaseExchangeInfoSonucu:
+        """Get detailed information about all trading pairs and currencies on Coinbase."""
+        return await self.coinbase_provider.get_exchange_info()
+    
+    async def get_coinbase_ticker(self, product_id: Optional[str] = None, quote_currency: Optional[str] = None) -> CoinbaseTickerSonucu:
+        """Get ticker data for specific trading pair(s) or all pairs on Coinbase."""
+        return await self.coinbase_provider.get_ticker(product_id, quote_currency)
+    
+    async def get_coinbase_orderbook(self, product_id: str, limit: int = 100) -> CoinbaseOrderbookSonucu:
+        """Get order book data for a specific trading pair on Coinbase."""
+        return await self.coinbase_provider.get_orderbook(product_id, limit)
+    
+    async def get_coinbase_trades(self, product_id: str, limit: int = 100) -> CoinbaseTradesSonucu:
+        """Get recent trades for a specific trading pair on Coinbase."""
+        return await self.coinbase_provider.get_trades(product_id, limit)
+    
+    async def get_coinbase_ohlc(self, product_id: str, start: Optional[str] = None, end: Optional[str] = None, granularity: str = "ONE_HOUR") -> CoinbaseOHLCSonucu:
+        """Get OHLC data for a specific trading pair on Coinbase."""
+        return await self.coinbase_provider.get_ohlc(product_id, start, end, granularity)
+    
+    async def get_coinbase_server_time(self) -> CoinbaseServerTimeSonucu:
+        """Get Coinbase server time and status."""
+        return await self.coinbase_provider.get_server_time()
