@@ -136,7 +136,7 @@ async def get_bilanco(
 @app.tool(description="BIST STOCKS: Get company income statement with revenue, profit, margins. STOCKS ONLY - crypto companies don't publish income statements.")
 async def get_kar_zarar_tablosu(
     ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, TUPRS) or index (XU100, XBANK). No .IS suffix."),
-    periyot: StatementPeriodLiteral = Field("annual", description="Choose 'annual' for yearly statements or 'quarterly' for quarterly statements. Annual shows full-year performance, quarterly reveals seasonal patterns and recent trends.")
+    periyot: StatementPeriodLiteral = Field("annual", description="'annual' for yearly statements, 'quarterly' for quarters. Annual=trends, quarterly=recent.")
 ) -> FinansalTabloSonucu:
     """
     Get income statement showing revenue, expenses, profit over time. Performance analysis.
@@ -157,7 +157,7 @@ async def get_kar_zarar_tablosu(
 @app.tool(description="BIST STOCKS: Get company cash flow statement with operating/investing/financing flows. STOCKS ONLY.")
 async def get_nakit_akisi_tablosu(
     ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, EREGL) or index (XU100, XBANK). No .IS suffix."),
-    periyot: StatementPeriodLiteral = Field("annual", description="Choose 'annual' for yearly cash flows or 'quarterly' for quarterly cash flows. Annual data shows longer-term cash generation patterns, quarterly reveals seasonal cash flow variations.")
+    periyot: StatementPeriodLiteral = Field("annual", description="'annual' for yearly cash flows, 'quarterly' for quarters. Annual=long-term patterns, quarterly=seasonal.")
 ) -> FinansalTabloSonucu:
     """
     Get cash flow statement showing operating, investing, financing cash flows.
@@ -185,67 +185,6 @@ async def get_finansal_veri(
     
     Returns open, high, low, close, volume data over time period.
     Use for technical analysis, performance tracking, volatility assessment.
-    
-    **Data Components Returned:**
-    
-    **Price Data (Fiyat Verileri):**
-    - **Open (Açılış)**: Opening price for each trading session
-    - **High (En Yüksek)**: Highest price reached during the session
-    - **Low (En Düşük)**: Lowest price reached during the session
-    - **Close (Kapanış)**: Final trading price for the session
-    - **Volume (Hacim)**: Number of shares traded during the session
-    
-    **Timestamp Information:**
-    - All dates/times in Turkish timezone (Europe/Istanbul)
-    - Exact trading session timestamps
-    - Excludes non-trading days (weekends, holidays)
-    
-    **Analysis Applications:**
-    
-    **Technical Analysis:**
-    - Candlestick pattern identification
-    - Moving averages calculation (SMA, EMA)
-    - Support and resistance level detection
-    - Technical indicators (RSI, MACD, Bollinger Bands)
-    
-    **Performance Analysis:**
-    - Price return calculations over different periods
-    - Volatility measurement and risk assessment
-    - Drawdown analysis and recovery periods
-    - Comparison with market indices (BIST100, BIST30)
-    
-    **Volume Analysis:**
-    - Trading activity patterns and trends
-    - Volume-price relationship analysis
-    - Liquidity assessment
-    - Institutional vs retail trading patterns
-    
-    **Investment Research:**
-    - Historical price performance evaluation
-    - Entry/exit point identification
-    - Risk-return profile assessment
-    - Long-term trend analysis
-    
-    **Time Period Recommendations:**
-    - **1d-5d**: Intraday trading and short-term analysis
-    - **1mo-3mo**: Short-term trend analysis and swing trading
-    - **6mo-1y**: Medium-term investment analysis
-    - **2y-5y**: Long-term investment and cyclical analysis
-    - **max**: Complete historical perspective and major trend analysis
-    
-    **Data Quality Notes:**
-    - Prices adjusted for splits and dividends
-    - Volume data available for all major BIST stocks
-    - Data quality best for liquid, large-cap stocks
-    - Some smaller companies may have gaps in historical data
-    
-    **Common Use Cases:**
-    - Calculate stock and index returns over specific periods
-    - Create price charts and technical analysis for stocks and indices
-    - Assess stock/index volatility and risk metrics
-    - Compare performance across different time frames and markets
-    - Identify seasonal patterns and trading anomalies
-    - Analyze index performance vs individual stocks
     """
     logger.info(f"Tool 'get_finansal_veri' called for ticker: '{ticker_kodu}', period: {zaman_araligi}")
     try:
@@ -268,90 +207,10 @@ async def get_analist_tahminleri(
     ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, TUPRS) or index (XU100, XBANK). No .IS suffix.")
 ) -> AnalistVerileriSonucu:
     """
-    Fetches comprehensive analyst research data including recommendations, price targets, and trends.
+    Get analyst recommendations, price targets, and rating trends from investment research.
     
-    This tool aggregates professional analyst opinions and research from investment banks and research firms
-    covering Turkish stocks. It provides valuable market sentiment indicators and professional price targets
-    that can inform investment decisions.
-    
-    **Analyst Data Components Returned:**
-    
-    **Price Targets (Fiyat Hedefleri):**
-    - **Current Price**: Latest stock price for comparison
-    - **Average Target**: Consensus price target from all analysts
-    - **High Target**: Most optimistic analyst price target
-    - **Low Target**: Most conservative analyst price target
-    - **Number of Analysts**: Count of analysts providing targets
-    - **Upside/Downside Potential**: Implied return to average target
-    
-    **Recommendation Summary (Tavsiye Özeti):**
-    - **Strong Buy**: Number of strong buy recommendations
-    - **Buy**: Number of buy recommendations  
-    - **Hold**: Number of hold recommendations
-    - **Sell**: Number of sell recommendations
-    - **Strong Sell**: Number of strong sell recommendations
-    - **Average Rating**: Weighted average of all recommendations
-    
-    **Recent Analyst Actions (Son Analist Hareketleri):**
-    - **Upgrades**: Recent rating improvements with details
-    - **Downgrades**: Recent rating downgrades with reasons
-    - **Initiations**: New coverage starts by research firms
-    - **Reiterations**: Confirmations of existing ratings
-    - **Analyst Firm Names**: Which firms provided recommendations
-    - **Action Dates**: When recommendations were made
-    
-    **Recommendation Trends (Tavsiye Trendleri):**
-    - **Historical Changes**: How recommendations evolved over time
-    - **Consensus Shifts**: Movement in overall analyst sentiment
-    - **Rating Distribution**: Breakdown of current recommendation mix
-    
-    **Analysis Applications:**
-    
-    **Investment Decision Making:**
-    - Gauge professional sentiment on stock prospects
-    - Compare current price to analyst price targets
-    - Identify consensus vs contrarian opportunities
-    - Track changes in analyst sentiment over time
-    
-    **Risk Assessment:**
-    - High analyst coverage suggests institutional interest
-    - Wide price target ranges indicate uncertainty
-    - Recent downgrades may signal fundamental concerns
-    - Lack of coverage might indicate limited institutional interest
-    
-    **Market Timing:**
-    - Upgrades often precede positive price momentum
-    - Downgrades may indicate potential headwinds
-    - Initiation of coverage can drive institutional buying
-    - Target price changes influence trading activity
-    
-    **Interpretation Guidelines:**
-    
-    **Strong Signals:**
-    - Unanimous buy/sell recommendations across analysts
-    - Recent major rating changes from respected firms
-    - Significant price target adjustments
-    - New coverage initiations with positive outlooks
-    
-    **Caution Indicators:**
-    - Wide divergence in price targets (high uncertainty)
-    - Recent downgrades from multiple firms
-    - Lack of recent analyst updates (stale coverage)
-    - Average ratings around "hold" (neutral sentiment)
-    
-    **Data Quality Notes:**
-    - Coverage varies significantly by company size
-    - Large-cap BIST stocks have better analyst coverage
-    - International investment banks focus on major Turkish companies
-    - Local Turkish research firms may cover smaller companies
-    - Some recommendations may be in Turkish language
-    
-    **Best Practices:**
-    - Consider analyst track record and firm reputation
-    - Look for recent updates (within 3-6 months)
-    - Compare with your own fundamental analysis
-    - Consider analyst incentives and potential conflicts
-    - Use as one input among many for investment decisions
+    Returns buy/sell/hold ratings, consensus price targets, recent upgrades/downgrades.
+    Use for market sentiment analysis and professional price target comparison.
     """
     logger.info(f"Tool 'get_analist_tahminleri' called for ticker: '{ticker_kodu}'")
     try:
@@ -372,39 +231,13 @@ async def get_analist_tahminleri(
 
 @app.tool(description="BIST STOCKS: Get stock dividends and corporate actions with dividend history, splits. STOCKS ONLY.")
 async def get_temettu_ve_aksiyonlar(
-    ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'AKBNK', 'SISE' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix.")
+    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, AKBNK) or index (XU100, XBANK). No .IS suffix.")
 ) -> TemettuVeAksiyonlarSonucu:
     """
-    Fetches comprehensive dividend history and corporate actions for Turkish stocks.
+    Get dividend history and corporate actions (splits, bonus shares) for stocks.
     
-    This tool provides complete dividend payment history and corporate actions like stock splits,
-    essential for income investors and total return calculations. Turkish companies often pay
-    substantial dividends, making this data crucial for investment analysis.
-    
-    **Dividend Data (Temettü Bilgileri):**
-    - Historical dividend payments with exact dates and amounts
-    - 12-month trailing dividend total for yield calculations
-    - Most recent dividend payment details
-    - Dividend frequency patterns (annual, semi-annual, etc.)
-    
-    **Corporate Actions (Kurumsal İşlemler):**
-    - Stock splits and their ratios (e.g., 2:1 split)
-    - Bonus share distributions
-    - Rights offerings and their terms
-    - Spin-offs and other corporate restructuring
-    
-    **Analysis Applications:**
-    - Calculate dividend yield: (Annual Dividends / Current Price) × 100
-    - Assess dividend sustainability and growth trends
-    - Determine total return including dividends
-    - Evaluate dividend policy consistency
-    - Plan income-focused investment strategies
-    
-    **Investment Insights:**
-    - Turkish companies often have generous dividend policies
-    - Banking sector typically pays regular dividends
-    - Holding companies may have variable dividend patterns
-    - Consider tax implications of dividend income in Turkey
+    Returns dividend payments with dates/amounts, stock splits, other corporate actions.
+    Use for dividend yield calculation, income analysis, total return assessment.
     """
     logger.info(f"Tool 'get_temettu_ve_aksiyonlar' called for ticker: '{ticker_kodu}'")
     try:
@@ -426,54 +259,13 @@ async def get_temettu_ve_aksiyonlar(
 
 @app.tool(description="BIST STOCKS: Get stock/index quick metrics with P/E, market cap, ratios. STOCKS ONLY - use get_kripto_ticker for crypto.")
 async def get_hizli_bilgi(
-    ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'TUPRS', 'EREGL' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix.")
+    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, TUPRS) or index (XU100, XBANK). No .IS suffix.")
 ) -> HizliBilgiSonucu:
     """
-    Fetches essential financial metrics and key ratios for quick company assessment.
+    Get key financial metrics and ratios for quick stock assessment.
     
-    **IMPORTANT: This tool is ONLY for STOCKS (BIST). For cryptocurrency data, use get_kripto_ticker instead.**
-    
-    This tool provides the most important financial metrics in a single call, perfect for rapid
-    screening, portfolio monitoring, or getting a quick overview before deeper analysis.
-    Optimized for speed without heavy data processing.
-    
-    **Key Metrics Returned:**
-    
-    **Current Market Data:**
-    - Real-time or latest stock price
-    - Market capitalization in Turkish Lira
-    - Today's trading volume and average volume
-    - 52-week high and low prices
-    - Daily price range (high/low)
-    
-    **Valuation Ratios:**
-    - P/E Ratio (Price-to-Earnings)
-    - Forward P/E based on estimates
-    - P/B Ratio (Price-to-Book)
-    - PEG Ratio (P/E to Growth)
-    
-    **Financial Health:**
-    - Debt-to-Equity ratio
-    - Return on Equity (ROE)
-    - Return on Assets (ROA)
-    - Current ratio for liquidity
-    
-    **Income & Growth:**
-    - Dividend yield percentage
-    - Earnings growth rate
-    - Revenue growth rate
-    - Profit margins
-    
-    **Risk Metrics:**
-    - Beta coefficient vs market
-    - Stock volatility measures
-    
-    **Use Cases:**
-    - Quick stock screening and comparison
-    - Portfolio performance monitoring
-    - Pre-analysis overview before detailed research
-    - Real-time market data for trading decisions
-    - Fundamental ratio calculations
+    Returns P/E, P/B, market cap, ROE, dividend yield, current price.
+    Use for rapid screening, portfolio monitoring, fundamental analysis overview.
     """
     logger.info(f"Tool 'get_hizli_bilgi' called for ticker: '{ticker_kodu}'")
     try:
@@ -491,51 +283,13 @@ async def get_hizli_bilgi(
 
 @app.tool(description="Get BIST stock earnings calendar: upcoming/past earnings dates, growth. STOCKS ONLY.")
 async def get_kazanc_takvimi(
-    ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'AKBNK', 'TUPRS' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix.")
+    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, AKBNK) or index (XU100, XBANK). No .IS suffix.")
 ) -> KazancTakvimSonucu:
     """
-    Fetches earnings calendar, estimates, and growth data for earnings-focused analysis.
+    Get earnings calendar with announcement dates, analyst estimates, growth rates.
     
-    This tool provides comprehensive earnings information including upcoming earnings dates,
-    analyst estimates, historical results, and growth metrics. Essential for earnings-based
-    investment strategies and understanding company performance cycles.
-    
-    **Earnings Calendar Data:**
-    - Upcoming earnings announcement dates
-    - Historical earnings dates and results
-    - Quarterly and annual earnings patterns
-    - Earnings season timing and consistency
-    
-    **Analyst Estimates:**
-    - EPS (Earnings Per Share) estimates: high, low, average
-    - Revenue estimates: high, low, average
-    - Estimate accuracy and surprise history
-    - Consensus changes over time
-    
-    **Historical Performance:**
-    - Actual reported EPS vs estimates
-    - Earnings surprise percentages (beat/miss)
-    - Revenue surprise analysis
-    - Historical earnings growth patterns
-    
-    **Growth Metrics:**
-    - Annual earnings growth rate
-    - Quarterly earnings growth rate
-    - Revenue growth trends
-    - Growth sustainability assessment
-    
-    **Investment Applications:**
-    - Plan around earnings announcements
-    - Assess analyst expectation accuracy
-    - Identify earnings growth trends
-    - Evaluate management guidance quality
-    - Time investment decisions around earnings
-    
-    **Turkish Market Context:**
-    - Turkish companies typically report quarterly
-    - Earnings seasons follow international patterns
-    - Consider Turkish lira impact on multinational companies
-    - Banking sector earnings often lead market sentiment
+    Returns upcoming earnings dates, EPS estimates, historical results, growth metrics.
+    Use for earnings-based timing, surprise analysis, growth trend assessment.
     """
     logger.info(f"Tool 'get_kazanc_takvimi' called for ticker: '{ticker_kodu}'")
     try:
@@ -557,70 +311,13 @@ async def get_kazanc_takvimi(
 
 @app.tool(description="Get BIST stock/index technical analysis: indicators, signals, trends. STOCKS ONLY - use get_kripto_ohlc for crypto.")
 async def get_teknik_analiz(
-    ticker_kodu: str = Field(..., description="The BIST ticker code of the company or index (e.g., 'GARAN', 'ASELS', 'THYAO' for stocks; 'XU100', 'XBANK', 'XK100' for indices). Do not include '.IS' suffix.")
+    ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, ASELS) or index (XU100, XBANK). No .IS suffix.")
 ) -> TeknikAnalizSonucu:
     """
-    Comprehensive technical analysis with indicators, trends, and trading signals for stocks and BIST indices.
+    Get technical analysis with indicators, signals, trends for stocks and indices.
     
-    **IMPORTANT: This tool is ONLY for STOCKS (BIST). For cryptocurrency technical analysis, use get_kripto_ohlc or get_kripto_kline with your own analysis.**
-    
-    This tool performs complete technical analysis using 6 months of price data, calculating
-    essential technical indicators and providing clear buy/sell signals. Perfect for traders
-    and technical analysts seeking professional-grade analysis of individual stocks or market indices.
-    
-    **Technical Indicators Calculated:**
-    
-    **Moving Averages:**
-    - SMA: 5, 10, 20, 50, 200-day simple moving averages
-    - EMA: 12, 26-day exponential moving averages
-    - Golden Cross/Death Cross signals (SMA50 vs SMA200)
-    
-    **Momentum Indicators:**
-    - RSI (14-day): Overbought/oversold conditions
-    - MACD: Trend following momentum indicator
-    - MACD Signal Line and Histogram
-    - Stochastic Oscillator (%K and %D)
-    
-    **Volatility Indicators:**
-    - Bollinger Bands: Upper, middle, lower bands
-    - Price position relative to bands
-    - Band squeeze/expansion analysis
-    
-    **Volume Analysis:**
-    - Current vs average volume comparison
-    - Volume trend analysis (high/normal/low)
-    - Volume-price relationship assessment
-    
-    **Trend Analysis:**
-    - Short-term trend (5 vs 10-day SMA)
-    - Medium-term trend (20 vs 50-day SMA)
-    - Long-term trend (50 vs 200-day SMA)
-    - Current price position vs key moving averages
-    
-    **Price Analysis:**
-    - Daily price change and percentage
-    - Distance from 52-week high/low
-    - Support and resistance level proximity
-    
-    **Trading Signals:**
-    - Overall buy/sell/neutral recommendation
-    - Signal strength (strong buy, buy, hold, sell, strong sell)
-    - Detailed signal explanation and reasoning
-    - Confluence of multiple indicator signals
-    
-    **Signal Interpretation:**
-    - **Strong Buy**: Multiple bullish indicators align
-    - **Buy**: Predominantly positive technical signals
-    - **Neutral**: Mixed or inconclusive signals
-    - **Sell**: Predominantly negative technical signals
-    - **Strong Sell**: Multiple bearish indicators align
-    
-    **Best for:**
-    - Short to medium-term trading decisions on stocks and indices
-    - Entry/exit point identification for individual stocks or market timing
-    - Risk management and stop-loss placement
-    - Trend confirmation and momentum assessment
-    - Index-based market analysis and sector rotation strategies
+    Returns RSI, MACD, Bollinger Bands, moving averages, buy/sell signals.
+    Use for trading signals, trend analysis, entry/exit point identification.
     """
     logger.info(f"Tool 'get_teknik_analiz' called for ticker: '{ticker_kodu}'")
     try:
@@ -651,75 +348,13 @@ async def get_teknik_analiz(
 
 @app.tool(description="Get BIST sector comparison: performance, valuations, rankings. STOCKS ONLY.")
 async def get_sektor_karsilastirmasi(
-    ticker_listesi: List[str] = Field(..., description="List of BIST ticker codes to analyze by sector (e.g., ['GARAN', 'AKBNK', 'YKBNK'] for banking comparison, or ['ASELS', 'HAZER', 'HKMAT'] for defense). Do not include '.IS' suffix. Minimum 3 tickers recommended for meaningful sector analysis.")
+    ticker_listesi: List[str] = Field(..., description="BIST tickers list for sector analysis (e.g., ['GARAN', 'AKBNK'] banking). No .IS suffix. Min 3 tickers.")
 ) -> SektorKarsilastirmaSonucu:
     """
-    Comprehensive sector analysis comparing multiple Turkish companies across industries.
+    Compare multiple BIST companies across sectors with performance and valuation analysis.
     
-    This tool performs detailed cross-sector analysis by grouping companies into their respective
-    sectors and calculating sector-wide metrics, averages, and performance comparisons.
-    Perfect for sector rotation strategies and industry analysis.
-    
-    **Sector Analysis Components:**
-    
-    **Company Classification:**
-    - Automatic sector and industry grouping
-    - Company size classification (large/mid/small cap)
-    - Geographic distribution analysis
-    - Market cap weighting within sectors
-    
-    **Financial Metrics by Sector:**
-    - Average P/E, P/B, ROE ratios per sector
-    - Sector-wide debt levels and financial health
-    - Profit margin comparisons across industries
-    - Revenue growth rates by sector
-    
-    **Performance Analysis:**
-    - 1-year sector performance comparison
-    - Risk-adjusted returns by industry
-    - Volatility analysis across sectors
-    - Beta coefficients and market correlation
-    
-    **Sector Rankings:**
-    - Best performing sector by returns
-    - Lowest risk sector by volatility
-    - Largest sector by total market cap
-    - Most attractive sector by valuation metrics
-    
-    **Individual Company Context:**
-    - Each company's position within its sector
-    - Relative performance vs sector peers
-    - Valuation premium/discount to sector average
-    - Company-specific risk factors
-    
-    **Investment Applications:**
-    
-    **Sector Rotation Strategy:**
-    - Identify outperforming and underperforming sectors
-    - Time entry/exit based on sector cycles
-    - Diversification across uncorrelated sectors
-    
-    **Relative Value Analysis:**
-    - Find undervalued companies within strong sectors
-    - Identify sector leaders and laggards
-    - Compare similar companies across sectors
-    
-    **Risk Management:**
-    - Assess sector concentration risk
-    - Understand correlation between holdings
-    - Balance portfolio across defensive/cyclical sectors
-    
-    **Turkish Market Insights:**
-    - Banking sector dominance in BIST
-    - Industrial and holding company structures
-    - Export-oriented vs domestic-focused sectors
-    - Government policy impact on specific industries
-    
-    **Best Practices:**
-    - Include 3+ companies per sector for meaningful analysis
-    - Mix large and small caps for comprehensive view
-    - Consider macroeconomic factors affecting sectors
-    - Regular updates as sector dynamics change
+    Groups companies by sector, calculates averages, ranks performance vs peers.
+    Use for sector rotation strategies, relative value analysis, risk assessment.
     """
     logger.info(f"Tool 'get_sektor_karsilastirmasi' called for tickers: {ticker_listesi}")
     try:
@@ -896,148 +531,14 @@ async def get_kap_haberleri(
 
 @app.tool(description="Get detailed KAP news content: full announcement text in markdown. STOCKS ONLY.")
 async def get_kap_haber_detayi(
-    haber_url: str = Field(..., description="The full URL of the KAP news to fetch details for. Must be a valid Mynet Finans KAP news URL (e.g., 'https://finans.mynet.com/borsa/haberdetay/68481a49b209972f87e77d92/')."),
+    haber_url: str = Field(..., description="KAP news URL from get_kap_haberleri output. Must be valid Mynet Finans URL."),
     sayfa_numarasi: int = Field(1, description="Page number for large documents (1-based). Documents over 5000 characters are automatically paginated.")
 ) -> KapHaberDetayi:
     """
-    Fetches detailed content of a specific KAP news article and converts it to markdown format with automatic pagination.
+    Get detailed KAP news content converted to clean markdown format with pagination.
     
-    This tool retrieves the full content of KAP announcements from Mynet Finans and converts
-    complex HTML tables and structures into readable markdown format. For large documents (>5000 characters),
-    the content is automatically paginated for better readability and performance. Essential for analyzing
-    detailed corporate disclosures, financial reports, and regulatory filings.
-    
-    **Content Types Typically Processed:**
-    
-    **Company Information Forms (Şirket Genel Bilgi Formu):**
-    - Management team details with roles and backgrounds
-    - Board of directors information
-    - Executive career histories
-    - Organizational structure changes
-    
-    **Financial Reports:**
-    - Quarterly and annual financial statements
-    - Detailed balance sheet breakdowns
-    - Income statement line items
-    - Cash flow analysis tables
-    - Footnotes and explanations
-    
-    **Material Event Disclosures:**
-    - Detailed transaction information
-    - Contract terms and conditions
-    - Strategic initiative descriptions
-    - Risk factor explanations
-    
-    **Corporate Actions:**
-    - Dividend distribution details
-    - Capital increase structures
-    - Share buyback programs
-    - Corporate restructuring plans
-    
-    **Markdown Output Features:**
-    
-    **Document Structure:**
-    - Main title as H1 header
-    - Document type clearly indicated
-    - Section headers as H2
-    - Subsection headers as H3
-    - Horizontal rules for separation
-    
-    **Table Formatting:**
-    - Complex tables converted to markdown tables
-    - Column headers properly aligned
-    - Cell content truncated if too long (100+ chars)
-    - Maintains data integrity and readability
-    
-    **Content Organization:**
-    - Hierarchical structure preserved
-    - Related information grouped together
-    - Clear visual separation between sections
-    - Consistent formatting throughout
-    
-    **Pagination Features:**
-    - Documents over 5000 characters automatically paginated
-    - Page size: 5000 characters per page
-    - Page indicators showing current/total pages
-    - Navigation instructions for next pages
-    - Full document statistics provided
-    
-    **Use Cases:**
-    
-    **Detailed Analysis:**
-    - Deep dive into management changes
-    - Analyze financial statement details
-    - Review contract terms and conditions
-    - Understand corporate restructuring
-    
-    **Compliance Review:**
-    - Verify regulatory disclosure completeness
-    - Check for required information elements
-    - Analyze disclosure timing and accuracy
-    - Document compliance trail
-    
-    **Investment Research:**
-    - Extract key financial metrics
-    - Analyze management quality and experience
-    - Review strategic direction changes
-    - Assess operational updates
-    
-    **Report Generation:**
-    - Create readable summaries for clients
-    - Generate investment committee materials
-    - Prepare due diligence documentation
-    - Archive important announcements
-    
-    **Technical Features:**
-    
-    **HTML Processing:**
-    - BeautifulSoup parsing for reliability
-    - Handles complex nested table structures
-    - Preserves data relationships
-    - Cleans up formatting artifacts
-    
-    **Markdown Conversion:**
-    - Standard markdown syntax
-    - Compatible with all markdown renderers
-    - Preserves table structure
-    - Maintains readability
-    
-    **Error Handling:**
-    - Validates URL format
-    - Handles missing content gracefully
-    - Returns partial content if available
-    - Clear error messages
-    
-    **Performance:**
-    - Response time: 2-5 seconds
-    - Depends on document complexity
-    - Efficient table processing
-    - Minimal memory footprint
-    
-    **Example Output Structure:**
-    ```markdown
-    # ANADOLU EFES BİRACILIK VE MALT SANAYİİ A.Ş. Şirket Genel Bilgi Formu 10 Haziran 2025
-    
-    **Belge Türü:** Sirket Genel Bilgi Formu
-    
-    ---
-    
-    ## Yönetime İlişkin Bilgiler
-    
-    ### Yönetimde Söz Sahibi Olan Personel
-    
-    | Adı-Soyadı | Görevi | Mesleği | Son 5 Yılda Üstlendiği Görevler | Ortaklık Dışında Görevler |
-    |---|---|---|---|---|
-    | ONUR ALTÜRK | Bira Grubu Başkanı | Üst Düzey Yönetici | Efes Türkiye Genel Müdürü | |
-    | GÖKÇE YANAŞMAYAN | Mali İşler Direktörü | Üst Düzey Yönetici | Efes Moldova Genel Müdürü | |
-    ```
-    
-    **Best Practices:**
-    - Always verify URL is from get_kap_haberleri output
-    - Process important announcements promptly
-    - Archive markdown output for future reference
-    - Cross-reference with other data sources
-    - Use for detailed due diligence work
+    Converts HTML tables/structures to readable markdown, paginated for large documents.
+    Use for analyzing detailed disclosures, financial reports, management changes.
     """
     logger.info(f"Tool 'get_kap_haber_detayi' called for URL: '{haber_url}', page: {sayfa_numarasi}")
     
