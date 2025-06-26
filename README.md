@@ -12,7 +12,7 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
 🎯 **Temel Özellikler**
 
 * Borsa İstanbul (BIST), Türk yatırım fonları ve global kripto para verilerine programatik erişim için kapsamlı bir MCP arayüzü.
-* **35 Araç** ile tam finansal analiz desteği:
+* **36 Araç** ile tam finansal analiz desteği:
     * **Şirket Arama:** 758 BIST şirketi arasında ticker kodu ve şirket adına göre arama (çoklu ticker desteği ile).
     * **Finansal Veriler:** Bilanço, kar-zarar, nakit akışı tabloları ve geçmiş OHLCV verileri.
     * **Teknik Analiz:** RSI, MACD, Bollinger Bantları gibi teknik göstergeler ve al-sat sinyalleri.
@@ -22,9 +22,9 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
     * **Katılım Finans:** Katılım finans uygunluk verileri.
     * **TEFAS Fonları:** 800+ Türk yatırım fonu arama, performans, portföy analizi.
     * **Fon Mevzuatı:** Yatırım fonları düzenlemeleri ve hukuki uyumluluk rehberi.
-    * **BtcTurk Kripto:** 295+ Türk kripto para çifti (TRY/USDT), gerçek zamanlı fiyatlar, emir defteri, işlem geçmişi.
-    * **Coinbase Global:** 500+ global kripto para çifti (USD/EUR), uluslararası piyasa verileri, çapraz piyasa analizi.
-    * **Kripto Analiz:** OHLC grafikleri, Kline verileri, teknik analiz için Türk ve global kripto piyasa verileri.
+    * **BtcTurk Kripto:** 295+ Türk kripto para çifti (TRY/USDT), gerçek zamanlı fiyatlar, emir defteri, işlem geçmişi, teknik analiz.
+    * **Coinbase Global:** 500+ global kripto para çifti (USD/EUR), uluslararası piyasa verileri, çapraz piyasa analizi, teknik analiz.
+    * **Kripto Teknik Analiz:** RSI, MACD, Bollinger Bantları ve al-sat sinyalleri ile hem Türk hem global kripto piyasalar için kapsamlı teknik analiz.
     * **Hibrit Veri:** Yahoo Finance + Mynet Finans'tan birleştirilmiş şirket bilgileri.
 * Türk hisse senetleri, endeksler, yatırım fonları ve kripto para için optimize edilmiş veri işleme.
 * **LLM Optimizasyonu:** Domain-özel araç ön ekleri ("BIST STOCKS:", "CRYPTO BtcTurk:", "CRYPTO Coinbase:") ile gelişmiş araç seçimi.
@@ -127,6 +127,7 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_kripto_trades`**: Piyasa analizi için son işlem geçmişi.
 * **`get_kripto_ohlc`**: Kripto grafikleri ve teknik analiz için OHLC verileri.
 * **`get_kripto_kline`**: Çoklu zaman çözünürlükleri ile Kline (mum grafik) verileri.
+* **`get_kripto_teknik_analiz`**: Türk kripto piyasaları için RSI, MACD, Bollinger Bantları ve al-sat sinyalleri ile kapsamlı teknik analiz.
 
 ### Coinbase Global Kripto Para Araçları (Uluslararası Piyasalar)
 * **`get_coinbase_exchange_info`**: Global işlem çiftleri ve para birimleri (USD/EUR piyasaları ile).
@@ -135,6 +136,7 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_coinbase_trades`**: Çapraz piyasa analizi için son global işlem geçmişi.
 * **`get_coinbase_ohlc`**: USD/EUR kripto grafikleri için global OHLC verileri.
 * **`get_coinbase_server_time`**: Coinbase sunucu zamanı ve API durumu.
+* **`get_coinbase_teknik_analiz`**: Global kripto piyasaları için RSI, MACD, Bollinger Bantları ve al-sat sinyalleri ile kapsamlı teknik analiz.
 
 🔍 **Veri Kaynakları & Kapsam**
 
@@ -241,8 +243,17 @@ Bitcoin fiyatını Türk (BTCTRY) ve global (BTC-USD) piyasalarda karşılaştı
 # Arbitraj fırsatı analizi
 ETH fiyatlarını BtcTurk (ETHUSDT) ve Coinbase (ETH-USD) arasında karşılaştırarak arbitraj fırsatlarını tespit et
 
-# Kripto teknik analiz
-Ethereum'un hem TRY (BtcTurk) hem USD (Coinbase) çiftlerindeki son 3 aylık OHLC verilerini kullanarak teknik analiz yap
+# BtcTurk kripto teknik analiz
+BTCTRY çiftinin günlük teknik analizini yap ve al-sat sinyallerini değerlendir
+
+# Coinbase global kripto teknik analiz  
+BTC-USD çiftinin 4 saatlik teknik analizini yap ve RSI, MACD durumunu analiz et
+
+# Çapraz piyasa teknik analiz karşılaştırması
+Bitcoin'in hem Türk piyasasında (BTCTRY) hem global piyasada (BTC-USD) teknik analiz sinyallerini karşılaştır
+
+# Global kripto teknik analiz
+ETH-EUR çiftinin günlük Bollinger Bantları ve hareketli ortalama durumunu analiz et
 ```
 
 📜 **Lisans**

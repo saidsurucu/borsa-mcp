@@ -21,9 +21,9 @@ from borsa_models import (
     FonKarsilastirmaSonucu, FonTaramaKriterleri, FonTaramaSonucu,
     FonMevzuatSonucu,
     KriptoExchangeInfoSonucu, KriptoTickerSonucu, KriptoOrderbookSonucu,
-    KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu,
+    KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu, KriptoTeknikAnalizSonucu,
     CoinbaseExchangeInfoSonucu, CoinbaseTickerSonucu, CoinbaseOrderbookSonucu,
-    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu
+    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu, CoinbaseTeknikAnalizSonucu
 )
 
 logger = logging.getLogger(__name__)
@@ -1528,6 +1528,10 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
     async def get_kripto_kline(self, symbol: str, resolution: str, from_time: int, to_time: int) -> KriptoKlineSonucu:
         """Get Kline (candlestick) data for a specific symbol."""
         return await self.btcturk_provider.get_kline(symbol, resolution, from_time, to_time)
+    
+    async def get_kripto_teknik_analiz(self, symbol: str, resolution: str = "1D") -> KriptoTeknikAnalizSonucu:
+        """Get comprehensive technical analysis for cryptocurrency pairs."""
+        return await self.btcturk_provider.get_kripto_teknik_analiz(symbol, resolution)
 
     # --- Coinbase Global Crypto Provider Methods ---
     
@@ -1554,3 +1558,7 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
     async def get_coinbase_server_time(self) -> CoinbaseServerTimeSonucu:
         """Get Coinbase server time and status."""
         return await self.coinbase_provider.get_server_time()
+    
+    async def get_coinbase_teknik_analiz(self, product_id: str, granularity: str = "ONE_DAY") -> "CoinbaseTeknikAnalizSonucu":
+        """Get comprehensive technical analysis for Coinbase crypto pairs."""
+        return await self.coinbase_provider.get_coinbase_teknik_analiz(product_id, granularity)

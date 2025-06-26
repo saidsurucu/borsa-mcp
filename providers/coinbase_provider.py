@@ -9,9 +9,11 @@ import time
 from typing import List, Optional, Dict, Any
 from borsa_models import (
     CoinbaseExchangeInfoSonucu, CoinbaseTickerSonucu, CoinbaseOrderbookSonucu,
-    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu,
+    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu, CoinbaseTeknikAnalizSonucu,
     CoinbaseProduct, CoinbaseCurrency, CoinbaseTicker,
-    CoinbaseOrderbook, CoinbaseTrade, CoinbaseCandle
+    CoinbaseOrderbook, CoinbaseTrade, CoinbaseCandle,
+    CoinbaseHareketliOrtalama, CoinbaseTeknikIndiktorler, CoinbaseHacimAnalizi,
+    CoinbaseFiyatAnalizi, CoinbaseTrendAnalizi
 )
 
 logger = logging.getLogger(__name__)
@@ -378,5 +380,307 @@ class CoinbaseProvider:
             return CoinbaseServerTimeSonucu(
                 iso=None,
                 epoch=None,
+                error_message=str(e)
+            )
+    
+    async def get_coinbase_teknik_analiz(self, product_id: str, granularity: str = "ONE_DAY") -> CoinbaseTeknikAnalizSonucu:
+        """
+        Perform comprehensive technical analysis on Coinbase crypto data.
+        
+        Implements RSI, MACD, Bollinger Bands, moving averages and generates trading signals
+        optimized for global cryptocurrency markets (24/7 trading).
+        """
+        try:
+            import pandas as pd
+            import numpy as np
+            from datetime import datetime, timedelta
+            
+            # Map user-friendly resolution to Coinbase granularity
+            granularity_map = {
+                "1M": "ONE_MINUTE",
+                "5M": "FIVE_MINUTE", 
+                "15M": "FIFTEEN_MINUTE",
+                "30M": "THIRTY_MINUTE",
+                "1H": "ONE_HOUR",
+                "4H": "FOUR_HOUR",
+                "6H": "SIX_HOUR",
+                "1D": "ONE_DAY"
+                # Note: ONE_WEEK is not supported by Coinbase API
+            }
+            
+            coinbase_granularity = granularity_map.get(granularity, granularity)
+            
+            # Handle unsupported granularity
+            if granularity == "1W":
+                return CoinbaseTeknikAnalizSonucu(
+                    product_id=product_id,
+                    analiz_tarihi=datetime.utcnow(),
+                    granularity=granularity,
+                    error_message="Weekly (1W) granularity is not supported by Coinbase API. Use 1D instead."
+                )
+            
+            # Fetch 6 months of data for technical analysis (need enough for 200-SMA)
+            end_time = datetime.utcnow()
+            
+            # Adjust start time based on granularity (Coinbase has 350 candles limit)
+            if granularity in ["1M", "5M"]:
+                start_time = end_time - timedelta(days=7)  # 1 week for 1M/5M (max ~2016 candles for 1M)
+            elif granularity in ["15M", "30M"]:
+                start_time = end_time - timedelta(days=14)  # 2 weeks for 15M/30M 
+            elif granularity in ["1H"]:
+                start_time = end_time - timedelta(days=14)  # 2 weeks for 1H (~336 candles)
+            elif granularity in ["4H", "6H"]:
+                start_time = end_time - timedelta(days=60)  # 2 months for 4H/6H (~360 candles for 4H)
+            else:
+                start_time = end_time - timedelta(days=300)  # ~10 months for daily (~300 candles)
+            
+            # Convert to Unix timestamps (seconds since epoch) - Coinbase requirement
+            start_timestamp = str(int(start_time.timestamp()))
+            end_timestamp = str(int(end_time.timestamp()))
+            
+            # Fetch OHLC data
+            ohlc_result = await self.get_ohlc(
+                product_id=product_id,
+                start=start_timestamp,
+                end=end_timestamp,
+                granularity=coinbase_granularity
+            )
+            
+            if ohlc_result.error_message or not ohlc_result.candles:
+                return CoinbaseTeknikAnalizSonucu(
+                    product_id=product_id,
+                    analiz_tarihi=datetime.utcnow(),
+                    granularity=granularity,
+                    error_message=f"Could not fetch OHLC data: {ohlc_result.error_message or 'No data available'}"
+                )
+            
+            # Convert to pandas DataFrame
+            data = []
+            for candle in ohlc_result.candles:
+                data.append({
+                    'timestamp': pd.to_datetime(int(candle.start), unit='s', utc=True),
+                    'open': candle.open,
+                    'high': candle.high,
+                    'low': candle.low,
+                    'close': candle.close,
+                    'volume': candle.volume
+                })
+            
+            df = pd.DataFrame(data)
+            df = df.sort_values('timestamp').reset_index(drop=True)
+            
+            if len(df) < 50:
+                return CoinbaseTeknikAnalizSonucu(
+                    product_id=product_id,
+                    analiz_tarihi=datetime.utcnow(),
+                    granularity=granularity,
+                    error_message=f"Insufficient data for analysis: {len(df)} periods (minimum 50 required)"
+                )
+            
+            # === TECHNICAL INDICATOR CALCULATIONS ===
+            
+            # Moving Averages
+            df['sma_20'] = df['close'].rolling(window=20).mean()
+            df['sma_50'] = df['close'].rolling(window=50).mean()
+            df['sma_100'] = df['close'].rolling(window=100).mean()
+            df['sma_200'] = df['close'].rolling(window=200).mean()
+            df['ema_12'] = df['close'].ewm(span=12).mean()
+            df['ema_26'] = df['close'].ewm(span=26).mean()
+            
+            # RSI (14-period)
+            delta = df['close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            df['rsi'] = 100 - (100 / (1 + rs))
+            
+            # MACD
+            df['macd'] = df['ema_12'] - df['ema_26']
+            df['macd_signal'] = df['macd'].ewm(span=9).mean()
+            df['macd_histogram'] = df['macd'] - df['macd_signal']
+            
+            # Bollinger Bands
+            df['bb_middle'] = df['close'].rolling(window=20).mean()
+            bb_std = df['close'].rolling(window=20).std()
+            df['bb_upper'] = df['bb_middle'] + (bb_std * 2)
+            df['bb_lower'] = df['bb_middle'] - (bb_std * 2)
+            
+            # Get latest values
+            latest = df.iloc[-1]
+            previous = df.iloc[-2] if len(df) > 1 else latest
+            
+            # === ANALYSIS COMPONENTS ===
+            
+            # Moving Averages Analysis
+            hareketli_ortalamalar = CoinbaseHareketliOrtalama(
+                sma_20=float(latest['sma_20']) if pd.notna(latest['sma_20']) else None,
+                sma_50=float(latest['sma_50']) if pd.notna(latest['sma_50']) else None,
+                sma_100=float(latest['sma_100']) if pd.notna(latest['sma_100']) else None,
+                sma_200=float(latest['sma_200']) if pd.notna(latest['sma_200']) else None,
+                ema_12=float(latest['ema_12']) if pd.notna(latest['ema_12']) else None,
+                ema_26=float(latest['ema_26']) if pd.notna(latest['ema_26']) else None
+            )
+            
+            # Technical Indicators
+            teknik_indiktorler = CoinbaseTeknikIndiktorler(
+                rsi_14=float(latest['rsi']) if pd.notna(latest['rsi']) else None,
+                macd=float(latest['macd']) if pd.notna(latest['macd']) else None,
+                macd_signal=float(latest['macd_signal']) if pd.notna(latest['macd_signal']) else None,
+                macd_histogram=float(latest['macd_histogram']) if pd.notna(latest['macd_histogram']) else None,
+                bollinger_ust=float(latest['bb_upper']) if pd.notna(latest['bb_upper']) else None,
+                bollinger_orta=float(latest['bb_middle']) if pd.notna(latest['bb_middle']) else None,
+                bollinger_alt=float(latest['bb_lower']) if pd.notna(latest['bb_lower']) else None
+            )
+            
+            # Volume Analysis
+            volume_ma = df['volume'].rolling(window=20).mean().iloc[-1]
+            current_volume = latest['volume']
+            volume_ratio = current_volume / volume_ma if volume_ma > 0 else 1.0
+            
+            hacim_analizi = CoinbaseHacimAnalizi(
+                guncel_hacim=float(current_volume),
+                ortalama_hacim=float(volume_ma) if pd.notna(volume_ma) else None,
+                hacim_orani=float(volume_ratio),
+                hacim_trendi="yuksek" if volume_ratio > 2.0 else "normal" if volume_ratio > 0.3 else "dusuk"
+            )
+            
+            # Price Analysis
+            price_change = ((latest['close'] - previous['close']) / previous['close']) * 100
+            high_24h = df['high'].tail(24).max() if len(df) >= 24 else latest['high']
+            low_24h = df['low'].tail(24).min() if len(df) >= 24 else latest['low']
+            
+            fiyat_analizi = CoinbaseFiyatAnalizi(
+                guncel_fiyat=float(latest['close']),
+                yuksek_24h=float(high_24h),
+                dusuk_24h=float(low_24h),
+                degisim_yuzdesi=float(price_change),
+                destek_seviyesi=float(latest['bb_lower']) if pd.notna(latest['bb_lower']) else None,
+                direnc_seviyesi=float(latest['bb_upper']) if pd.notna(latest['bb_upper']) else None
+            )
+            
+            # Trend Analysis
+            price_vs_sma20 = "yukari" if pd.notna(latest['sma_20']) and latest['close'] > latest['sma_20'] else "asagi" if pd.notna(latest['sma_20']) else "bilinmiyor"
+            price_vs_sma50 = "yukari" if pd.notna(latest['sma_50']) and latest['close'] > latest['sma_50'] else "asagi" if pd.notna(latest['sma_50']) else "bilinmiyor"
+            sma20_vs_sma50 = "yukari" if pd.notna(latest['sma_20']) and pd.notna(latest['sma_50']) and latest['sma_20'] > latest['sma_50'] else "asagi" if pd.notna(latest['sma_20']) and pd.notna(latest['sma_50']) else "bilinmiyor"
+            
+            # Determine overall trends
+            if pd.notna(latest['rsi']) and pd.notna(latest['sma_20']):
+                kisa_vadeli = "yukselis" if price_vs_sma20 == "yukari" and latest['rsi'] < 80 else "dususlus" if price_vs_sma20 == "asagi" and latest['rsi'] > 20 else "yana"
+            else:
+                kisa_vadeli = "bilinmiyor"
+                
+            if pd.notna(latest['sma_20']) and pd.notna(latest['sma_50']):
+                uzun_vadeli = "yukselis" if sma20_vs_sma50 == "yukari" and price_vs_sma50 == "yukari" else "dususlus" if sma20_vs_sma50 == "asagi" and price_vs_sma50 == "asagi" else "yana"
+            else:
+                uzun_vadeli = "bilinmiyor"
+            
+            trend_analizi = CoinbaseTrendAnalizi(
+                kisa_vadeli_trend=kisa_vadeli,
+                uzun_vadeli_trend=uzun_vadeli,
+                ma_20_50_durumu=sma20_vs_sma50,
+                fiyat_ma_durumu=price_vs_sma20
+            )
+            
+            # === SIGNAL GENERATION ===
+            
+            signals = []
+            
+            # RSI signals (crypto-optimized thresholds: 25/75 vs stock 30/70)
+            if pd.notna(latest['rsi']):
+                if latest['rsi'] <= 25:
+                    signals.append(("RSI Oversold", 2))  # Strong buy
+                elif latest['rsi'] <= 35:
+                    signals.append(("RSI Low", 1))  # Buy
+                elif latest['rsi'] >= 75:
+                    signals.append(("RSI Overbought", -2))  # Strong sell
+                elif latest['rsi'] >= 65:
+                    signals.append(("RSI High", -1))  # Sell
+            
+            # MACD signals
+            if (pd.notna(latest['macd']) and pd.notna(latest['macd_signal']) and 
+                pd.notna(previous['macd']) and pd.notna(previous['macd_signal'])):
+                if latest['macd'] > latest['macd_signal'] and previous['macd'] <= previous['macd_signal']:
+                    signals.append(("MACD Bullish Cross", 1))
+                elif latest['macd'] < latest['macd_signal'] and previous['macd'] >= previous['macd_signal']:
+                    signals.append(("MACD Bearish Cross", -1))
+            
+            # Moving average signals
+            if (pd.notna(latest['sma_20']) and pd.notna(latest['sma_50'])):
+                if latest['close'] > latest['sma_20'] and latest['sma_20'] > latest['sma_50']:
+                    signals.append(("MA Alignment Bullish", 1))
+                elif latest['close'] < latest['sma_20'] and latest['sma_20'] < latest['sma_50']:
+                    signals.append(("MA Alignment Bearish", -1))
+            
+            # Bollinger Band signals
+            if pd.notna(latest['bb_lower']) and pd.notna(latest['bb_upper']):
+                if latest['close'] <= latest['bb_lower']:
+                    signals.append(("BB Oversold", 1))
+                elif latest['close'] >= latest['bb_upper']:
+                    signals.append(("BB Overbought", -1))
+            
+            # Volume confirmation
+            if volume_ratio > 2.0:  # Higher threshold for crypto
+                if any(score > 0 for _, score in signals):
+                    signals.append(("Volume Confirmation", 1))
+                elif any(score < 0 for _, score in signals):
+                    signals.append(("Volume Confirmation", -1))
+            
+            # Calculate total signal score
+            total_score = sum(score for _, score in signals)
+            signal_strength = len([s for s in signals if s[1] != 0])
+            
+            # Generate final signal
+            if total_score >= 3:
+                al_sat_sinyali = "guclu_al"
+            elif total_score >= 1:
+                al_sat_sinyali = "al"
+            elif total_score <= -3:
+                al_sat_sinyali = "guclu_sat"
+            elif total_score <= -1:
+                al_sat_sinyali = "sat"
+            else:
+                al_sat_sinyali = "notr"
+            
+            # Create signal explanation
+            signal_reasons = [reason for reason, score in signals if score != 0]
+            sinyal_aciklamasi = f"Skor: {total_score}, Faktörler: {', '.join(signal_reasons[:3])}" if signal_reasons else "Nötr piyasa koşulları"
+            
+            # Determine market type based on quote currency
+            quote_currency = product_id.split('-')[-1] if '-' in product_id else 'OTHER'
+            piyasa_tipi = quote_currency if quote_currency in ['USD', 'EUR', 'GBP', 'BTC', 'ETH'] else 'OTHER'
+            
+            # Volatility analysis (crypto-specific thresholds)
+            if abs(price_change) >= 10:
+                volatilite_seviyesi = "cok_yuksek"
+            elif abs(price_change) >= 5:
+                volatilite_seviyesi = "yuksek"
+            elif abs(price_change) >= 2:
+                volatilite_seviyesi = "orta"
+            else:
+                volatilite_seviyesi = "dusuk"
+            
+            return CoinbaseTeknikAnalizSonucu(
+                product_id=product_id,
+                analiz_tarihi=datetime.utcnow(),
+                granularity=granularity,
+                hareketli_ortalamalar=hareketli_ortalamalar,
+                teknik_indiktorler=teknik_indiktorler,
+                hacim_analizi=hacim_analizi,
+                fiyat_analizi=fiyat_analizi,
+                trend_analizi=trend_analizi,
+                al_sat_sinyali=al_sat_sinyali,
+                sinyal_aciklamasi=sinyal_aciklamasi,
+                sinyal_gucu=signal_strength,
+                piyasa_tipi=piyasa_tipi,
+                volatilite_seviyesi=volatilite_seviyesi,
+                veri_sayisi=len(df)
+            )
+            
+        except Exception as e:
+            logger.error(f"Error in Coinbase technical analysis for {product_id}: {e}")
+            return CoinbaseTeknikAnalizSonucu(
+                product_id=product_id,
+                analiz_tarihi=datetime.utcnow(),
+                granularity=granularity,
                 error_message=str(e)
             )

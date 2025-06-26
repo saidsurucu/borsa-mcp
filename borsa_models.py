@@ -1143,8 +1143,9 @@ class KriptoTradesSonucu(BaseModel):
 
 class KriptoOHLC(BaseModel):
     """OHLC data for a time period."""
-    pair: str = Field(description="Trading pair symbol.")
-    time: Optional[int] = Field(None, description="Period timestamp.")
+    pair: Optional[str] = Field(None, description="Trading pair symbol.")
+    time: Optional[int] = Field(None, description="Period timestamp (Unix timestamp).")
+    formatted_time: Optional[str] = Field(None, description="Human-readable time in Turkey timezone (YYYY-MM-DD HH:MM:SS).")
     open: float = Field(description="Opening price.")
     high: float = Field(description="Highest price.")
     low: float = Field(description="Lowest price.")
@@ -1166,7 +1167,8 @@ class KriptoOHLCSonucu(BaseModel):
 
 class KriptoKline(BaseModel):
     """Kline (candlestick) data."""
-    timestamp: int = Field(description="Candlestick timestamp.")
+    timestamp: int = Field(description="Candlestick timestamp (Unix timestamp).")
+    formatted_time: Optional[str] = Field(None, description="Human-readable time in Turkey timezone (YYYY-MM-DD HH:MM:SS).")
     open: float = Field(description="Opening price.")
     high: float = Field(description="Highest price.")
     low: float = Field(description="Lowest price.")
@@ -1179,10 +1181,91 @@ class KriptoKlineSonucu(BaseModel):
     resolution: str = Field(description="Candlestick resolution.")
     klines: List[KriptoKline] = Field(description="List of kline data.")
     toplam_veri: int = Field(description="Total number of data points.")
-    from_time: int = Field(description="Start time.")
-    to_time: int = Field(description="End time.")
+    from_time: Optional[int] = Field(None, description="Start time.")
+    to_time: Optional[int] = Field(None, description="End time.")
     status: str = Field(description="API response status.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+# --- Crypto Technical Analysis Models ---
+class KriptoHareketliOrtalama(BaseModel):
+    """Crypto moving averages data."""
+    sma_5: Optional[float] = Field(None, description="5-period Simple Moving Average.")
+    sma_10: Optional[float] = Field(None, description="10-period Simple Moving Average.")
+    sma_20: Optional[float] = Field(None, description="20-period Simple Moving Average.")
+    sma_50: Optional[float] = Field(None, description="50-period Simple Moving Average.")
+    sma_200: Optional[float] = Field(None, description="200-period Simple Moving Average.")
+    ema_12: Optional[float] = Field(None, description="12-period Exponential Moving Average.")
+    ema_26: Optional[float] = Field(None, description="26-period Exponential Moving Average.")
+
+class KriptoTeknikIndiktorler(BaseModel):
+    """Crypto technical indicators calculated from price data."""
+    rsi_14: Optional[float] = Field(None, description="14-period Relative Strength Index.")
+    macd: Optional[float] = Field(None, description="MACD line (12-period EMA - 26-period EMA).")
+    macd_signal: Optional[float] = Field(None, description="MACD signal line (9-period EMA of MACD).")
+    macd_histogram: Optional[float] = Field(None, description="MACD histogram (MACD - Signal).")
+    bollinger_upper: Optional[float] = Field(None, description="Upper Bollinger Band.")
+    bollinger_middle: Optional[float] = Field(None, description="Middle Bollinger Band (20-period SMA).")
+    bollinger_lower: Optional[float] = Field(None, description="Lower Bollinger Band.")
+    stochastic_k: Optional[float] = Field(None, description="Stochastic %K.")
+    stochastic_d: Optional[float] = Field(None, description="Stochastic %D.")
+
+class KriptoHacimAnalizi(BaseModel):
+    """Crypto volume analysis metrics (24/7 market considerations)."""
+    guncel_hacim: Optional[float] = Field(None, description="Current period's trading volume.")
+    ortalama_hacim_10period: Optional[float] = Field(None, description="10-period average volume.")
+    ortalama_hacim_30period: Optional[float] = Field(None, description="30-period average volume.")
+    hacim_orani: Optional[float] = Field(None, description="Volume ratio (current/average).")
+    hacim_trendi: Optional[str] = Field(None, description="Volume trend: 'yuksek', 'normal', 'dusuk'.")
+
+class KriptoFiyatAnalizi(BaseModel):
+    """Crypto price analysis and trends."""
+    guncel_fiyat: Optional[float] = Field(None, description="Current crypto price.")
+    onceki_kapanis: Optional[float] = Field(None, description="Previous closing price.")
+    degisim_miktari: Optional[float] = Field(None, description="Price change amount.")
+    degisim_yuzdesi: Optional[float] = Field(None, description="Price change percentage.")
+    period_yuksek: Optional[float] = Field(None, description="Period high price.")
+    period_dusuk: Optional[float] = Field(None, description="Period low price.")
+    yuksek_200period: Optional[float] = Field(None, description="200-period high price.")
+    dusuk_200period: Optional[float] = Field(None, description="200-period low price.")
+    yuksek_200period_uzaklik: Optional[float] = Field(None, description="Distance from 200-period high (%).")
+    dusuk_200period_uzaklik: Optional[float] = Field(None, description="Distance from 200-period low (%).")
+
+class KriptoTrendAnalizi(BaseModel):
+    """Crypto trend analysis based on moving averages."""
+    kisa_vadeli_trend: Optional[str] = Field(None, description="Short-term trend: 'yukselis', 'dusulis', 'yatay'.")
+    orta_vadeli_trend: Optional[str] = Field(None, description="Medium-term trend: 'yukselis', 'dusulis', 'yatay'.")
+    uzun_vadeli_trend: Optional[str] = Field(None, description="Long-term trend: 'yukselis', 'dusulis', 'yatay'.")
+    sma50_durumu: Optional[str] = Field(None, description="Position vs 50-period SMA: 'ustunde', 'altinda'.")
+    sma200_durumu: Optional[str] = Field(None, description="Position vs 200-period SMA: 'ustunde', 'altinda'.")
+    golden_cross: Optional[bool] = Field(None, description="Golden cross signal (SMA50 > SMA200).")
+    death_cross: Optional[bool] = Field(None, description="Death cross signal (SMA50 < SMA200).")
+
+class KriptoTeknikAnalizSonucu(BaseModel):
+    """Comprehensive crypto technical analysis result."""
+    symbol: str = Field(description="The crypto trading symbol (e.g., BTCTRY, ETHUSDT).")
+    analiz_tarihi: Optional[datetime.datetime] = Field(None, description="Analysis timestamp.")
+    resolution: str = Field(description="Chart resolution used for analysis.")
+    
+    # Price and trend analysis
+    fiyat_analizi: Optional[KriptoFiyatAnalizi] = Field(None, description="Price analysis data.")
+    trend_analizi: Optional[KriptoTrendAnalizi] = Field(None, description="Trend analysis data.")
+    
+    # Technical indicators
+    hareketli_ortalamalar: Optional[KriptoHareketliOrtalama] = Field(None, description="Moving averages data.")
+    teknik_indiktorler: Optional[KriptoTeknikIndiktorler] = Field(None, description="Technical indicators data.")
+    
+    # Volume analysis  
+    hacim_analizi: Optional[KriptoHacimAnalizi] = Field(None, description="Volume analysis data.")
+    
+    # Overall signals
+    al_sat_sinyali: Optional[str] = Field(None, description="Overall signal: 'guclu_al', 'al', 'notr', 'sat', 'guclu_sat'.")
+    sinyal_aciklamasi: Optional[str] = Field(None, description="Explanation of the signal.")
+    
+    # Crypto-specific data
+    piyasa_tipi: Optional[str] = Field(None, description="Market type: 'TRY', 'USDT', 'BTC' based on quote currency.")
+    volatilite_seviyesi: Optional[str] = Field(None, description="Volatility level: 'dusuk', 'orta', 'yuksek', 'cok_yuksek'.")
+    
+    error_message: Optional[str] = Field(None, description="Error message if the operation failed.")
 
 # --- Coinbase Crypto Models ---
 
@@ -1304,4 +1387,86 @@ class CoinbaseServerTimeSonucu(BaseModel):
     iso: Optional[str] = Field(None, description="ISO timestamp.")
     epoch: Optional[int] = Field(None, description="Unix timestamp.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+# --- Coinbase Technical Analysis Models ---
+class CoinbaseHareketliOrtalama(BaseModel):
+    """Coinbase moving averages data for global crypto markets."""
+    sma_5: Optional[float] = Field(None, description="5-period Simple Moving Average.")
+    sma_10: Optional[float] = Field(None, description="10-period Simple Moving Average.")
+    sma_20: Optional[float] = Field(None, description="20-period Simple Moving Average.")
+    sma_50: Optional[float] = Field(None, description="50-period Simple Moving Average.")
+    sma_200: Optional[float] = Field(None, description="200-period Simple Moving Average.")
+    ema_12: Optional[float] = Field(None, description="12-period Exponential Moving Average.")
+    ema_26: Optional[float] = Field(None, description="26-period Exponential Moving Average.")
+
+class CoinbaseTeknikIndiktorler(BaseModel):
+    """Coinbase technical indicators for global crypto analysis."""
+    rsi_14: Optional[float] = Field(None, description="14-period Relative Strength Index.")
+    macd: Optional[float] = Field(None, description="MACD line (12-period EMA - 26-period EMA).")
+    macd_signal: Optional[float] = Field(None, description="MACD signal line (9-period EMA of MACD).")
+    macd_histogram: Optional[float] = Field(None, description="MACD histogram (MACD - Signal).")
+    bollinger_upper: Optional[float] = Field(None, description="Upper Bollinger Band.")
+    bollinger_middle: Optional[float] = Field(None, description="Middle Bollinger Band (20-period SMA).")
+    bollinger_lower: Optional[float] = Field(None, description="Lower Bollinger Band.")
+    stochastic_k: Optional[float] = Field(None, description="Stochastic %K.")
+    stochastic_d: Optional[float] = Field(None, description="Stochastic %D.")
+
+class CoinbaseHacimAnalizi(BaseModel):
+    """Coinbase volume analysis for global institutional crypto markets."""
+    guncel_hacim: Optional[float] = Field(None, description="Current period's trading volume.")
+    ortalama_hacim_10period: Optional[float] = Field(None, description="10-period average volume.")
+    ortalama_hacim_30period: Optional[float] = Field(None, description="30-period average volume.")
+    hacim_orani: Optional[float] = Field(None, description="Volume ratio (current/average).")
+    hacim_trendi: Optional[str] = Field(None, description="Volume trend: 'yuksek', 'normal', 'dusuk'.")
+
+class CoinbaseFiyatAnalizi(BaseModel):
+    """Coinbase price analysis for global crypto markets."""
+    guncel_fiyat: Optional[float] = Field(None, description="Current crypto price in quote currency.")
+    onceki_kapanis: Optional[float] = Field(None, description="Previous closing price.")
+    degisim_miktari: Optional[float] = Field(None, description="Price change amount.")
+    degisim_yuzdesi: Optional[float] = Field(None, description="Price change percentage.")
+    period_yuksek: Optional[float] = Field(None, description="Period high price.")
+    period_dusuk: Optional[float] = Field(None, description="Period low price.")
+    yuksek_200period: Optional[float] = Field(None, description="200-period high price.")
+    dusuk_200period: Optional[float] = Field(None, description="200-period low price.")
+    yuksek_200period_uzaklik: Optional[float] = Field(None, description="Distance from 200-period high (%).")
+    dusuk_200period_uzaklik: Optional[float] = Field(None, description="Distance from 200-period low (%).")
+
+class CoinbaseTrendAnalizi(BaseModel):
+    """Coinbase trend analysis for global crypto markets."""
+    kisa_vadeli_trend: Optional[str] = Field(None, description="Short-term trend: 'yukselis', 'dusulis', 'yatay'.")
+    orta_vadeli_trend: Optional[str] = Field(None, description="Medium-term trend: 'yukselis', 'dusulis', 'yatay'.")
+    uzun_vadeli_trend: Optional[str] = Field(None, description="Long-term trend: 'yukselis', 'dusulis', 'yatay'.")
+    sma50_durumu: Optional[str] = Field(None, description="Position vs 50-period SMA: 'ustunde', 'altinda'.")
+    sma200_durumu: Optional[str] = Field(None, description="Position vs 200-period SMA: 'ustunde', 'altinda'.")
+    golden_cross: Optional[bool] = Field(None, description="Golden cross signal (SMA50 > SMA200).")
+    death_cross: Optional[bool] = Field(None, description="Death cross signal (SMA50 < SMA200).")
+
+class CoinbaseTeknikAnalizSonucu(BaseModel):
+    """Comprehensive Coinbase technical analysis result for global crypto markets."""
+    product_id: str = Field(description="The crypto product ID (e.g., BTC-USD, ETH-EUR).")
+    analiz_tarihi: Optional[datetime.datetime] = Field(None, description="Analysis timestamp.")
+    granularity: str = Field(description="Chart granularity used for analysis.")
+    
+    # Price and trend analysis
+    fiyat_analizi: Optional[CoinbaseFiyatAnalizi] = Field(None, description="Price analysis data.")
+    trend_analizi: Optional[CoinbaseTrendAnalizi] = Field(None, description="Trend analysis data.")
+    
+    # Technical indicators
+    hareketli_ortalamalar: Optional[CoinbaseHareketliOrtalama] = Field(None, description="Moving averages data.")
+    teknik_indiktorler: Optional[CoinbaseTeknikIndiktorler] = Field(None, description="Technical indicators data.")
+    
+    # Volume analysis  
+    hacim_analizi: Optional[CoinbaseHacimAnalizi] = Field(None, description="Volume analysis data.")
+    
+    # Overall signals
+    al_sat_sinyali: Optional[str] = Field(None, description="Overall signal: 'guclu_al', 'al', 'notr', 'sat', 'guclu_sat'.")
+    sinyal_aciklamasi: Optional[str] = Field(None, description="Explanation of the signal.")
+    
+    # Global crypto-specific data
+    piyasa_tipi: Optional[str] = Field(None, description="Market type: 'USD', 'EUR', 'GBP', 'USDC' based on quote currency.")
+    volatilite_seviyesi: Optional[str] = Field(None, description="Volatility level: 'dusuk', 'orta', 'yuksek', 'cok_yuksek'.")
+    likidite_seviyesi: Optional[str] = Field(None, description="Liquidity level: 'dusuk', 'orta', 'yuksek' (global markets).")
+    
+    error_message: Optional[str] = Field(None, description="Error message if the operation failed.")
 

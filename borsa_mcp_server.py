@@ -21,9 +21,9 @@ from borsa_models import (
     FonPerformansSonucu, FonPortfoySonucu, FonKarsilastirmaSonucu, FonTaramaKriterleri,
     FonTaramaSonucu, FonMevzuatSonucu,
     KriptoExchangeInfoSonucu, KriptoTickerSonucu, KriptoOrderbookSonucu,
-    KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu,
+    KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu, KriptoTeknikAnalizSonucu,
     CoinbaseExchangeInfoSonucu, CoinbaseTickerSonucu, CoinbaseOrderbookSonucu,
-    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu
+    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu, CoinbaseTeknikAnalizSonucu
 )
 
 # --- Logging Configuration ---
@@ -1556,14 +1556,26 @@ async def get_kripto_trades(
 
 @app.tool(description="CRYPTO BtcTurk: Get crypto OHLC chart data with open/high/low/close prices. CRYPTO ONLY - use get_finansal_veri for stocks.")
 async def get_kripto_ohlc(
-    pair: str = Field(description="Trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT')"),
-    from_time: int = Field(None, description="Start time as Unix timestamp in seconds (optional)"),
-    to_time: int = Field(None, description="End time as Unix timestamp in seconds (optional)")
+    pair: Annotated[str, Field(
+        description="Trading pair symbol (BTCTRY, ETHUSDT, ADATRY).",
+        pattern=r"^[A-Z]{3,8}$",
+        examples=["BTCTRY", "ETHUSDT", "ADATRY", "AVAXTR"]
+    )],
+    from_time: Annotated[str, Field(
+        description="Start time: Unix timestamp or human-readable date (2025-01-01, 2025-01-01 15:30:00). Optional, defaults to 30 days ago.",
+        examples=["2025-01-01", "2025-01-01 15:30:00", "1704067200"]
+    )] = None,
+    to_time: Annotated[str, Field(
+        description="End time: Unix timestamp or human-readable date (2025-01-02, 2025-01-02 16:00:00). Optional, defaults to now.",
+        examples=["2025-01-02", "2025-01-02 16:00:00", "1704153600"]
+    )] = None
 ) -> KriptoOHLCSonucu:
     """
     Get OHLC (Open, High, Low, Close) data for cryptocurrency charting and technical analysis.
     
     **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES. For stock market (BIST) OHLC/candlestick data, use get_finansal_veri with appropriate period and interval parameters.**
+    
+    **Response Optimization: Limited to last 100 records to prevent response size issues. For specific time ranges, use from_time/to_time parameters.**
     
     **OHLC Data Components:"
     - **Open:** Opening price for the time period
@@ -1620,10 +1632,24 @@ async def get_kripto_ohlc(
 
 @app.tool(description="CRYPTO BtcTurk: Get crypto candlestick data with OHLCV arrays for charts. CRYPTO ONLY - use get_teknik_analiz for stocks.")
 async def get_kripto_kline(
-    symbol: str = Field(description="Crypto symbol (BTCTRY, ETHUSDT)"),
-    resolution: str = Field(description="Time resolution: 1,5,15,30,60,240 (minutes) or 1D,1W,1M,1Y"),
-    from_time: int = Field(description="Start time (Unix timestamp seconds)"),
-    to_time: int = Field(description="End time (Unix timestamp seconds)")
+    symbol: Annotated[str, Field(
+        description="Crypto symbol (BTCTRY, ETHUSDT, ADATRY).",
+        pattern=r"^[A-Z]{3,8}$", 
+        examples=["BTCTRY", "ETHUSDT", "ADATRY", "AVAXTR"]
+    )],
+    resolution: Annotated[str, Field(
+        description="Time resolution: 1M,5M,15M,30M,1H,4H,1D,1W for chart intervals.",
+        pattern=r"^(1M|5M|15M|30M|1H|4H|1D|1W)$",
+        examples=["1M", "15M", "1H", "1D"]
+    )],
+    from_time: Annotated[str, Field(
+        description="Start time: Unix timestamp or human-readable date (2025-01-01, 2025-01-01 15:30:00). Optional, defaults to 7 days ago.",
+        examples=["2025-01-01", "2025-01-01 15:30:00", "1704067200"]
+    )] = None,
+    to_time: Annotated[str, Field(
+        description="End time: Unix timestamp or human-readable date (2025-01-02, 2025-01-02 16:00:00). Optional, defaults to now.",
+        examples=["2025-01-02", "2025-01-02 16:00:00", "1704153600"] 
+    )] = None
 ) -> KriptoKlineSonucu:
     """
     Get Kline (candlestick) data for advanced cryptocurrency charting and technical analysis.
@@ -1687,6 +1713,86 @@ async def get_kripto_kline(
             to_time=to_time,
             status='error',
             error_message=f"Kripto Kline verisi alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(
+    description="CRYPTO BtcTurk: Get crypto technical analysis with RSI, MACD, signals. CRYPTO ONLY - use get_teknik_analiz for stocks.",
+    tags=["crypto", "analysis", "readonly", "external", "signals"]
+)
+async def get_kripto_teknik_analiz(
+    symbol: Annotated[str, Field(
+        description="Crypto symbol (BTCTRY, ETHUSDT, ADATRY).",
+        pattern=r"^[A-Z]{3,8}$",
+        examples=["BTCTRY", "ETHUSDT", "ADATRY", "AVAXTR"]
+    )],
+    resolution: Annotated[str, Field(
+        description="Chart resolution: 1M,5M,15M,30M,1H,4H,1D,1W for analysis.",
+        pattern=r"^(1M|5M|15M|30M|1H|4H|1D|1W)$",
+        examples=["1H", "4H", "1D"],
+        default="1D"
+    )] = "1D"
+) -> KriptoTeknikAnalizSonucu:
+    """
+    Comprehensive technical analysis for cryptocurrency pairs using advanced indicators and 24/7 market optimizations.
+    
+    **IMPORTANT: This tool is ONLY for CRYPTOCURRENCIES. For stock market (BIST) technical analysis, use get_teknik_analiz.**
+    
+    **Technical Indicators Calculated:**
+    - **RSI (14-period):** Momentum oscillator with crypto-optimized thresholds (25/75 vs 30/70)
+    - **MACD:** Moving Average Convergence Divergence with signal line and histogram
+    - **Bollinger Bands:** Price volatility bands with 2 standard deviation
+    - **Stochastic Oscillator:** %K and %D for overbought/oversold conditions
+    - **Moving Averages:** SMA 5, 10, 20, 50, 200 and EMA 12, 26
+    
+    **Crypto Market Optimizations:**
+    - **24/7 Market Analysis:** Continuous price action without market close gaps
+    - **Higher Volatility Thresholds:** Adjusted for crypto market characteristics
+    - **Volume Analysis:** Critical for crypto markets with enhanced volume trend detection
+    - **Cross-Market Signals:** TRY, USDT, BTC pair-specific optimizations
+    
+    **Price Analysis:**
+    - **Current Price:** Real-time crypto price with percentage changes
+    - **200-Period High/Low:** Extended range analysis for crypto volatility
+    - **Support/Resistance:** Key levels based on historical price action
+    
+    **Trend Analysis:**
+    - **Multi-Timeframe Trends:** Short (5v10), Medium (20v50), Long (50v200) term
+    - **Golden/Death Cross:** Critical crypto trend reversal signals
+    - **SMA Position Analysis:** Price position relative to key moving averages
+    
+    **Signal Generation:**
+    - **Smart Scoring System:** Multi-indicator consensus with crypto weightings
+    - **Volume Confirmation:** Volume trends confirm price movements
+    - **Final Signals:** 'guclu_al', 'al', 'notr', 'sat', 'guclu_sat'
+    
+    **Crypto-Specific Features:**
+    - **Market Type Detection:** Automatic TRY/USDT/BTC market classification  
+    - **Volatility Assessment:** Four-level volatility classification for crypto
+    - **Enhanced Thresholds:** Crypto-optimized overbought/oversold levels
+    
+    **Popular Crypto Pairs:**
+    - **TRY Pairs:** BTCTRY, ETHTR, ADATRY (Turkish Lira markets)
+    - **USDT Pairs:** BTCUSDT, ETHUSDT, ADAUSDT (Stable markets)
+    - **Cross Pairs:** Wide selection of altcoin combinations
+    
+    **Resolution Guide:**
+    - **1M-15M:** Scalping and day trading analysis
+    - **1H-4H:** Swing trading and intermediate trends  
+    - **1D:** Daily analysis and position trading
+    - **1W:** Long-term crypto investment analysis
+    
+    **Response Time:** ~3-6 seconds (processes 6 months of data for 200-SMA)
+    """
+    logger.info(f"Tool 'get_kripto_teknik_analiz' called with symbol='{symbol}', resolution='{resolution}'")
+    try:
+        return await borsa_client.get_kripto_teknik_analiz(symbol, resolution)
+    except Exception as e:
+        logger.exception("Error in tool 'get_kripto_teknik_analiz'")
+        return KriptoTeknikAnalizSonucu(
+            symbol=symbol,
+            analiz_tarihi=datetime.datetime.now().replace(microsecond=0),
+            resolution=resolution,
+            error_message=f"Kripto teknik analiz alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
 # --- Coinbase Global Crypto Tools ---
@@ -2096,6 +2202,38 @@ async def get_coinbase_server_time() -> CoinbaseServerTimeSonucu:
             iso=None,
             epoch=None,
             error_message=f"Coinbase server time alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(
+    description="CRYPTO Coinbase: Get crypto technical analysis with RSI, MACD, Bollinger Bands, signals. CRYPTO ONLY - use get_teknik_analiz for stocks.",
+    tags=["crypto", "analysis", "readonly", "external", "signals"]
+)
+async def get_coinbase_teknik_analiz(
+    product_id: Annotated[str, Field(
+        description="Coinbase trading pair (BTC-USD, ETH-EUR, ADA-USD, SOL-GBP). Use hyphen format.",
+        pattern=r"^[A-Z]{2,10}-[A-Z]{3,4}$",
+        examples=["BTC-USD", "ETH-EUR", "ADA-USD", "SOL-GBP", "DOGE-USD"]
+    )],
+    granularity: Annotated[str, Field(
+        description="Chart timeframe: 1M, 5M, 15M, 30M, 1H, 4H, 6H, 1D, 1W (default: 1D).",
+        default="1D"
+    )] = "1D"
+) -> CoinbaseTeknikAnalizSonucu:
+    """
+    Get comprehensive technical analysis for global cryptocurrency pairs on Coinbase.
+    
+    Provides RSI, MACD, Bollinger Bands, moving averages, and trading signals.
+    Optimized for 24/7 global crypto markets with USD/EUR/GBP pairs.
+    """
+    logger.info(f"Tool 'get_coinbase_teknik_analiz' called with product_id='{product_id}', granularity='{granularity}'")
+    try:
+        return await borsa_client.get_coinbase_teknik_analiz(product_id, granularity)
+    except Exception as e:
+        logger.exception("Error in tool 'get_coinbase_teknik_analiz'")
+        return CoinbaseTeknikAnalizSonucu(
+            product_id=product_id,
+            granularity=granularity,
+            error_message=f"Coinbase teknik analiz sırasında beklenmeyen bir hata oluştu: {str(e)}"
         )
 
 def main():
