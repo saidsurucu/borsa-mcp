@@ -1,4 +1,4 @@
-# Borsa MCP: Borsa İstanbul (BIST), TEFAS Fonları ve Global Kripto Para için MCP Sunucusu
+# Borsa MCP: Borsa İstanbul (BIST), TEFAS Fonları ve Türk/Global Kripto Piyasaları için MCP Sunucusu
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
