@@ -4,12 +4,23 @@ This version uses KAP for company search and yfinance for all financial data.
 """
 import logging
 import os
+import ssl
+import urllib3
 from pydantic import Field
 from typing import Literal, List, Dict, Any, Annotated, Optional
 from datetime import datetime
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+
+# Disable SSL verification globally to avoid certificate issues
+ssl._create_default_https_context = ssl._create_unverified_context
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Set yfinance to skip SSL verification
+os.environ['PYTHONHTTPSVERIFY'] = '0'
+os.environ['CURL_CAINFO'] = ''
+os.environ['REQUESTS_CA_BUNDLE'] = ''
 
 from borsa_client import BorsaApiClient
 from models import (

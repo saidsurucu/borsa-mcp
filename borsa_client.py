@@ -34,7 +34,8 @@ logger = logging.getLogger(__name__)
 class BorsaApiClient:
     def __init__(self, timeout: float = 60.0):
         # A single httpx client for providers that need it (like KAP)
-        self._http_client = httpx.AsyncClient(timeout=timeout)
+        # SSL verification disabled to avoid certificate issues
+        self._http_client = httpx.AsyncClient(timeout=timeout, verify=False)
         
         # Initialize all data providers
         self.kap_provider = KAPProvider(self._http_client)

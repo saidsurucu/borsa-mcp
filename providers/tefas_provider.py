@@ -22,6 +22,8 @@ class TefasProvider:
         self.api_url = f"{self.base_url}/api"
         self.takasbank_url = "https://www.takasbank.com.tr/plugins/ExcelExportTefasFundsTradingInvestmentPlatform?language=tr"
         self.session = requests.Session()
+        # Disable SSL verification to avoid certificate issues
+        self.session.verify = False
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'application/json, text/plain, */*',
