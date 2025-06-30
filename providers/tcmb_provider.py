@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 import re
 from models.tcmb_models import (
-    TcmbEnflasyonSonucu, EnflasyonVerisi
+    TcmbEnflasyonSonucu, EnflasyonVerisi, EnflasyonHesaplamaSonucu
 )
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class TcmbProvider:
     # Inflation data URLs
     INFLATION_URLS = {
         'tufe': '/wps/wcm/connect/tr/tcmb+tr/main+menu/istatistikler/enflasyon+verileri',
-        'ufe': '/wps/wcm/connect/tr/tcmb+tr/main+menu/istatistikler/ufe+verileri'  # For future use
+        'ufe': '/wps/wcm/connect/TR/TCMB+TR/Main+Menu/Istatistikler/Enflasyon+Verileri/Uretici+Fiyatlari'
     }
     
     def __init__(self, client: httpx.AsyncClient):
@@ -74,8 +74,8 @@ class TcmbProvider:
                     headers = [th.get_text(strip=True) for th in headers_row.find_all(['th', 'td'])]
                     header_text = ' '.join(headers).lower()
                     
-                    # Check if this is the inflation data table
-                    if any(keyword in header_text for keyword in ['tüfe', 'enflasyon', 'yıllık', 'aylık', '%']):
+                    # Check if this is the inflation data table (both TÜFE and ÜFE)
+                    if any(keyword in header_text for keyword in ['tüfe', 'üfe', 'enflasyon', 'yıllık', 'aylık', '%']):
                         table_found = True
                         logger.info(f"Found inflation table with headers: {headers}")
                         
@@ -84,31 +84,43 @@ class TcmbProvider:
                         
                         for row in rows:
                             cells = row.find_all(['td', 'th'])
-                            if len(cells) >= 3:  # Date, yearly %, monthly %
-                                try:
-                                    cell_texts = [cell.get_text(strip=True) for cell in cells]
-                                    
+                            cell_texts = [cell.get_text(strip=True) for cell in cells]
+                            
+                            # Skip header rows or empty rows
+                            if not cell_texts or not cell_texts[0] or 'ÜFE' in cell_texts[0]:
+                                continue
+                                
+                            try:
+                                # Handle different table formats
+                                if len(cell_texts) >= 5:  # ÜFE format: [Date, ÜFE_yearly, YİÜFE_yearly, ÜFE_monthly, YİÜFE_monthly]
+                                    date_str = cell_texts[0]
+                                    # Use Yİ-ÜFE (domestic) data - columns 2 and 4 (0-indexed: 1 and 3)
+                                    yearly_str = cell_texts[2] if len(cell_texts) > 2 else cell_texts[1]
+                                    monthly_str = cell_texts[4] if len(cell_texts) > 4 else cell_texts[3] if len(cell_texts) > 3 else ''
+                                elif len(cell_texts) >= 3:  # TÜFE format: [Date, yearly, monthly]
                                     date_str = cell_texts[0]
                                     yearly_str = cell_texts[1]
                                     monthly_str = cell_texts[2]
-                                    
-                                    # Parse data
-                                    date_obj = self._parse_date(date_str)
-                                    yearly_pct = self._parse_percentage(yearly_str)
-                                    monthly_pct = self._parse_percentage(monthly_str)
-                                    
-                                    if date_obj and yearly_pct is not None:
-                                        inflation_record = {
-                                            'date': date_obj,
-                                            'year_month': date_str,
-                                            'yearly_inflation': yearly_pct,
-                                            'monthly_inflation': monthly_pct
-                                        }
-                                        inflation_data.append(inflation_record)
-                                        
-                                except Exception as e:
-                                    logger.warning(f"Error parsing table row: {e}")
+                                else:
                                     continue
+                                
+                                # Parse data
+                                date_obj = self._parse_date(date_str)
+                                yearly_pct = self._parse_percentage(yearly_str)
+                                monthly_pct = self._parse_percentage(monthly_str)
+                                
+                                if date_obj and yearly_pct is not None:
+                                    inflation_record = {
+                                        'date': date_obj,
+                                        'year_month': date_str,
+                                        'yearly_inflation': yearly_pct,
+                                        'monthly_inflation': monthly_pct
+                                    }
+                                    inflation_data.append(inflation_record)
+                                        
+                            except Exception as e:
+                                logger.warning(f"Error parsing table row: {e}")
+                                continue
                         break
             
             if not table_found:
@@ -309,4 +321,109 @@ class TcmbProvider:
                 error_message=str(e),
                 data_source='TCMB (Türkiye Cumhuriyet Merkez Bankası)',
                 query_timestamp=datetime.now()
+            )
+    
+    async def calculate_inflation(
+        self,
+        start_year: int,
+        start_month: int,
+        end_year: int,
+        end_month: int,
+        basket_value: float = 100.0
+    ) -> EnflasyonHesaplamaSonucu:
+        """
+        Calculate inflation between two dates using TCMB calculator API.
+        
+        Args:
+            start_year: Starting year (e.g., 2020)
+            start_month: Starting month (1-12)
+            end_year: Ending year (e.g., 2025)
+            end_month: Ending month (1-12)
+            basket_value: Initial basket value in TL (default: 100.0)
+        """
+        try:
+            # Validate input parameters
+            if not (1982 <= start_year <= datetime.now().year):
+                raise ValueError(f"Start year must be between 1982 and {datetime.now().year}")
+            if not (1 <= start_month <= 12):
+                raise ValueError("Start month must be between 1 and 12")
+            if not (1982 <= end_year <= datetime.now().year):
+                raise ValueError(f"End year must be between 1982 and {datetime.now().year}")
+            if not (1 <= end_month <= 12):
+                raise ValueError("End month must be between 1 and 12")
+            if basket_value <= 0:
+                raise ValueError("Basket value must be positive")
+            
+            # Check if start date is before end date
+            start_date = datetime(start_year, start_month, 1)
+            end_date = datetime(end_year, end_month, 1)
+            if start_date >= end_date:
+                raise ValueError("Start date must be before end date")
+            
+            # Prepare API request
+            url = "https://appg.tcmb.gov.tr/KIMENFH/enflasyon/hesapla"
+            
+            headers = {
+                'Accept': '*/*',
+                'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Connection': 'keep-alive',
+                'Content-Type': 'application/json',
+                'Origin': 'https://herkesicin.tcmb.gov.tr',
+                'Referer': 'https://herkesicin.tcmb.gov.tr/',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-site',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+                'sec-ch-ua': '"Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"macOS"'
+            }
+            
+            payload = {
+                "baslangicYil": str(start_year),
+                "baslangicAy": str(start_month),
+                "bitisYil": str(end_year),
+                "bitisAy": str(end_month),
+                "malSepeti": str(basket_value)
+            }
+            
+            # Make API request
+            response = await self._http_client.post(url, headers=headers, json=payload, timeout=30.0)
+            response.raise_for_status()
+            
+            data = response.json()
+            logger.info(f"Successfully calculated inflation from {start_year}-{start_month:02d} to {end_year}-{end_month:02d}")
+            
+            # Parse response
+            return EnflasyonHesaplamaSonucu(
+                baslangic_tarih=f"{start_year}-{start_month:02d}",
+                bitis_tarih=f"{end_year}-{end_month:02d}",
+                baslangic_sepet_degeri=basket_value,
+                yeni_sepet_degeri=data.get('yeniSepetDeger', ''),
+                toplam_yil=int(data.get('toplamYil', 0)),
+                toplam_ay=int(data.get('toplamAy', 0)),
+                toplam_degisim=data.get('toplamDegisim', ''),
+                ortalama_yillik_enflasyon=data.get('ortalamaYillikEnflasyon', ''),
+                ilk_yil_tufe=data.get('ilkYilTufe', ''),
+                son_yil_tufe=data.get('sonYilTufe', ''),
+                hesaplama_tarihi=datetime.now(),
+                data_source='TCMB Enflasyon Hesaplama API'
+            )
+            
+        except Exception as e:
+            logger.error(f"Error calculating inflation: {e}")
+            return EnflasyonHesaplamaSonucu(
+                baslangic_tarih=f"{start_year}-{start_month:02d}",
+                bitis_tarih=f"{end_year}-{end_month:02d}",
+                baslangic_sepet_degeri=basket_value,
+                yeni_sepet_degeri="",
+                toplam_yil=0,
+                toplam_ay=0,
+                toplam_degisim="",
+                ortalama_yillik_enflasyon="",
+                ilk_yil_tufe="",
+                son_yil_tufe="",
+                hesaplama_tarihi=datetime.now(),
+                data_source='TCMB Enflasyon Hesaplama API',
+                error_message=str(e)
             )

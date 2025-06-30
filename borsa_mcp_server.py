@@ -2414,12 +2414,12 @@ async def get_economic_calendar(
         )
 
 @app.tool(
-    description="TCMB: Get Turkish inflation data (TÜFE) with date range filtering and statistics.",
+    description="TCMB: Get Turkish inflation data (TÜFE/ÜFE) with date range filtering and statistics.",
     tags=["inflation", "tcmb", "readonly", "external", "turkey"]
 )
 async def get_turkiye_enflasyon(
-    inflation_type: Annotated[Literal["tufe"], Field(
-        description="Inflation type: 'tufe' for Consumer Price Index (TÜFE). Future: 'ufe' for Producer Price Index.",
+    inflation_type: Annotated[Literal["tufe", "ufe"], Field(
+        description="Inflation type: 'tufe' for Consumer Price Index (TÜFE), 'ufe' for Producer Price Index (ÜFE).",
         default="tufe"
     )] = "tufe",
     start_date: Annotated[Optional[str], Field(
@@ -2442,9 +2442,10 @@ async def get_turkiye_enflasyon(
     """
     Get Turkish inflation data from TCMB (Turkish Central Bank) with date filtering.
     
-    **Data Source:** Official TCMB inflation statistics page
-    **Data Type:** TÜFE (Consumer Price Index) - both yearly and monthly rates
-    **Coverage:** 2005-2025 (245+ monthly records)
+    **Data Source:** Official TCMB inflation statistics pages
+    **Data Types:** 
+    - **TÜFE:** Consumer Price Index (2005-2025, 245+ monthly records)  
+    - **ÜFE:** Producer Price Index (2003-2025, 260+ monthly records)
     **Update Frequency:** Monthly (typically mid-month release)
     
     **Data Fields:**
@@ -2459,16 +2460,18 @@ async def get_turkiye_enflasyon(
     - **No Filters:** Returns latest 12 months by default (manageable size)
     
     **Recent Inflation Trends (2024-2025):**
-    - **May 2025:** 35.41% (annual), 1.53% (monthly)
+    - **TÜFE May 2025:** 35.41% (annual), 1.53% (monthly)
+    - **ÜFE Data:** Producer-level price changes since 2003
     - **Peak Period:** 2022-2024 saw rates above 60-80%
-    - **Historical Range:** 3.99% to 85.51% (annual)
+    - **Historical Range:** Both indices show significant volatility
     
     **Use Cases:**
-    - **Economic Analysis:** Track Turkish inflation trends
-    - **Investment Decisions:** Assess real return expectations
-    - **Academic Research:** Historical inflation studies
-    - **Policy Analysis:** Central bank policy effectiveness
-    - **Sector Research:** Industry cost pressure analysis
+    - **Economic Analysis:** Track both consumer and producer inflation trends
+    - **Investment Decisions:** Assess real return expectations and cost pressures
+    - **Academic Research:** Historical inflation studies and price transmission
+    - **Policy Analysis:** Central bank policy effectiveness monitoring
+    - **Sector Research:** Producer vs consumer price dynamics analysis
+    - **Supply Chain:** ÜFE as leading indicator for TÜFE movements
     
     **Performance:** ~2-3 seconds (includes 1-hour caching)
     **Reliability:** Direct TCMB website scraping, highly reliable

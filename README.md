@@ -28,7 +28,7 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
     * **Doviz.com Döviz & Emtia:** 28+ varlık ile döviz kurları (USD, EUR, GBP), kıymetli madenler (altın, gümüş), enerji emtiaları (petrol), yakıt fiyatları (dizel, benzin, LPG).
     * **Gerçek Zamanlı Döviz:** Dakikalık fiyat güncellemeleri ve tarihsel OHLC analizi ile kapsamlı döviz takibi.
     * **Dovizcom Ekonomik Takvim:** Çoklu ülke desteği ile ekonomik takvim (TR,US varsayılan) - GDP, enflasyon, istihdam verileri ve makroekonomik olaylar.
-    * **TCMB Enflasyon Verileri:** Resmi Merkez Bankası TÜFE verileri (2005-2025, 245+ aylık kayıt) - yıllık/aylık enflasyon oranları, tarih aralığı filtreleme.
+    * **TCMB Enflasyon Verileri:** Resmi Merkez Bankası TÜFE/ÜFE verileri - TÜFE (2005-2025, 245+ kayıt), ÜFE (2014-2025, 137+ kayıt) - yıllık/aylık enflasyon oranları, tarih aralığı filtreleme.
     * **Dinamik Token Yönetimi:** Otomatik token çıkarma ve yenileme sistemi ile kesintisiz API erişimi.
     * **Hibrit Veri:** Yahoo Finance + Mynet Finans'tan birleştirilmiş şirket bilgileri.
 * Türk hisse senetleri, endeksler, yatırım fonları ve kripto para için optimize edilmiş veri işleme.
@@ -178,7 +178,7 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_economic_calendar`**: Çoklu ülke ekonomik takvimi (TR,US varsayılan) - GDP, enflasyon, istihdam verileri ve makroekonomik olaylar.
 
 ### TCMB Enflasyon Araçları
-* **`get_turkiye_enflasyon`**: Resmi TCMB TÜFE enflasyon verileri - yıllık/aylık oranlar, tarih aralığı filtreleme, istatistiksel özet (2005-2025, 245+ aylık kayıt).
+* **`get_turkiye_enflasyon`**: Resmi TCMB TÜFE/ÜFE enflasyon verileri - TÜFE: tüketici fiyatları (2005-2025, 245+ kayıt), ÜFE: üretici fiyatları (2014-2025, 137+ kayıt) - yıllık/aylık oranlar, tarih aralığı filtreleme, istatistiksel özet.
 
 🔍 **Veri Kaynakları & Kapsam**
 
@@ -260,16 +260,19 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Dinamik Token Yönetimi**: Otomatik token yenileme ve kimlik doğrulama yönetimi ile kesintisiz erişim
 
 ### TCMB Enflasyon Verileri (Resmi Merkez Bankası)
-- **Veri Kaynağı**: Türkiye Cumhuriyet Merkez Bankası resmi enflasyon istatistikleri sayfası
-- **Veri Türü**: TÜFE (Tüketici Fiyat Endeksi) - hem yıllık hem aylık enflasyon oranları
-- **Tarihsel Kapsam**: 2005-2025 (245+ aylık veri noktası) sürekli güncellenen kapsamlı arşiv
+- **Veri Kaynağı**: Türkiye Cumhuriyet Merkez Bankası resmi enflasyon istatistikleri sayfaları
+- **Veri Türleri**: 
+  - **TÜFE:** Tüketici Fiyat Endeksi (2005-2025, 245+ aylık kayıt)
+  - **ÜFE:** Üretici Fiyat Endeksi - Yurt İçi (2014-2025, 137+ aylık kayıt)
 - **Güncelleme Sıklığı**: Aylık (genellikle ayın ortasında resmi açıklama)
 - **Veri Kalitesi**: Resmi TCMB kaynağından web scraping ile %100 güvenilir
 - **Performans**: 2-3 saniye (1 saatlik cache ile optimize edilmiş)
-- **Filtreleme**: Tarih aralığı (YYYY-MM-DD), kayıt sayısı limiti
+- **Filtreleme**: Enflasyon türü seçimi, tarih aralığı (YYYY-MM-DD), kayıt sayısı limiti
 - **İstatistikler**: Min/max oranlar, ortalamalar, son değerler otomatik hesaplama
-- **Son Veriler**: Mayıs 2025 %35.41 (yıllık), %1.53 (aylık)
-- **Tarihsel Aralık**: %3.99 - %85.51 (yıllık enflasyon)
+- **Son Veriler (Mayıs 2025)**: 
+  - **TÜFE:** %35.41 (yıllık), %1.53 (aylık)
+  - **ÜFE:** %23.13 (yıllık), %2.48 (aylık)
+- **Ekonomik Analiz**: ÜFE öncü gösterge olarak TÜFE hareketlerini öngörmede kullanılır
 
 📊 **Örnek Kullanım**
 
@@ -373,14 +376,20 @@ TR,US,GB,FR,DE ülkelerinin bu haftaki tüm ekonomik verilerini karşılaştır
 # Ekonomik veri analizi
 Türkiye ve ABD'nin son çeyrek GDP büyüme verilerini karşılaştır ve trend analizini yap
 
-# TCMB enflasyon analizi
-Son 2 yılın aylık enflasyon verilerini getir ve trend analizini yap
+# TCMB TÜFE enflasyon analizi
+Son 2 yılın tüketici enflasyon verilerini getir ve trend analizini yap
+
+# TCMB ÜFE enflasyon analizi  
+Üretici enflasyonunun son 1 yılını analiz et ve TÜFE ile karşılaştır
 
 # Enflasyon dönemsel analizi
-2022-2024 yüksek enflasyon dönemini analiz et ve istatistikleri hesapla
+2022-2024 yüksek enflasyon dönemini hem TÜFE hem ÜFE açısından analiz et
+
+# TÜFE vs ÜFE karşılaştırması
+Son 12 aylık TÜFE ve ÜFE verilerini karşılaştır ve fiyat geçişkenliğini analiz et
 
 # Güncel enflasyon durumu
-Son 6 aylık enflasyon verilerini al ve Merkez Bankası hedefleriyle karşılaştır
+Son 6 aylık hem tüketici hem üretici enflasyon verilerini al ve Merkez Bankası hedefleriyle karşılaştır
 ```
 
 📜 **Lisans**
