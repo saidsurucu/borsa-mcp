@@ -23,7 +23,8 @@ from borsa_models import (
     KriptoExchangeInfoSonucu, KriptoTickerSonucu, KriptoOrderbookSonucu,
     KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu, KriptoTeknikAnalizSonucu,
     CoinbaseExchangeInfoSonucu, CoinbaseTickerSonucu, CoinbaseOrderbookSonucu,
-    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu, CoinbaseTeknikAnalizSonucu
+    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu, CoinbaseTeknikAnalizSonucu,
+    DovizcomGuncelSonucu, DovizcomDakikalikSonucu, DovizcomArsivSonucu
 )
 
 # --- Logging Configuration ---
@@ -58,6 +59,7 @@ YFinancePeriodLiteral = Literal["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y
 StatementPeriodLiteral = Literal["annual", "quarterly"]
 FundCategoryLiteral = Literal["all", "debt", "variable", "basket", "guaranteed", "real_estate", "venture", "equity", "mixed", "participation", "precious_metals", "money_market", "flexible"]
 CryptoCurrencyLiteral = Literal["TRY", "USDT", "BTC", "ETH", "USD", "EUR"]
+DovizcomAssetLiteral = Literal["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "gram-altin", "gumus", "ons", "XAG-USD", "XPT-USD", "XPD-USD", "BRENT", "WTI"]
 
 @app.tool(
     description="BIST STOCKS: Search companies by name to find ticker codes. STOCKS ONLY - use get_kripto_exchange_info for crypto.",
@@ -2234,6 +2236,107 @@ async def get_coinbase_teknik_analiz(
             product_id=product_id,
             granularity=granularity,
             error_message=f"Coinbase teknik analiz sırasında beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(
+    description="CURRENCY & COMMODITIES: Get current exchange rate or commodity price from doviz.com.",
+    tags=["currency", "commodities", "current", "readonly", "external"]
+)
+async def get_dovizcom_guncel(
+    asset: Annotated[DovizcomAssetLiteral, Field(
+        description="Asset symbol: USD, EUR, GBP, gram-altin (Turkish gold), ons (troy ounce gold), BRENT (oil), etc.",
+        examples=["USD", "EUR", "gram-altin", "ons", "BRENT"]
+    )]
+) -> DovizcomGuncelSonucu:
+    """
+    Get current exchange rate or commodity price from doviz.com.
+    
+    Supports major currencies (USD, EUR, GBP), precious metals (gram-altin, ons, XAG-USD), 
+    and energy commodities (BRENT, WTI).
+    """
+    logger.info(f"Tool 'get_dovizcom_guncel' called with asset='{asset}'")
+    try:
+        return await borsa_client.get_dovizcom_guncel_kur(asset)
+    except Exception as e:
+        logger.exception("Error in tool 'get_dovizcom_guncel'")
+        return DovizcomGuncelSonucu(
+            asset=asset,
+            error_message=f"Doviz.com güncel veri alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(
+    description="CURRENCY & COMMODITIES: Get minute-by-minute data from doviz.com (up to 60 data points).",
+    tags=["currency", "commodities", "realtime", "readonly", "external"]
+)
+async def get_dovizcom_dakikalik(
+    asset: Annotated[DovizcomAssetLiteral, Field(
+        description="Asset symbol: USD, EUR, GBP, gram-altin (Turkish gold), ons (troy ounce gold), BRENT (oil), etc.",
+        examples=["USD", "EUR", "gram-altin", "ons", "BRENT"]
+    )],
+    limit: Annotated[int, Field(
+        description="Number of data points to fetch (1-60 minutes of data).",
+        default=60,
+        ge=1,
+        le=60
+    )] = 60
+) -> DovizcomDakikalikSonucu:
+    """
+    Get minute-by-minute data from doviz.com.
+    
+    Returns up to 60 data points showing price movements over the last N minutes.
+    Useful for real-time monitoring and short-term analysis.
+    """
+    logger.info(f"Tool 'get_dovizcom_dakikalik' called with asset='{asset}', limit={limit}")
+    try:
+        return await borsa_client.get_dovizcom_dakikalik_veri(asset, limit)
+    except Exception as e:
+        logger.exception("Error in tool 'get_dovizcom_dakikalik'")
+        return DovizcomDakikalikSonucu(
+            asset=asset,
+            veri_noktalari=[],
+            toplam_veri=0,
+            limit=limit,
+            error_message=f"Doviz.com dakikalık veri alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(
+    description="CURRENCY & COMMODITIES: Get historical OHLC data from doviz.com for custom date range.",
+    tags=["currency", "commodities", "historical", "readonly", "external", "ohlc"]
+)
+async def get_dovizcom_arsiv(
+    asset: Annotated[DovizcomAssetLiteral, Field(
+        description="Asset symbol: USD, EUR, GBP, gram-altin (Turkish gold), ons (troy ounce gold), BRENT (oil), etc.",
+        examples=["USD", "EUR", "gram-altin", "ons", "BRENT"]
+    )],
+    start_date: Annotated[str, Field(
+        description="Start date in YYYY-MM-DD format (e.g., '2024-01-01').",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2024-01-01", "2024-06-01"]
+    )],
+    end_date: Annotated[str, Field(
+        description="End date in YYYY-MM-DD format (e.g., '2024-12-31').",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2024-12-31", "2024-06-30"]
+    )]
+) -> DovizcomArsivSonucu:
+    """
+    Get historical OHLC data from doviz.com for custom date range.
+    
+    Returns daily OHLC (Open, High, Low, Close) data with volume information.
+    Perfect for technical analysis and historical trend research.
+    """
+    logger.info(f"Tool 'get_dovizcom_arsiv' called with asset='{asset}', start_date='{start_date}', end_date='{end_date}'")
+    try:
+        return await borsa_client.get_dovizcom_arsiv_veri(asset, start_date, end_date)
+    except Exception as e:
+        logger.exception("Error in tool 'get_dovizcom_arsiv'")
+        return DovizcomArsivSonucu(
+            asset=asset,
+            ohlc_verileri=[],
+            toplam_veri=0,
+            start_date=start_date,
+            end_date=end_date,
+            error_message=f"Doviz.com arşiv veri alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
 def main():

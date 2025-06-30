@@ -23,7 +23,8 @@ from borsa_models import (
     KriptoExchangeInfoSonucu, KriptoTickerSonucu, KriptoOrderbookSonucu,
     KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu, KriptoTeknikAnalizSonucu,
     CoinbaseExchangeInfoSonucu, CoinbaseTickerSonucu, CoinbaseOrderbookSonucu,
-    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu, CoinbaseTeknikAnalizSonucu
+    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu, CoinbaseTeknikAnalizSonucu,
+    DovizcomGuncelSonucu, DovizcomDakikalikSonucu, DovizcomArsivSonucu
 )
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,9 @@ class BorsaApiClient:
         # Import CoinbaseProvider for global crypto data
         from providers.coinbase_provider import CoinbaseProvider
         self.coinbase_provider = CoinbaseProvider(self._http_client)
+        # Import DovizcomProvider for currency and commodities data
+        from providers.dovizcom_provider import DovizcomProvider
+        self.dovizcom_provider = DovizcomProvider(self._http_client)
 
     async def close(self):
         await self._http_client.aclose()
@@ -1562,3 +1566,16 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
     async def get_coinbase_teknik_analiz(self, product_id: str, granularity: str = "ONE_DAY") -> "CoinbaseTeknikAnalizSonucu":
         """Get comprehensive technical analysis for Coinbase crypto pairs."""
         return await self.coinbase_provider.get_coinbase_teknik_analiz(product_id, granularity)
+    
+    # --- Dovizcom Provider Methods ---
+    async def get_dovizcom_guncel_kur(self, asset: str) -> "DovizcomGuncelSonucu":
+        """Get current exchange rate or commodity price from doviz.com."""
+        return await self.dovizcom_provider.get_asset_current(asset)
+    
+    async def get_dovizcom_dakikalik_veri(self, asset: str, limit: int = 60) -> "DovizcomDakikalikSonucu":
+        """Get minute-by-minute data from doviz.com."""
+        return await self.dovizcom_provider.get_asset_daily(asset, limit)
+    
+    async def get_dovizcom_arsiv_veri(self, asset: str, start_date: str, end_date: str) -> "DovizcomArsivSonucu":
+        """Get historical OHLC archive data from doviz.com."""
+        return await self.dovizcom_provider.get_asset_archive(asset, start_date, end_date)

@@ -2,7 +2,7 @@
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
-Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine ve global kripto para verilerine erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, KAP (Kamuyu Aydınlatma Platformu), TEFAS (Türkiye Elektronik Fon Alım Satım Platformu), BtcTurk, Coinbase, Mynet Finans ve Yahoo Finance'dan hisse senedi bilgileri, fon verileri, hem Türk hem de global kripto para piyasa verileri, finansal veriler, teknik analiz ve sektör karşılaştırmaları, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
+Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine, global kripto para verilerine ve döviz/emtia verilerine erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, KAP (Kamuyu Aydınlatma Platformu), TEFAS (Türkiye Elektronik Fon Alım Satım Platformu), BtcTurk, Coinbase, Doviz.com, Mynet Finans ve Yahoo Finance'dan hisse senedi bilgileri, fon verileri, hem Türk hem de global kripto para piyasa verileri, döviz kurları ve emtia fiyatları, finansal veriler, teknik analiz ve sektör karşılaştırmaları, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
 
 ![ornek](./ornek.jpeg)
 
@@ -11,8 +11,8 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
 
 🎯 **Temel Özellikler**
 
-* Borsa İstanbul (BIST), Türk yatırım fonları ve global kripto para verilerine programatik erişim için kapsamlı bir MCP arayüzü.
-* **36 Araç** ile tam finansal analiz desteği:
+* Borsa İstanbul (BIST), Türk yatırım fonları, global kripto para verileri ve döviz/emtia verilerine programatik erişim için kapsamlı bir MCP arayüzü.
+* **39 Araç** ile tam finansal analiz desteği:
     * **Şirket Arama:** 758 BIST şirketi arasında ticker kodu ve şirket adına göre arama (çoklu ticker desteği ile).
     * **Finansal Veriler:** Bilanço, kar-zarar, nakit akışı tabloları ve geçmiş OHLCV verileri.
     * **Teknik Analiz:** RSI, MACD, Bollinger Bantları gibi teknik göstergeler ve al-sat sinyalleri.
@@ -25,6 +25,8 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
     * **BtcTurk Kripto:** 295+ Türk kripto para çifti (TRY/USDT), gerçek zamanlı fiyatlar, emir defteri, işlem geçmişi, teknik analiz.
     * **Coinbase Global:** 500+ global kripto para çifti (USD/EUR), uluslararası piyasa verileri, çapraz piyasa analizi, teknik analiz.
     * **Kripto Teknik Analiz:** RSI, MACD, Bollinger Bantları ve al-sat sinyalleri ile hem Türk hem global kripto piyasalar için kapsamlı teknik analiz.
+    * **Doviz.com Döviz & Emtia:** 25+ varlık ile döviz kurları (USD, EUR, GBP), kıymetli madenler (altın, gümüş), enerji emtiaları (petrol).
+    * **Gerçek Zamanlı Döviz:** Dakikalık fiyat güncellemeleri ve tarihsel OHLC analizi ile kapsamlı döviz takibi.
     * **Hibrit Veri:** Yahoo Finance + Mynet Finans'tan birleştirilmiş şirket bilgileri.
 * Türk hisse senetleri, endeksler, yatırım fonları ve kripto para için optimize edilmiş veri işleme.
 * **LLM Optimizasyonu:** Domain-özel araç ön ekleri ("BIST STOCKS:", "CRYPTO BtcTurk:", "CRYPTO Coinbase:") ile gelişmiş araç seçimi.
@@ -138,6 +140,11 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_coinbase_server_time`**: Coinbase sunucu zamanı ve API durumu.
 * **`get_coinbase_teknik_analiz`**: Global kripto piyasaları için RSI, MACD, Bollinger Bantları ve al-sat sinyalleri ile kapsamlı teknik analiz.
 
+### Dovizcom Döviz & Emtia Araçları (Türk & Uluslararası Piyasalar)
+* **`get_dovizcom_guncel`**: Güncel döviz kurları ve emtia fiyatları (USD, EUR, GBP, gram-altın, ons, BRENT).
+* **`get_dovizcom_dakikalik`**: Gerçek zamanlı izleme için dakikalık veriler (60 veri noktasına kadar).
+* **`get_dovizcom_arsiv`**: Teknik analiz ve trend araştırması için tarihsel OHLC verileri.
+
 🔍 **Veri Kaynakları & Kapsam**
 
 ### KAP (Kamuyu Aydınlatma Platformu)
@@ -188,6 +195,20 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Veri Kalitesi**: Coinbase (NASDAQ: COIN) kurumsal seviye global likidite ile işletme düzeyinde borsa verileri
 - **Kapsam**: Tam global piyasa kapsama, kurumsal seviye işlem verileri, çapraz piyasa arbitraj fırsatları
 - **Çapraz Piyasa Analizi**: Türk kripto piyasaları (BtcTurk TRY çiftleri) ile global piyasaları (Coinbase USD/EUR çiftleri) karşılaştırma
+
+### Dovizcom Döviz & Emtia Platformu (Türk & Uluslararası Piyasalar)
+- **Varlık Kapsamı**: 25+ varlık (ana para birimleri, kıymetli madenler, enerji emtiaları)
+- **Ana Para Birimleri**: USD, EUR, GBP, JPY, CHF, CAD, AUD ile gerçek zamanlı TRY döviz kurları
+- **Kıymetli Madenler**: Hem Türk (gram-altın, gümüş) hem uluslararası (ons, XAG-USD, XPT-USD, XPD-USD) çifte fiyatlandırma
+- **Enerji Emtiaları**: BRENT ve WTI petrol fiyatları ile tarihsel trendler ve piyasa analizi
+- **API Endpoint**: Resmi doviz.com API v12 (https://api.doviz.com/api/v12)
+- **Gerçek Zamanlı Veri**: Kısa vadeli analiz için 60 veri noktasına kadar dakikalık güncellemeler
+- **Tarihsel Veri**: Teknik analiz ve trend araştırması için özel tarih aralıklarında günlük OHLC verileri
+- **Güncelleme Sıklığı**: Güncel kurlar için 1 dakika önbellek ile gerçek zamanlı piyasa verileri
+- **Veri Kalitesi**: Türkiye'nin önde gelen finansal bilgi sağlayıcısından profesyonel seviye finansal veriler
+- **Piyasa Odağı**: Çapraz piyasa analizi için uluslararası USD/EUR karşılaştırmaları ile Türk TRY bazlı fiyatlandırma
+- **Kimlik Doğrulama**: Güvenilir API erişimi için uygun başlık yönetimi ile Bearer token kimlik doğrulaması
+- **Kapsam**: Döviz ticareti, kıymetli maden yatırımı ve emtia analizi için tam finansal piyasalar kapsamı
 
 📊 **Örnek Kullanım**
 
@@ -254,6 +275,24 @@ Bitcoin'in hem Türk piyasasında (BTCTRY) hem global piyasada (BTC-USD) teknik 
 
 # Global kripto teknik analiz
 ETH-EUR çiftinin günlük Bollinger Bantları ve hareketli ortalama durumunu analiz et
+
+# Döviz kuru analizi
+USD/TRY kurunun güncel durumunu ve son 1 saatteki dakikalık hareketlerini analiz et
+
+# Altın fiyat takibi
+Gram altının TRY cinsinden güncel fiyatını al ve son 30 dakikadaki değişimini göster
+
+# Uluslararası altın karşılaştırması
+Türk gram altını ile uluslararası ons altın fiyatlarını karşılaştır
+
+# Emtia fiyat analizi
+Brent petrolün son 6 aylık OHLC verilerini al ve fiyat trendini analiz et
+
+# Kıymetli maden portföy takibi
+Altın, gümüş ve platinyum fiyatlarının güncel durumunu ve haftalık performansını karşılaştır
+
+# Çapraz döviz analizi
+EUR/TRY ve GBP/TRY kurlarının güncel durumunu karşılaştır ve arbitraj fırsatlarını değerlendir
 ```
 
 📜 **Lisans**

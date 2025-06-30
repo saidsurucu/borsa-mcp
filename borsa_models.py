@@ -1470,3 +1470,45 @@ class CoinbaseTeknikAnalizSonucu(BaseModel):
     
     error_message: Optional[str] = Field(None, description="Error message if the operation failed.")
 
+# --- Dovizcom Models ---
+class DovizcomVarligi(BaseModel):
+    """Single data point for doviz.com asset data."""
+    close: float = Field(description="Closing price/rate of the asset.")
+    update_date: Optional[datetime.datetime] = Field(None, description="Last update timestamp.")
+
+class DovizcomOHLCVarligi(BaseModel):
+    """OHLC data point for doviz.com historical archive data."""
+    update_date: Optional[datetime.datetime] = Field(None, description="Date/time of the data point.")
+    open: float = Field(description="Opening price/rate.")
+    high: float = Field(description="Highest price/rate.")
+    low: float = Field(description="Lowest price/rate.")
+    close: float = Field(description="Closing price/rate.")
+    close_try: float = Field(description="Closing price in TRY.")
+    close_usd: float = Field(description="Closing price in USD.")
+    volume: float = Field(description="Trading volume.")
+
+class DovizcomGuncelSonucu(BaseModel):
+    """Current exchange rate or commodity price result from doviz.com."""
+    asset: str = Field(description="Asset symbol (e.g., USD, EUR, gram-altin, BRENT).")
+    guncel_deger: Optional[float] = Field(None, description="Current rate/price of the asset.")
+    guncelleme_tarihi: Optional[datetime.datetime] = Field(None, description="Last update timestamp.")
+    cached: bool = Field(False, description="Whether the data is from cache.")
+    error_message: Optional[str] = Field(None, description="Error message if the operation failed.")
+
+class DovizcomDakikalikSonucu(BaseModel):
+    """Minute-by-minute data result from doviz.com."""
+    asset: str = Field(description="Asset symbol (e.g., USD, EUR, gram-altin, BRENT).")
+    veri_noktalari: List[DovizcomVarligi] = Field(description="List of minute-by-minute data points.")
+    toplam_veri: int = Field(description="Total number of data points returned.")
+    limit: int = Field(description="Requested data limit.")
+    error_message: Optional[str] = Field(None, description="Error message if the operation failed.")
+
+class DovizcomArsivSonucu(BaseModel):
+    """Historical OHLC archive data result from doviz.com."""
+    asset: str = Field(description="Asset symbol (e.g., USD, EUR, gram-altin, BRENT).")
+    ohlc_verileri: List[DovizcomOHLCVarligi] = Field(description="List of OHLC data points.")
+    toplam_veri: int = Field(description="Total number of data points returned.")
+    start_date: str = Field(description="Start date of the data range.")
+    end_date: str = Field(description="End date of the data range.")
+    error_message: Optional[str] = Field(None, description="Error message if the operation failed.")
+
