@@ -8,11 +8,20 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
 
 ![fon ornek](./fon-ornek.png)
 
+⚠️ **ÖNEMLİ UYARI**
+
+**Borsa MCP**, sadece açık kaynaklardan derlediği verileri büyük dil modellerine (LLM) ileten bir sistemdir. Alacağınız cevaplar kullandığınız LLM'in kabiliyetine göre değişir. 
+
+**LLM'ler yeni bir teknolojidir ve bazen yanlış veya var olmayan bilgiler üretebilirler (halüsinasyon).** Her zaman verilen bilgileri doğrulayın ve kritik kararlar için birden fazla kaynak kullanın.
+
+**Borsa MCP size HİÇBİR YATIRIM TAVSİYESİ VERMEZ.** Sadece finansal verileri derler ve sunar. Yatırım kararlarınızı vermeden önce mutlaka lisanslı finansal danışmanlardan profesyonel destek alın.
+
+**Bu araç eğitim ve araştırma amaçlıdır.** Finansal işlemleriniz için sorumluluk tamamen size aittir.
 
 🎯 **Temel Özellikler**
 
 * Borsa İstanbul (BIST), Türk yatırım fonları, global kripto para verileri ve döviz/emtia verilerine programatik erişim için kapsamlı bir MCP arayüzü.
-* **42 Araç** ile tam finansal analiz desteği:
+* **43 Araç** ile tam finansal analiz desteği:
     * **Şirket Arama:** 758 BIST şirketi arasında ticker kodu ve şirket adına göre arama (çoklu ticker desteği ile).
     * **Finansal Veriler:** Bilanço, kar-zarar, nakit akışı tabloları ve geçmiş OHLCV verileri.
     * **Teknik Analiz:** RSI, MACD, Bollinger Bantları gibi teknik göstergeler ve al-sat sinyalleri.
@@ -45,11 +54,6 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
 - **Varsayılan TR,US**: Türkiye ve ABD verileri otomatik gösterim
 - **Gerçek zamanlı**: GDP, enflasyon, istihdam, PMI verileri
 
-### ✅ **Dinamik Token Yönetimi Sistemi** 
-- **Otomatik token çıkarma**: Doviz.com web sitesinden programatik token alma
-- **401 hata yönetimi**: Otomatik token yenileme ve tekrar deneme
-- **Kesintisiz erişim**: Bakım gerektirmeyen sürekli API erişimi
-- **Çoklu kaynak desteği**: Calendar ve Asset API'leri için farklı token yönetimi
 
 ### ✅ **Yakıt Fiyatları Archive Endpoint Desteği**
 - **Benzin**: 48.89 TL/litre (güncel fiyat)
@@ -258,7 +262,6 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Güncelleme Sıklığı**: Gerçek zamanlı ekonomik olay takibi ve uluslararası piyasa etkisi analizi
 - **Zaman Dilimi Desteği**: Avrupa/İstanbul ana zaman dilimi ile Türk saati koordinasyonu
 - **Veri Kalitesi**: Doviz.com'un özelleşmiş finansal veri ağından profesyonel seviye uluslararası makroekonomik bilgiler
-- **Dinamik Token Yönetimi**: Otomatik token yenileme ve kimlik doğrulama yönetimi ile kesintisiz erişim
 
 ### TCMB Enflasyon Verileri (Resmi Merkez Bankası)
 - **Veri Kaynağı**: Türkiye Cumhuriyet Merkez Bankası resmi enflasyon istatistikleri sayfaları
