@@ -179,6 +179,7 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 
 ### TCMB Enflasyon Araçları
 * **`get_turkiye_enflasyon`**: Resmi TCMB TÜFE/ÜFE enflasyon verileri - TÜFE: tüketici fiyatları (2005-2025, 245+ kayıt), ÜFE: üretici fiyatları (2014-2025, 137+ kayıt) - yıllık/aylık oranlar, tarih aralığı filtreleme, istatistiksel özet.
+* **`get_enflasyon_hesapla`**: TCMB resmi enflasyon hesaplama API'si - iki tarih arası kümülatif enflasyon hesaplama, sepet değeri analizi, satın alma gücü kaybı/kazancı, ortalama yıllık enflasyon, TÜFE endeks değerleri.
 
 🔍 **Veri Kaynakları & Kapsam**
 
@@ -390,6 +391,24 @@ Son 12 aylık TÜFE ve ÜFE verilerini karşılaştır ve fiyat geçişkenliğin
 
 # Güncel enflasyon durumu
 Son 6 aylık hem tüketici hem üretici enflasyon verilerini al ve Merkez Bankası hedefleriyle karşılaştır
+
+# TCMB enflasyon hesaplayıcı analizi
+2020'deki 100 TL'nin bugünkü satın alma gücünü hesapla
+
+# Yüksek enflasyon dönemi analizi
+2021-2024 yüksek enflasyon döneminde 1000 TL'nin değişimini hesapla ve kümülatif enflasyon etkisini analiz et
+
+# Uzun dönemli satın alma gücü analizi
+2010'dan bugüne 5000 TL'lik maaşın satın alma gücündeki değişimi hesapla
+
+# Kısa dönemli enflasyon hesaplaması
+Son 6 aylık enflasyon etkisini hesapla ve yıllık bazda projeksiyon yap
+
+# Ekonomik kriz dönemleri karşılaştırması
+2001, 2008 ve 2018 ekonomik krizlerinin enflasyon etkilerini karşılaştır
+
+# Kontrat endeksleme hesaplaması
+Kira sözleşmelerinin enflasyon ayarlaması için gerekli artış oranını hesapla
 ```
 
 📜 **Lisans**

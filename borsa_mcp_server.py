@@ -28,7 +28,7 @@ from models import (
     DovizcomGuncelSonucu, DovizcomDakikalikSonucu, DovizcomArsivSonucu,
     EkonomikTakvimSonucu
 )
-from models.tcmb_models import TcmbEnflasyonSonucu
+from models.tcmb_models import TcmbEnflasyonSonucu, EnflasyonHesaplamaSonucu
 
 # --- Logging Configuration ---
 LOG_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
@@ -2490,6 +2490,113 @@ async def get_turkiye_enflasyon(
             data_source='TCMB (Türkiye Cumhuriyet Merkez Bankası)',
             query_timestamp=datetime.now(),
             error_message=f"Enflasyon verileri alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(description="TCMB: Calculate cumulative inflation between two dates using official TCMB data.")
+async def get_enflasyon_hesapla(
+    start_year: Annotated[int, Field(
+        description="Starting year (1982-2025). TCMB calculator data starts from 1982.",
+        ge=1982,
+        le=2025,
+        examples=[2020, 2021, 2022, 2023]
+    )],
+    start_month: Annotated[int, Field(
+        description="Starting month (1-12). 1=January, 12=December.",
+        ge=1,
+        le=12,
+        examples=[1, 6, 12]
+    )],
+    end_year: Annotated[int, Field(
+        description="Ending year (1982-current). Must be after start year.",
+        ge=1982,
+        le=2025,
+        examples=[2024, 2025]
+    )],
+    end_month: Annotated[int, Field(
+        description="Ending month (1-12). End date must be after start date.",
+        ge=1,
+        le=12,
+        examples=[1, 6, 12]
+    )],
+    basket_value: Annotated[float, Field(
+        description="Initial basket value in Turkish Lira (default: 100.0 TL).",
+        default=100.0,
+        ge=0.01,
+        examples=[100.0, 1000.0, 10000.0]
+    )] = 100.0
+) -> EnflasyonHesaplamaSonucu:
+    """
+    Calculate cumulative inflation between two specific dates using TCMB's official inflation calculator API.
+    
+    **IMPORTANT: This tool uses the OFFICIAL TCMB INFLATION CALCULATOR API - the same calculator available on TCMB's website for public use.**
+    
+    **Key Features:**
+    - **Official TCMB API:** Direct integration with https://appg.tcmb.gov.tr/KIMENFH/enflasyon/hesapla
+    - **Cumulative Calculation:** Shows total inflation impact over the entire period
+    - **Basket Value Analysis:** Calculate how much your 100 TL from 2020 would be worth today
+    - **TÜFE-Based:** Uses Consumer Price Index (TÜFE) for accurate inflation measurement
+    - **Period Analysis:** Total years, months, and percentage change calculation
+    - **Index Values:** Shows TÜFE index values at start and end dates
+    
+    **Calculation Method:**
+    - **Input:** Starting date, ending date, initial basket value (TL)
+    - **Output:** New basket value, total change amount, average annual inflation
+    - **Formula:** Based on official TCMB TÜFE index calculations
+    - **Precision:** Official Central Bank calculation methodology
+    
+    **Common Use Cases:**
+    - **Real Value Analysis:** "What is my 2020 salary worth in today's money?"
+    - **Investment Returns:** "Did my investment beat inflation over this period?"
+    - **Economic Research:** "What was cumulative inflation during specific economic periods?"
+    - **Purchasing Power:** "How much purchasing power did I lose/gain?"
+    - **Salary Adjustments:** "What salary increase do I need to maintain purchasing power?"
+    - **Contract Indexation:** "How should rents/contracts be adjusted for inflation?"
+    
+    **Period Examples:**
+    - **Recent High Inflation:** 2021-2024 (Turkey's high inflation period)
+    - **Pre-Pandemic:** 2019-2020 (stable inflation comparison)
+    - **Long-term:** 2010-2025 (15-year inflation impact)
+    - **Economic Crisis:** 2001-2002 vs 2008-2009 vs 2018-2019
+    
+    **Calculation Examples:**
+    - **Example 1:** 100 TL from January 2020 → ~250-300 TL in 2025 (150-200% inflation)
+    - **Example 2:** 1000 TL from 2021 → Significant increase due to high inflation period
+    - **Example 3:** Salary of 5000 TL in 2020 → Equivalent purchasing power calculation
+    
+    **Data Range:** 1982-Present (TCMB calculator historical coverage)
+    **Update Frequency:** Monthly with official TÜFE releases
+    **Data Availability:** Up to current month (future dates not supported)
+    **IMPORTANT NOTE:** Current month's data may not be available yet in the system. TCMB typically publishes inflation data around the 3rd of each month. If you get an error for the current month, please try using the previous month instead.
+    **Accuracy:** Official Central Bank methodology, highest reliability
+    **Performance:** ~2-4 seconds (depends on TCMB API response time)
+    
+    **Response includes:**
+    - New basket value after inflation
+    - Total change amount and percentage
+    - Period breakdown (years + months)
+    - Average annual inflation rate
+    - TÜFE index values at start and end dates
+    - Official calculation timestamp
+    """
+    logger.info(f"Tool 'get_enflasyon_hesapla' called with period {start_year}-{start_month:02d} to {end_year}-{end_month:02d}, basket_value={basket_value}")
+    try:
+        return await borsa_client.calculate_inflation(start_year, start_month, end_year, end_month, basket_value)
+    except Exception as e:
+        logger.exception("Error in tool 'get_enflasyon_hesapla'")
+        return EnflasyonHesaplamaSonucu(
+            baslangic_tarih=f"{start_year}-{start_month:02d}",
+            bitis_tarih=f"{end_year}-{end_month:02d}",
+            baslangic_sepet_degeri=basket_value,
+            yeni_sepet_degeri="",
+            toplam_yil=0,
+            toplam_ay=0,
+            toplam_degisim="",
+            ortalama_yillik_enflasyon="",
+            ilk_yil_tufe="",
+            son_yil_tufe="",
+            hesaplama_tarihi=datetime.now(),
+            data_source='TCMB Enflasyon Hesaplama API',
+            error_message=f"Enflasyon hesaplama sırasında beklenmeyen bir hata oluştu: {str(e)}"
         )
 
 def main():

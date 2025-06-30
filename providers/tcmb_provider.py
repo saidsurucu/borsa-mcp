@@ -342,17 +342,29 @@ class TcmbProvider:
             basket_value: Initial basket value in TL (default: 100.0)
         """
         try:
+            # Get current date for validation
+            now = datetime.now()
+            current_year = now.year
+            current_month = now.month
+            
             # Validate input parameters
-            if not (1982 <= start_year <= datetime.now().year):
-                raise ValueError(f"Start year must be between 1982 and {datetime.now().year}")
+            if not (1982 <= start_year <= current_year):
+                raise ValueError(f"Start year must be between 1982 and {current_year}")
             if not (1 <= start_month <= 12):
                 raise ValueError("Start month must be between 1 and 12")
-            if not (1982 <= end_year <= datetime.now().year):
-                raise ValueError(f"End year must be between 1982 and {datetime.now().year}")
+            if not (1982 <= end_year <= current_year):
+                raise ValueError(f"End year must be between 1982 and {current_year}")
             if not (1 <= end_month <= 12):
                 raise ValueError("End month must be between 1 and 12")
             if basket_value <= 0:
                 raise ValueError("Basket value must be positive")
+            
+            # Check if end date is not in the future (TCMB data availability)
+            # TCMB usually publishes data with a slight delay, so we limit to current month
+            end_date = datetime(end_year, end_month, 1)
+            max_date = datetime(current_year, current_month, 1)
+            if end_date > max_date:
+                raise ValueError(f"End date cannot be later than {current_year}-{current_month:02d}. TCMB inflation data is not available for future dates. Note: Current month's data may not be available yet - TCMB typically publishes data around the 3rd of each month. If you get an error, please try using the previous month.")
             
             # Check if start date is before end date
             start_date = datetime(start_year, start_month, 1)

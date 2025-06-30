@@ -1613,3 +1613,16 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
         return await self.tcmb_provider.get_inflation_data(
             inflation_type, start_date, end_date, limit
         )
+    
+    async def calculate_inflation(
+        self,
+        start_year: int,
+        start_month: int,
+        end_year: int,
+        end_month: int,
+        basket_value: float = 100.0
+    ) -> "EnflasyonHesaplamaSonucu":
+        """Calculate cumulative inflation using TCMB calculator API."""
+        return await self.tcmb_provider.calculate_inflation(
+            start_year, start_month, end_year, end_month, basket_value
+        )
