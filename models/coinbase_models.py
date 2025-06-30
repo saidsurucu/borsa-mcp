@@ -11,7 +11,7 @@ import datetime
 
 class CoinbaseProduct(BaseModel):
     """Trading pair information from Coinbase."""
-    product_id: str = Field(description="Trading pair identifier (e.g., 'BTC-USD', 'ETH-EUR').")
+    product_id: Optional[str] = Field(None, description="Trading pair identifier (e.g., 'BTC-USD', 'ETH-EUR').")
     price: Optional[float] = Field(None, description="Current price.")
     price_percentage_change_24h: Optional[float] = Field(None, description="24h price change percentage.")
     volume_24h: Optional[float] = Field(None, description="24h trading volume.")
@@ -70,10 +70,10 @@ class CoinbaseExchangeInfoSonucu(BaseModel):
 
 class CoinbaseTicker(BaseModel):
     """Ticker data for a trading pair."""
-    product_id: str = Field(description="Trading pair identifier.")
-    price: float = Field(description="Current price.")
-    price_percentage_change_24h: float = Field(description="24h price change percentage.")
-    volume_24h: float = Field(description="24h trading volume.")
+    product_id: Optional[str] = Field(None, description="Trading pair identifier.")
+    price: Optional[float] = Field(None, description="Current price.")
+    price_percentage_change_24h: Optional[float] = Field(None, description="24h price change percentage.")
+    volume_24h: Optional[float] = Field(None, description="24h trading volume.")
     volume_percentage_change_24h: Optional[float] = Field(None, description="24h volume change percentage.")
     high_24h: Optional[float] = Field(None, description="24h highest price.")
     low_24h: Optional[float] = Field(None, description="24h lowest price.")
@@ -84,22 +84,22 @@ class CoinbaseTicker(BaseModel):
 
 class CoinbaseTickerSonucu(BaseModel):
     """Ticker data result."""
-    ticker_data: List[CoinbaseTicker] = Field(description="List of ticker data for requested pairs.")
-    total_pairs: int = Field(description="Number of pairs returned.")
+    ticker_data: List[CoinbaseTicker] = Field(default_factory=list, description="List of ticker data for requested pairs.")
+    total_pairs: Optional[int] = Field(None, description="Number of pairs returned.")
     quote_currency_filter: Optional[str] = Field(None, description="Quote currency filter applied.")
     server_time: Optional[datetime.datetime] = Field(None, description="Server timestamp.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
 class CoinbaseOrderbook(BaseModel):
     """Order book data for a trading pair."""
-    product_id: str = Field(description="Trading pair identifier.")
-    bids: List[Dict[str, str]] = Field(description="Buy orders with price and size.")
-    asks: List[Dict[str, str]] = Field(description="Sell orders with price and size.")
-    time: datetime.datetime = Field(description="Order book timestamp.")
+    product_id: Optional[str] = Field(None, description="Trading pair identifier.")
+    bids: List[Dict[str, str]] = Field(default_factory=list, description="Buy orders with price and size.")
+    asks: List[Dict[str, str]] = Field(default_factory=list, description="Sell orders with price and size.")
+    time: Optional[datetime.datetime] = Field(None, description="Order book timestamp.")
 
 class CoinbaseOrderbookSonucu(BaseModel):
     """Order book result."""
-    pair_symbol: str = Field(description="Trading pair symbol.")
+    pair_symbol: Optional[str] = Field(None, description="Trading pair symbol.")
     orderbook: Optional[CoinbaseOrderbook] = Field(None, description="Order book data.")
     bid_ask_spread: Optional[float] = Field(None, description="Spread between best bid and ask.")
     market_depth: Optional[Dict[str, float]] = Field(None, description="Market depth analysis.")
@@ -107,37 +107,37 @@ class CoinbaseOrderbookSonucu(BaseModel):
 
 class CoinbaseTrade(BaseModel):
     """Individual trade data."""
-    trade_id: str = Field(description="Trade identifier.")
-    product_id: str = Field(description="Trading pair identifier.")
-    price: float = Field(description="Trade price.")
-    size: float = Field(description="Trade size.")
-    time: datetime.datetime = Field(description="Trade timestamp.")
-    side: str = Field(description="Trade side: 'buy' or 'sell'.")
+    trade_id: Optional[str] = Field(None, description="Trade identifier.")
+    product_id: Optional[str] = Field(None, description="Trading pair identifier.")
+    price: Optional[float] = Field(None, description="Trade price.")
+    size: Optional[float] = Field(None, description="Trade size.")
+    time: Optional[datetime.datetime] = Field(None, description="Trade timestamp.")
+    side: Optional[str] = Field(None, description="Trade side: 'buy' or 'sell'.")
     bid: Optional[float] = Field(None, description="Bid price at time of trade.")
     ask: Optional[float] = Field(None, description="Ask price at time of trade.")
 
 class CoinbaseTradesSonucu(BaseModel):
     """Recent trades result."""
-    pair_symbol: str = Field(description="Trading pair symbol.")
-    trades: List[CoinbaseTrade] = Field(description="List of recent trades.")
-    total_trades: int = Field(description="Number of trades returned.")
+    pair_symbol: Optional[str] = Field(None, description="Trading pair symbol.")
+    trades: List[CoinbaseTrade] = Field(default_factory=list, description="List of recent trades.")
+    total_trades: Optional[int] = Field(None, description="Number of trades returned.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
 class CoinbaseCandle(BaseModel):
     """OHLC candlestick data."""
-    start: datetime.datetime = Field(description="Candle start time.")
-    low: float = Field(description="Lowest price.")
-    high: float = Field(description="Highest price.")
-    open: float = Field(description="Opening price.")
-    close: float = Field(description="Closing price.")
-    volume: float = Field(description="Trading volume.")
+    start: Optional[datetime.datetime] = Field(None, description="Candle start time.")
+    low: Optional[float] = Field(None, description="Lowest price.")
+    high: Optional[float] = Field(None, description="Highest price.")
+    open: Optional[float] = Field(None, description="Opening price.")
+    close: Optional[float] = Field(None, description="Closing price.")
+    volume: Optional[float] = Field(None, description="Trading volume.")
 
 class CoinbaseOHLCSonucu(BaseModel):
     """OHLC data result."""
-    pair_symbol: str = Field(description="Trading pair symbol.")
-    granularity: str = Field(description="Candle granularity (e.g., 'ONE_DAY', 'ONE_HOUR').")
-    candles: List[CoinbaseCandle] = Field(description="OHLC candlestick data.")
-    total_candles: int = Field(description="Number of candlesticks returned.")
+    pair_symbol: Optional[str] = Field(None, description="Trading pair symbol.")
+    granularity: Optional[str] = Field(None, description="Candle granularity (e.g., 'ONE_DAY', 'ONE_HOUR').")
+    candles: List[CoinbaseCandle] = Field(default_factory=list, description="OHLC candlestick data.")
+    total_candles: Optional[int] = Field(None, description="Number of candlesticks returned.")
     start_time: Optional[datetime.datetime] = Field(None, description="Data start time.")
     end_time: Optional[datetime.datetime] = Field(None, description="Data end time.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
@@ -210,10 +210,10 @@ class CoinbaseTrendAnalizi(BaseModel):
 
 class CoinbaseTeknikAnalizSonucu(BaseModel):
     """Comprehensive technical analysis result for global crypto markets."""
-    pair_symbol: str = Field(description="Trading pair symbol (e.g., 'BTC-USD', 'ETH-EUR').")
-    quote_currency: str = Field(description="Quote currency (USD, EUR, GBP, etc.).")
-    analysis_time: datetime.datetime = Field(description="Analysis timestamp.")
-    timeframe: str = Field(description="Analysis timeframe (1M, 5M, 15M, 30M, 1H, 4H, 6H, 1D).")
+    pair_symbol: Optional[str] = Field(None, description="Trading pair symbol (e.g., 'BTC-USD', 'ETH-EUR').")
+    quote_currency: Optional[str] = Field(None, description="Quote currency (USD, EUR, GBP, etc.).")
+    analysis_time: Optional[datetime.datetime] = Field(None, description="Analysis timestamp.")
+    timeframe: Optional[str] = Field(None, description="Analysis timeframe (1M, 5M, 15M, 30M, 1H, 4H, 6H, 1D).")
     
     # Price and trend analysis
     fiyat_analizi: Optional[CoinbaseFiyatAnalizi] = Field(None, description="Price analysis data.")

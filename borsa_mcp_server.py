@@ -544,7 +544,7 @@ async def get_kap_haberleri(
             )
         
         # Convert to KapHaberi objects
-        from borsa_models import KapHaberi
+        from models import KapHaberi
         kap_haberleri = []
         for haber_data in data.get("kap_haberleri", []):
             haber = KapHaberi(

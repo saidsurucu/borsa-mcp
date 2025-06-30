@@ -125,10 +125,10 @@ class KapHaberi(BaseModel):
 
 class KapHaberleriSonucu(BaseModel):
     """Result of KAP news query."""
-    ticker_kodu: str = Field(description="Company ticker code.")
-    kap_haberleri: List[KapHaberi] = Field(description="List of KAP news items.")
-    toplam_haber: int = Field(description="Total number of news items retrieved.")
-    kaynak_url: str = Field(description="Source URL for the news.")
+    ticker_kodu: Optional[str] = Field(None, description="Company ticker code.")
+    kap_haberleri: List[KapHaberi] = Field(default_factory=list, description="List of KAP news items.")
+    toplam_haber: Optional[int] = Field(None, description="Total number of news items retrieved.")
+    kaynak_url: Optional[str] = Field(None, description="Source URL for the news.")
     error_message: Optional[str] = Field(None, description="Error message if query failed.")
 
 class KapHaberDetayi(BaseModel):

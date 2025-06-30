@@ -77,22 +77,28 @@ class KriptoExchangeInfoSonucu(BaseModel):
 
 class KriptoTicker(BaseModel):
     """Ticker data for a trading pair."""
-    pair: str = Field(description="Trading pair symbol.")
-    pairNormalized: str = Field(description="Normalized pair symbol.")
-    timestamp: datetime.datetime = Field(description="Data timestamp.")
-    last: float = Field(description="Last traded price.")
-    high: float = Field(description="24h highest price.")
-    low: float = Field(description="24h lowest price.")
-    bid: float = Field(description="Current highest bid price.")
-    ask: float = Field(description="Current lowest ask price.")
-    open: float = Field(description="24h opening price.")
-    volume: float = Field(description="24h base currency volume.")
-    average: float = Field(description="24h volume weighted average price.")
-    daily: float = Field(description="24h price change amount.")
-    dailyPercent: float = Field(description="24h price change percentage.")
-    denominatorSymbol: str = Field(description="Quote currency symbol.")
-    numeratorSymbol: str = Field(description="Base currency symbol.")
-    order: int = Field(description="Display order.")
+    pair: Optional[str] = Field(None, description="Trading pair symbol.")
+    pairNormalized: Optional[str] = Field(None, description="Normalized pair symbol.")
+    timestamp: Optional[datetime.datetime] = Field(None, description="Data timestamp.")
+    last: Optional[float] = Field(None, description="Last traded price.")
+    high: Optional[float] = Field(None, description="24h highest price.")
+    low: Optional[float] = Field(None, description="24h lowest price.")
+    bid: Optional[float] = Field(None, description="Current highest bid price.")
+    ask: Optional[float] = Field(None, description="Current lowest ask price.")
+    open: Optional[float] = Field(None, description="24h opening price.")
+    volume: Optional[float] = Field(None, description="24h base currency volume.")
+    average: Optional[float] = Field(None, description="24h volume weighted average price.")
+    daily: Optional[float] = Field(None, description="24h price change amount.")
+    dailyPercent: Optional[float] = Field(None, description="24h price change percentage.")
+    denominatorSymbol: Optional[str] = Field(None, description="Quote currency symbol.")
+    numeratorSymbol: Optional[str] = Field(None, description="Base currency symbol.")
+    order: Optional[int] = Field(None, description="Display order.")
+    
+    # Additional fields that might come from API
+    pair_normalized: Optional[str] = Field(None, description="Alternative normalized pair field.")
+    daily_percent: Optional[float] = Field(None, description="Alternative daily percent field.")
+    denominator_symbol: Optional[str] = Field(None, description="Alternative denominator symbol field.")
+    numerator_symbol: Optional[str] = Field(None, description="Alternative numerator symbol field.")
 
 class KriptoTickerSonucu(BaseModel):
     """Ticker data result."""
@@ -118,59 +124,59 @@ class KriptoOrderbookSonucu(BaseModel):
 
 class KriptoTrade(BaseModel):
     """Individual trade data."""
-    pair: str = Field(description="Trading pair symbol.")
-    pairNormalized: str = Field(description="Normalized pair symbol.")
-    numerator: str = Field(description="Base currency.")
-    denominator: str = Field(description="Quote currency.")
-    date: datetime.datetime = Field(description="Trade timestamp.")
-    tid: str = Field(description="Trade ID.")
-    price: float = Field(description="Trade price.")
-    amount: float = Field(description="Trade amount.")
+    pair: Optional[str] = Field(None, description="Trading pair symbol.")
+    pairNormalized: Optional[str] = Field(None, description="Normalized pair symbol.")
+    numerator: Optional[str] = Field(None, description="Base currency.")
+    denominator: Optional[str] = Field(None, description="Quote currency.")
+    date: Optional[datetime.datetime] = Field(None, description="Trade timestamp.")
+    tid: Optional[str] = Field(None, description="Trade ID.")
+    price: Optional[float] = Field(None, description="Trade price.")
+    amount: Optional[float] = Field(None, description="Trade amount.")
 
 class KriptoTradesSonucu(BaseModel):
     """Recent trades result."""
-    pair_symbol: str = Field(description="Trading pair symbol.")
-    trades: List[KriptoTrade] = Field(description="List of recent trades.")
-    total_trades: int = Field(description="Number of trades returned.")
+    pair_symbol: Optional[str] = Field(None, description="Trading pair symbol.")
+    trades: List[KriptoTrade] = Field(default_factory=list, description="List of recent trades.")
+    total_trades: Optional[int] = Field(None, description="Number of trades returned.")
     last_50_trades: Optional[bool] = Field(None, description="Whether this represents last 50 trades.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
 class KriptoOHLC(BaseModel):
     """OHLC data for a time period."""
-    pair: str = Field(description="Trading pair symbol.")
-    time: datetime.datetime = Field(description="Period timestamp.")
-    open: float = Field(description="Opening price.")
-    high: float = Field(description="Highest price.")
-    low: float = Field(description="Lowest price.")
-    close: float = Field(description="Closing price.")
-    volume: float = Field(description="Trading volume.")
-    total: float = Field(description="Total trading value.")
-    count: int = Field(description="Number of trades.")
+    pair: Optional[str] = Field(None, description="Trading pair symbol.")
+    time: Optional[datetime.datetime] = Field(None, description="Period timestamp.")
+    open: Optional[float] = Field(None, description="Opening price.")
+    high: Optional[float] = Field(None, description="Highest price.")
+    low: Optional[float] = Field(None, description="Lowest price.")
+    close: Optional[float] = Field(None, description="Closing price.")
+    volume: Optional[float] = Field(None, description="Trading volume.")
+    total: Optional[float] = Field(None, description="Total trading value.")
+    count: Optional[int] = Field(None, description="Number of trades.")
     
 class KriptoOHLCSonucu(BaseModel):
     """OHLC data result."""
-    pair_symbol: str = Field(description="Trading pair symbol.")
-    ohlc_data: List[KriptoOHLC] = Field(description="OHLC data points.")
-    total_periods: int = Field(description="Number of periods returned.")
+    pair_symbol: Optional[str] = Field(None, description="Trading pair symbol.")
+    ohlc_data: List[KriptoOHLC] = Field(default_factory=list, description="OHLC data points.")
+    total_periods: Optional[int] = Field(None, description="Number of periods returned.")
     time_frame: Optional[str] = Field(None, description="Time frame used (e.g., '1d', '1h').")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
 class KriptoKline(BaseModel):
     """Kline (candlestick) data from Graph API."""
-    s: str = Field(description="Symbol/pair.")
-    t: List[int] = Field(description="Timestamps (Unix timestamps).")
-    o: List[float] = Field(description="Open prices.")
-    h: List[float] = Field(description="High prices.")
-    l: List[float] = Field(description="Low prices.")
-    c: List[float] = Field(description="Close prices.")
-    v: List[float] = Field(description="Volumes.")
+    s: Optional[str] = Field(None, description="Symbol/pair.")
+    t: List[int] = Field(default_factory=list, description="Timestamps (Unix timestamps).")
+    o: List[float] = Field(default_factory=list, description="Open prices.")
+    h: List[float] = Field(default_factory=list, description="High prices.")
+    l: List[float] = Field(default_factory=list, description="Low prices.")
+    c: List[float] = Field(default_factory=list, description="Close prices.")
+    v: List[float] = Field(default_factory=list, description="Volumes.")
 
 class KriptoKlineSonucu(BaseModel):
     """Kline data result."""
-    pair_symbol: str = Field(description="Trading pair symbol.")
-    resolution: str = Field(description="Kline resolution (e.g., '1D', '1H', '15m').")
+    pair_symbol: Optional[str] = Field(None, description="Trading pair symbol.")
+    resolution: Optional[str] = Field(None, description="Kline resolution (e.g., '1D', '1H', '15m').")
     kline_data: Optional[KriptoKline] = Field(None, description="Kline data from Graph API.")
-    total_candles: int = Field(description="Number of candlesticks returned.")
+    total_candles: Optional[int] = Field(None, description="Number of candlesticks returned.")
     from_timestamp: Optional[int] = Field(None, description="Start timestamp.")
     to_timestamp: Optional[int] = Field(None, description="End timestamp.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
@@ -230,10 +236,10 @@ class KriptoTrendAnalizi(BaseModel):
 
 class KriptoTeknikAnalizSonucu(BaseModel):
     """Comprehensive crypto technical analysis result."""
-    pair_symbol: str = Field(description="Trading pair symbol.")
-    quote_currency: str = Field(description="Quote currency (TRY, USDT, BTC, etc.).")
-    analysis_time: datetime.datetime = Field(description="Analysis timestamp.")
-    timeframe: str = Field(description="Analysis timeframe (1M, 5M, 15M, 30M, 1H, 4H, 6H, 1D).")
+    pair_symbol: Optional[str] = Field(None, description="Trading pair symbol.")
+    quote_currency: Optional[str] = Field(None, description="Quote currency (TRY, USDT, BTC, etc.).")
+    analysis_time: Optional[datetime.datetime] = Field(None, description="Analysis timestamp.")
+    timeframe: Optional[str] = Field(None, description="Analysis timeframe (1M, 5M, 15M, 30M, 1H, 4H, 6H, 1D).")
     
     # Price and trend analysis
     fiyat_analizi: Optional[KriptoFiyatAnalizi] = Field(None, description="Price analysis data.")
