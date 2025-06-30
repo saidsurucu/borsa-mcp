@@ -12,7 +12,7 @@ from typing import List, Dict, Any, Optional
 from providers.kap_provider import KAPProvider
 from providers.yfinance_provider import YahooFinanceProvider
 # from providers.mynet_provider import MynetProvider # Mynet provider is now fully replaced
-from borsa_models import (
+from models import (
     SirketInfo, FinansalVeriSonucu, YFinancePeriodEnum, SirketProfiliSonucu, 
     FinansalTabloSonucu, SirketAramaSonucu, TaramaKriterleri, TaramaSonucu,
     KatilimFinansUygunlukSonucu, EndeksAramaSonucu,
