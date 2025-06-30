@@ -161,9 +161,9 @@ class DovizcomProvider:
         try:
             if asset not in self.SUPPORTED_ASSETS:
                 return DovizcomGuncelSonucu(
-                    asset=asset,
+                    varlik_adi=asset,
                     guncel_deger=None,
-                    guncelleme_tarihi=None,
+                    son_guncelleme=None,
                     error_message=f"Unsupported asset: {asset}. Supported assets: {list(self.SUPPORTED_ASSETS.keys())}"
                 )
             
@@ -174,10 +174,9 @@ class DovizcomProvider:
                 (current_time - self._last_fetch_times.get(cache_key, 0)) < self.CACHE_DURATION):
                 cached_data = self._cache[cache_key]
                 return DovizcomGuncelSonucu(
-                    asset=asset,
+                    varlik_adi=self.SUPPORTED_ASSETS.get(asset, asset),
                     guncel_deger=cached_data.get('close'),
-                    guncelleme_tarihi=cached_data.get('update_date'),
-                    cached=True
+                    son_guncelleme=cached_data.get('update_date')
                 )
             
             # Check if this is a fuel asset that needs archive endpoint
@@ -186,9 +185,9 @@ class DovizcomProvider:
                 latest = await self._get_asset_from_archive(asset)
                 if not latest:
                     return DovizcomGuncelSonucu(
-                        asset=asset,
+                        varlik_adi=self.SUPPORTED_ASSETS.get(asset, asset),
                         guncel_deger=None,
-                        guncelleme_tarihi=None,
+                        son_guncelleme=None,
                         error_message="No fuel price data available for this asset"
                     )
             else:
@@ -205,9 +204,9 @@ class DovizcomProvider:
                     latest = await self._get_asset_from_archive(asset)
                     if not latest:
                         return DovizcomGuncelSonucu(
-                            asset=asset,
+                            varlik_adi=self.SUPPORTED_ASSETS.get(asset, asset),
                             guncel_deger=None,
-                            guncelleme_tarihi=None,
+                            son_guncelleme=None,
                             error_message="No data available for this asset"
                         )
                 else:
@@ -223,17 +222,17 @@ class DovizcomProvider:
                 update_date = datetime.fromtimestamp(update_date)
             
             return DovizcomGuncelSonucu(
-                asset=asset,
+                varlik_adi=self.SUPPORTED_ASSETS.get(asset, asset),
                 guncel_deger=float(latest.get('close', 0)),
-                guncelleme_tarihi=update_date
+                son_guncelleme=update_date
             )
             
         except Exception as e:
             logger.error(f"Error getting current data for {asset}: {e}")
             return DovizcomGuncelSonucu(
-                asset=asset,
+                varlik_adi=self.SUPPORTED_ASSETS.get(asset, asset),
                 guncel_deger=None,
-                guncelleme_tarihi=None,
+                son_guncelleme=None,
                 error_message=str(e)
             )
     
@@ -244,10 +243,9 @@ class DovizcomProvider:
         try:
             if asset not in self.SUPPORTED_ASSETS:
                 return DovizcomDakikalikSonucu(
-                    asset=asset,
+                    varlik_adi=asset,
                     veri_noktalari=[],
-                    toplam_veri=0,
-                    limit=limit,
+                    veri_sayisi=0,
                     error_message=f"Unsupported asset: {asset}. Supported assets: {list(self.SUPPORTED_ASSETS.keys())}"
                 )
             
@@ -259,36 +257,42 @@ class DovizcomProvider:
             
             data = await self._make_request(endpoint, asset, params)
             
-            archive_data = data.get('data', {}).get('archive', [])
+            archive_data = data.get('data', {}).get('archive', []) if data and data.get('data') else []
             
             # Parse data points
             veri_noktalari = []
-            for point in archive_data:
+            if not archive_data:
+                # Note: Fuel assets (gasoline, diesel, lpg) typically don't have minute-by-minute data
+                # They are updated less frequently (daily/weekly) unlike currencies and commodities
+                if asset in self.FUEL_ASSETS:
+                    logger.info(f"No minute data for fuel asset {asset} - fuel prices are updated less frequently")
+                else:
+                    logger.warning(f"No archive data returned for {asset} daily endpoint")
+                
+            for point in (archive_data or []):
                 # Convert timestamp to datetime if it's a number
                 update_date = point.get('update_date')
                 if isinstance(update_date, (int, float)):
                     update_date = datetime.fromtimestamp(update_date)
                 
                 veri_noktasi = DovizcomVarligi(
-                    close=float(point.get('close', 0)),
-                    update_date=update_date
+                    tarih=update_date,
+                    deger=float(point.get('close', 0))
                 )
                 veri_noktalari.append(veri_noktasi)
             
             return DovizcomDakikalikSonucu(
-                asset=asset,
+                varlik_adi=self.SUPPORTED_ASSETS.get(asset, asset),
                 veri_noktalari=veri_noktalari,
-                toplam_veri=len(veri_noktalari),
-                limit=limit
+                veri_sayisi=len(veri_noktalari)
             )
             
         except Exception as e:
             logger.error(f"Error getting daily data for {asset}: {e}")
             return DovizcomDakikalikSonucu(
-                asset=asset,
+                varlik_adi=self.SUPPORTED_ASSETS.get(asset, asset),
                 veri_noktalari=[],
-                toplam_veri=0,
-                limit=limit,
+                veri_sayisi=0,
                 error_message=str(e)
             )
     
@@ -298,12 +302,19 @@ class DovizcomProvider:
         """
         try:
             if asset not in self.SUPPORTED_ASSETS:
+                try:
+                    baslangic_tarihi = datetime.strptime(start_date, "%Y-%m-%d").date()
+                    bitis_tarihi = datetime.strptime(end_date, "%Y-%m-%d").date()
+                except:
+                    baslangic_tarihi = None
+                    bitis_tarihi = None
+                    
                 return DovizcomArsivSonucu(
-                    asset=asset,
+                    varlik_adi=asset,
+                    baslangic_tarihi=baslangic_tarihi,
+                    bitis_tarihi=bitis_tarihi,
                     ohlc_verileri=[],
-                    toplam_veri=0,
-                    start_date=start_date,
-                    end_date=end_date,
+                    veri_sayisi=0,
                     error_message=f"Unsupported asset: {asset}. Supported assets: {list(self.SUPPORTED_ASSETS.keys())}"
                 )
             
@@ -315,11 +326,11 @@ class DovizcomProvider:
                 end_timestamp = int(end_dt.timestamp())
             except ValueError:
                 return DovizcomArsivSonucu(
-                    asset=asset,
+                    varlik_adi=self.SUPPORTED_ASSETS.get(asset, asset),
+                    baslangic_tarihi=None,
+                    bitis_tarihi=None,
                     ohlc_verileri=[],
-                    toplam_veri=0,
-                    start_date=start_date,
-                    end_date=end_date,
+                    veri_sayisi=0,
                     error_message="Invalid date format. Use YYYY-MM-DD format."
                 )
             
@@ -341,33 +352,48 @@ class DovizcomProvider:
                 if isinstance(update_date, (int, float)):
                     update_date = datetime.fromtimestamp(update_date)
                 
+                # Convert to date if update_date is datetime
+                tarih = update_date.date() if isinstance(update_date, datetime) else update_date
+                
                 ohlc_veri = DovizcomOHLCVarligi(
-                    update_date=update_date,
-                    open=float(ohlc.get('open', 0)),
-                    high=float(ohlc.get('highest', 0)),
-                    low=float(ohlc.get('lowest', 0)),
-                    close=float(ohlc.get('close', 0)),
-                    close_try=float(ohlc.get('close_try', 0)),
-                    close_usd=float(ohlc.get('close_usd', 0)),
-                    volume=float(ohlc.get('volume', 0))
+                    tarih=tarih,
+                    acilis=float(ohlc.get('open', 0)),
+                    en_yuksek=float(ohlc.get('highest', 0)),
+                    en_dusuk=float(ohlc.get('lowest', 0)),
+                    kapanis=float(ohlc.get('close', 0))
                 )
                 ohlc_verileri.append(ohlc_veri)
             
+            # Parse dates for the result
+            try:
+                baslangic_tarihi = datetime.strptime(start_date, "%Y-%m-%d").date()
+                bitis_tarihi = datetime.strptime(end_date, "%Y-%m-%d").date()
+            except:
+                baslangic_tarihi = None
+                bitis_tarihi = None
+            
             return DovizcomArsivSonucu(
-                asset=asset,
+                varlik_adi=self.SUPPORTED_ASSETS.get(asset, asset),
+                baslangic_tarihi=baslangic_tarihi,
+                bitis_tarihi=bitis_tarihi,
                 ohlc_verileri=ohlc_verileri,
-                toplam_veri=len(ohlc_verileri),
-                start_date=start_date,
-                end_date=end_date
+                veri_sayisi=len(ohlc_verileri)
             )
             
         except Exception as e:
             logger.error(f"Error getting archive data for {asset}: {e}")
+            try:
+                baslangic_tarihi = datetime.strptime(start_date, "%Y-%m-%d").date()
+                bitis_tarihi = datetime.strptime(end_date, "%Y-%m-%d").date()
+            except:
+                baslangic_tarihi = None
+                bitis_tarihi = None
+                
             return DovizcomArsivSonucu(
-                asset=asset,
+                varlik_adi=self.SUPPORTED_ASSETS.get(asset, asset),
+                baslangic_tarihi=baslangic_tarihi,
+                bitis_tarihi=bitis_tarihi,
                 ohlc_verileri=[],
-                toplam_veri=0,
-                start_date=start_date,
-                end_date=end_date,
+                veri_sayisi=0,
                 error_message=str(e)
             )

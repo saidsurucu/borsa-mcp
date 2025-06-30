@@ -2268,7 +2268,7 @@ async def get_dovizcom_guncel(
         )
 
 @app.tool(
-    description="CURRENCY & COMMODITIES: Get minute-by-minute data from doviz.com (up to 60 data points).",
+    description="CURRENCY & COMMODITIES: Get minute data (currencies/metals work best, fuel prices updated less frequently).",
     tags=["currency", "commodities", "realtime", "readonly", "external"]
 )
 async def get_dovizcom_dakikalik(
@@ -2284,10 +2284,22 @@ async def get_dovizcom_dakikalik(
     )] = 60
 ) -> DovizcomDakikalikSonucu:
     """
-    Get minute-by-minute data from doviz.com.
+    Get minute-by-minute data from doviz.com for currencies and commodities.
+    
+    **IMPORTANT NOTE:** Fuel assets (gasoline, diesel, lpg) typically do NOT have minute-by-minute data. 
+    Fuel prices are updated less frequently (daily/weekly) unlike currencies and precious metals which have real-time updates.
+    
+    **Best Results For:**
+    - **Currencies:** USD, EUR, GBP, JPY - frequent updates throughout trading hours
+    - **Precious Metals:** gram-altin, ons, gumus - active minute-by-minute trading
+    - **Energy Commodities:** BRENT oil - some minute data during active hours
+    
+    **Limited/No Data For:**
+    - **Fuel Prices:** gasoline, diesel, lpg - updated daily/weekly, not minute-by-minute
+    - **Off-Hours:** Some assets may have gaps during non-trading hours
     
     Returns up to 60 data points showing price movements over the last N minutes.
-    Useful for real-time monitoring and short-term analysis.
+    Useful for real-time monitoring and short-term analysis of actively traded assets.
     """
     logger.info(f"Tool 'get_dovizcom_dakikalik' called with asset='{asset}', limit={limit}")
     try:
