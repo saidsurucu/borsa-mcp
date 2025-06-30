@@ -25,7 +25,7 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
     * **BtcTurk Kripto:** 295+ Türk kripto para çifti (TRY/USDT), gerçek zamanlı fiyatlar, emir defteri, işlem geçmişi, teknik analiz.
     * **Coinbase Global:** 500+ global kripto para çifti (USD/EUR), uluslararası piyasa verileri, çapraz piyasa analizi, teknik analiz.
     * **Kripto Teknik Analiz:** RSI, MACD, Bollinger Bantları ve al-sat sinyalleri ile hem Türk hem global kripto piyasalar için kapsamlı teknik analiz.
-    * **Doviz.com Döviz & Emtia:** 25+ varlık ile döviz kurları (USD, EUR, GBP), kıymetli madenler (altın, gümüş), enerji emtiaları (petrol).
+    * **Doviz.com Döviz & Emtia:** 28+ varlık ile döviz kurları (USD, EUR, GBP), kıymetli madenler (altın, gümüş), enerji emtiaları (petrol), yakıt fiyatları (dizel, benzin, LPG).
     * **Gerçek Zamanlı Döviz:** Dakikalık fiyat güncellemeleri ve tarihsel OHLC analizi ile kapsamlı döviz takibi.
     * **Hibrit Veri:** Yahoo Finance + Mynet Finans'tan birleştirilmiş şirket bilgileri.
 * Türk hisse senetleri, endeksler, yatırım fonları ve kripto para için optimize edilmiş veri işleme.
@@ -141,7 +141,7 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_coinbase_teknik_analiz`**: Global kripto piyasaları için RSI, MACD, Bollinger Bantları ve al-sat sinyalleri ile kapsamlı teknik analiz.
 
 ### Dovizcom Döviz & Emtia Araçları (Türk & Uluslararası Piyasalar)
-* **`get_dovizcom_guncel`**: Güncel döviz kurları ve emtia fiyatları (USD, EUR, GBP, gram-altın, ons, BRENT).
+* **`get_dovizcom_guncel`**: Güncel döviz kurları ve emtia fiyatları (USD, EUR, GBP, gram-altın, ons, BRENT, dizel, benzin, LPG).
 * **`get_dovizcom_dakikalik`**: Gerçek zamanlı izleme için dakikalık veriler (60 veri noktasına kadar).
 * **`get_dovizcom_arsiv`**: Teknik analiz ve trend araştırması için tarihsel OHLC verileri.
 
@@ -197,10 +197,11 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Çapraz Piyasa Analizi**: Türk kripto piyasaları (BtcTurk TRY çiftleri) ile global piyasaları (Coinbase USD/EUR çiftleri) karşılaştırma
 
 ### Dovizcom Döviz & Emtia Platformu (Türk & Uluslararası Piyasalar)
-- **Varlık Kapsamı**: 25+ varlık (ana para birimleri, kıymetli madenler, enerji emtiaları)
+- **Varlık Kapsamı**: 28+ varlık (ana para birimleri, kıymetli madenler, enerji emtiaları, yakıt fiyatları)
 - **Ana Para Birimleri**: USD, EUR, GBP, JPY, CHF, CAD, AUD ile gerçek zamanlı TRY döviz kurları
 - **Kıymetli Madenler**: Hem Türk (gram-altın, gümüş) hem uluslararası (ons, XAG-USD, XPT-USD, XPD-USD) çifte fiyatlandırma
 - **Enerji Emtiaları**: BRENT ve WTI petrol fiyatları ile tarihsel trendler ve piyasa analizi
+- **Yakıt Fiyatları**: Dizel, benzin ve LPG fiyatları (TRY bazlı) ile günlük fiyat takibi
 - **API Endpoint**: Resmi doviz.com API v12 (https://api.doviz.com/api/v12)
 - **Gerçek Zamanlı Veri**: Kısa vadeli analiz için 60 veri noktasına kadar dakikalık güncellemeler
 - **Tarihsel Veri**: Teknik analiz ve trend araştırması için özel tarih aralıklarında günlük OHLC verileri
@@ -208,7 +209,7 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Veri Kalitesi**: Türkiye'nin önde gelen finansal bilgi sağlayıcısından profesyonel seviye finansal veriler
 - **Piyasa Odağı**: Çapraz piyasa analizi için uluslararası USD/EUR karşılaştırmaları ile Türk TRY bazlı fiyatlandırma
 - **Kimlik Doğrulama**: Güvenilir API erişimi için uygun başlık yönetimi ile Bearer token kimlik doğrulaması
-- **Kapsam**: Döviz ticareti, kıymetli maden yatırımı ve emtia analizi için tam finansal piyasalar kapsamı
+- **Kapsam**: Döviz ticareti, kıymetli maden yatırımı, emtia analizi ve yakıt fiyat takibi için tam finansal piyasalar kapsamı
 
 📊 **Örnek Kullanım**
 
@@ -293,6 +294,12 @@ Altın, gümüş ve platinyum fiyatlarının güncel durumunu ve haftalık perfo
 
 # Çapraz döviz analizi
 EUR/TRY ve GBP/TRY kurlarının güncel durumunu karşılaştır ve arbitraj fırsatlarını değerlendir
+
+# Yakıt fiyat takibi
+Dizel, benzin ve LPG fiyatlarının güncel durumunu ve haftalık değişimlerini analiz et
+
+# Yakıt fiyat karşılaştırması
+Son 3 aylık dizel ve benzin fiyat trendlerini karşılaştır ve analiz et
 ```
 
 📜 **Lisans**

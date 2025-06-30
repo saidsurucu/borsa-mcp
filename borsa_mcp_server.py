@@ -59,7 +59,7 @@ YFinancePeriodLiteral = Literal["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y
 StatementPeriodLiteral = Literal["annual", "quarterly"]
 FundCategoryLiteral = Literal["all", "debt", "variable", "basket", "guaranteed", "real_estate", "venture", "equity", "mixed", "participation", "precious_metals", "money_market", "flexible"]
 CryptoCurrencyLiteral = Literal["TRY", "USDT", "BTC", "ETH", "USD", "EUR"]
-DovizcomAssetLiteral = Literal["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "gram-altin", "gumus", "ons", "XAG-USD", "XPT-USD", "XPD-USD", "BRENT", "WTI"]
+DovizcomAssetLiteral = Literal["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "gram-altin", "gumus", "ons", "XAG-USD", "XPT-USD", "XPD-USD", "BRENT", "WTI", "diesel", "gasoline", "lpg"]
 
 @app.tool(
     description="BIST STOCKS: Search companies by name to find ticker codes. STOCKS ONLY - use get_kripto_exchange_info for crypto.",
@@ -2244,15 +2244,15 @@ async def get_coinbase_teknik_analiz(
 )
 async def get_dovizcom_guncel(
     asset: Annotated[DovizcomAssetLiteral, Field(
-        description="Asset symbol: USD, EUR, GBP, gram-altin (Turkish gold), ons (troy ounce gold), BRENT (oil), etc.",
-        examples=["USD", "EUR", "gram-altin", "ons", "BRENT"]
+        description="Asset symbol: USD, EUR, GBP, gram-altin (Turkish gold), ons (troy ounce gold), BRENT (oil), diesel, gasoline, lpg, etc.",
+        examples=["USD", "EUR", "gram-altin", "ons", "BRENT", "diesel", "gasoline", "lpg"]
     )]
 ) -> DovizcomGuncelSonucu:
     """
     Get current exchange rate or commodity price from doviz.com.
     
     Supports major currencies (USD, EUR, GBP), precious metals (gram-altin, ons, XAG-USD), 
-    and energy commodities (BRENT, WTI).
+    energy commodities (BRENT, WTI), and fuel prices (diesel, gasoline, lpg).
     """
     logger.info(f"Tool 'get_dovizcom_guncel' called with asset='{asset}'")
     try:
@@ -2270,8 +2270,8 @@ async def get_dovizcom_guncel(
 )
 async def get_dovizcom_dakikalik(
     asset: Annotated[DovizcomAssetLiteral, Field(
-        description="Asset symbol: USD, EUR, GBP, gram-altin (Turkish gold), ons (troy ounce gold), BRENT (oil), etc.",
-        examples=["USD", "EUR", "gram-altin", "ons", "BRENT"]
+        description="Asset symbol: USD, EUR, GBP, gram-altin (Turkish gold), ons (troy ounce gold), BRENT (oil), diesel, gasoline, lpg, etc.",
+        examples=["USD", "EUR", "gram-altin", "ons", "BRENT", "diesel", "gasoline", "lpg"]
     )],
     limit: Annotated[int, Field(
         description="Number of data points to fetch (1-60 minutes of data).",
@@ -2305,8 +2305,8 @@ async def get_dovizcom_dakikalik(
 )
 async def get_dovizcom_arsiv(
     asset: Annotated[DovizcomAssetLiteral, Field(
-        description="Asset symbol: USD, EUR, GBP, gram-altin (Turkish gold), ons (troy ounce gold), BRENT (oil), etc.",
-        examples=["USD", "EUR", "gram-altin", "ons", "BRENT"]
+        description="Asset symbol: USD, EUR, GBP, gram-altin (Turkish gold), ons (troy ounce gold), BRENT (oil), diesel, gasoline, lpg, etc.",
+        examples=["USD", "EUR", "gram-altin", "ons", "BRENT", "diesel", "gasoline", "lpg"]
     )],
     start_date: Annotated[str, Field(
         description="Start date in YYYY-MM-DD format (e.g., '2024-01-01').",

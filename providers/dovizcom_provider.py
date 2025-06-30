@@ -42,7 +42,12 @@ class DovizcomProvider:
         
         # Energy Commodities
         "BRENT": "BRENT",
-        "WTI": "WTI"
+        "WTI": "WTI",
+        
+        # Fuel Prices (TRY-based)
+        "diesel": "diesel",  # Diesel fuel TRY
+        "gasoline": "gasoline",  # Gasoline TRY
+        "lpg": "lpg"  # LPG TRY
     }
     
     def __init__(self, client: httpx.AsyncClient):
