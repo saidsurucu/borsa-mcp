@@ -27,6 +27,7 @@ from models import (
     DovizcomGuncelSonucu, DovizcomDakikalikSonucu, DovizcomArsivSonucu,
     EkonomikTakvimSonucu
 )
+from models.tcmb_models import TcmbEnflasyonSonucu
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,9 @@ class BorsaApiClient:
         # Import DovizcomCalendarProvider for Turkish economic calendar data
         from providers.dovizcom_calendar_provider import DovizcomCalendarProvider
         self.dovizcom_calendar_provider = DovizcomCalendarProvider(self._http_client)
+        # Import TcmbProvider for Turkish inflation data
+        from providers.tcmb_provider import TcmbProvider
+        self.tcmb_provider = TcmbProvider(self._http_client)
 
     async def close(self):
         await self._http_client.aclose()
@@ -1595,4 +1599,17 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
         """Get Turkish economic calendar events from Doviz.com."""
         return await self.dovizcom_calendar_provider.get_economic_calendar(
             start_date, end_date, high_importance_only, country_filter
+        )
+    
+    # --- TCMB Provider Methods ---
+    async def get_turkiye_enflasyon(
+        self,
+        inflation_type: str = 'tufe',
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        limit: Optional[int] = None
+    ) -> "TcmbEnflasyonSonucu":
+        """Get Turkish inflation data from TCMB."""
+        return await self.tcmb_provider.get_inflation_data(
+            inflation_type, start_date, end_date, limit
         )

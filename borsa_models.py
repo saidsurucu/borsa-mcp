@@ -1542,4 +1542,35 @@ class EkonomikTakvimSonucu(BaseModel):
     high_importance_only: bool = Field(description="Whether only high importance events were included.")
     country_filter: Optional[str] = Field(None, description="Country filter applied (comma-separated codes).")
     error_message: Optional[str] = Field(None, description="Error message if the operation failed.")
+    # Additional fields for enhanced economic calendar
+    total_days: Optional[int] = Field(None, description="Number of days with events.")
+    countries_covered: Optional[List[str]] = Field(None, description="List of countries covered in the results.")
+    high_impact_events: Optional[int] = Field(None, description="Number of high impact events.")
+    major_releases: Optional[List[str]] = Field(None, description="List of major economic releases.")
+    market_moving_events: Optional[List[str]] = Field(None, description="List of market-moving events.")
+    query_timestamp: Optional[datetime.datetime] = Field(None, description="When the query was executed.")
+    data_source: Optional[str] = Field(None, description="Source of the economic data.")
+    api_endpoint: Optional[str] = Field(None, description="API endpoint used for the query.")
+
+# --- TCMB Inflation Models ---
+class EnflasyonVerisi(BaseModel):
+    """Single inflation data point from TCMB."""
+    tarih: str = Field(description="Date in YYYY-MM-DD format")
+    ay_yil: str = Field(description="Month-year in MM-YYYY format from TCMB")
+    yillik_enflasyon: Optional[float] = Field(None, description="Annual inflation rate percentage")
+    aylik_enflasyon: Optional[float] = Field(None, description="Monthly inflation rate percentage")
+
+class TcmbEnflasyonSonucu(BaseModel):
+    """Result from TCMB inflation data request."""
+    inflation_type: str = Field(description="Type of inflation data: 'tufe' or 'ufe'")
+    start_date: Optional[str] = Field(None, description="Start date filter applied (YYYY-MM-DD)")
+    end_date: Optional[str] = Field(None, description="End date filter applied (YYYY-MM-DD)")
+    data: List[EnflasyonVerisi] = Field(description="List of inflation data points")
+    total_records: int = Field(description="Number of records returned after filtering")
+    total_available_records: Optional[int] = Field(None, description="Total records available before filtering")
+    date_range: Optional[Dict[str, str]] = Field(None, description="Available date range in source data")
+    statistics: Optional[Dict[str, Optional[float]]] = Field(None, description="Statistical summary of the data")
+    data_source: str = Field(description="Source of the data")
+    query_timestamp: datetime.datetime = Field(description="When the query was executed")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed")
 

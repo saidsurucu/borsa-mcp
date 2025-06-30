@@ -168,3 +168,8 @@ test_*.py
 CLAUDE.md
 mcp_servers_config.json
 fast-mcp-docs.md
+tcmb_inflation_test_results.json
+tcmb_inflation_data.csv
+trading_economics_test_results.json
+borsa_models.py
+borsa_models.py

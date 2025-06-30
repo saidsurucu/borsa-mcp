@@ -6,6 +6,7 @@ import logging
 import os
 from pydantic import Field
 from typing import Literal, List, Dict, Any, Annotated, Optional
+from datetime import datetime
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -27,6 +28,7 @@ from models import (
     DovizcomGuncelSonucu, DovizcomDakikalikSonucu, DovizcomArsivSonucu,
     EkonomikTakvimSonucu
 )
+from models.tcmb_models import TcmbEnflasyonSonucu
 
 # --- Logging Configuration ---
 LOG_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
@@ -2409,6 +2411,82 @@ async def get_economic_calendar(
             high_importance_only=high_importance_only,
             country_filter=country_filter,
             error_message=f"Ekonomik takvim alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(
+    description="TCMB: Get Turkish inflation data (TÜFE) with date range filtering and statistics.",
+    tags=["inflation", "tcmb", "readonly", "external", "turkey"]
+)
+async def get_turkiye_enflasyon(
+    inflation_type: Annotated[Literal["tufe"], Field(
+        description="Inflation type: 'tufe' for Consumer Price Index (TÜFE). Future: 'ufe' for Producer Price Index.",
+        default="tufe"
+    )] = "tufe",
+    start_date: Annotated[Optional[str], Field(
+        description="Start date filter (YYYY-MM-DD format). Example: '2024-01-01'",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2024-01-01", "2023-06-01", "2025-01-01"]
+    )] = None,
+    end_date: Annotated[Optional[str], Field(
+        description="End date filter (YYYY-MM-DD format). Example: '2024-12-31'",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2024-12-31", "2025-06-30", "2025-12-31"]
+    )] = None,
+    limit: Annotated[Optional[int], Field(
+        description="Maximum records to return (default: no limit).",
+        ge=1,
+        le=500,
+        examples=[12, 24, 50]
+    )] = None
+) -> TcmbEnflasyonSonucu:
+    """
+    Get Turkish inflation data from TCMB (Turkish Central Bank) with date filtering.
+    
+    **Data Source:** Official TCMB inflation statistics page
+    **Data Type:** TÜFE (Consumer Price Index) - both yearly and monthly rates
+    **Coverage:** 2005-2025 (245+ monthly records)
+    **Update Frequency:** Monthly (typically mid-month release)
+    
+    **Data Fields:**
+    - **Annual Inflation:** Year-over-year percentage change
+    - **Monthly Inflation:** Month-over-month percentage change  
+    - **Date Range:** Monthly data points with precise dating
+    - **Statistics:** Min/max rates, averages, latest values
+    
+    **Filtering Options:**
+    - **Date Range:** Filter by start_date and end_date (YYYY-MM-DD)
+    - **Record Limit:** Limit number of results returned
+    - **No Filters:** Returns latest 12 months by default (manageable size)
+    
+    **Recent Inflation Trends (2024-2025):**
+    - **May 2025:** 35.41% (annual), 1.53% (monthly)
+    - **Peak Period:** 2022-2024 saw rates above 60-80%
+    - **Historical Range:** 3.99% to 85.51% (annual)
+    
+    **Use Cases:**
+    - **Economic Analysis:** Track Turkish inflation trends
+    - **Investment Decisions:** Assess real return expectations
+    - **Academic Research:** Historical inflation studies
+    - **Policy Analysis:** Central bank policy effectiveness
+    - **Sector Research:** Industry cost pressure analysis
+    
+    **Performance:** ~2-3 seconds (includes 1-hour caching)
+    **Reliability:** Direct TCMB website scraping, highly reliable
+    """
+    logger.info(f"Tool 'get_turkiye_enflasyon' called with inflation_type='{inflation_type}', start_date='{start_date}', end_date='{end_date}', limit={limit}")
+    try:
+        return await borsa_client.get_turkiye_enflasyon(inflation_type, start_date, end_date, limit)
+    except Exception as e:
+        logger.exception("Error in tool 'get_turkiye_enflasyon'")
+        return TcmbEnflasyonSonucu(
+            inflation_type=inflation_type,
+            start_date=start_date,
+            end_date=end_date,
+            data=[],
+            total_records=0,
+            data_source='TCMB (Türkiye Cumhuriyet Merkez Bankası)',
+            query_timestamp=datetime.now(),
+            error_message=f"Enflasyon verileri alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
 def main():
