@@ -10,7 +10,7 @@ import io
 import re
 import pandas as pd
 from typing import List, Optional, Dict, Any
-from borsa_models import (
+from models import (
     SirketInfo, KatilimFinansUygunlukBilgisi, KatilimFinansUygunlukSonucu,
     EndeksBilgisi, EndeksAramaSonucu, EndeksKoduAramaSonucu, EndeksAramaOgesi
 )

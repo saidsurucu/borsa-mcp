@@ -5,13 +5,13 @@ This version uses KAP for company search and yfinance for all financial data.
 import logging
 import os
 from pydantic import Field
-from typing import Literal, List, Dict, Any, Annotated
+from typing import Literal, List, Dict, Any, Annotated, Optional
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
 from borsa_client import BorsaApiClient
-from borsa_models import (
+from models import (
     SirketAramaSonucu, FinansalVeriSonucu, YFinancePeriodEnum,
     SirketProfiliSonucu, FinansalTabloSonucu, AnalistVerileriSonucu,
     TemettuVeAksiyonlarSonucu, HizliBilgiSonucu, KazancTakvimSonucu,

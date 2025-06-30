@@ -9,7 +9,7 @@ from typing import Dict, Any, List
 import pandas as pd
 import datetime
 
-from borsa_models import (
+from models import (
     FinansalVeriNoktasi, YFinancePeriodEnum, SirketProfiliYFinance,
     AnalistTavsiyesi, AnalistFiyatHedefi, TavsiyeOzeti,
     Temettu, HisseBolunmesi, KurumsalAksiyon, HizliBilgi,
