@@ -12,6 +12,7 @@ from models import (
     DovizcomGuncelSonucu, DovizcomDakikalikSonucu, DovizcomArsivSonucu,
     DovizcomVarligi, DovizcomOHLCVarligi
 )
+from .dovizcom_auth import DovizcomAuthManager
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +55,9 @@ class DovizcomProvider:
         self._http_client = client
         self._cache: Dict[str, Dict] = {}
         self._last_fetch_times: Dict[str, float] = {}
+        self._auth_manager = DovizcomAuthManager(client)
     
-    def _get_request_headers(self, asset: str) -> Dict[str, str]:
+    async def _get_request_headers(self, asset: str) -> Dict[str, str]:
         """Get appropriate headers for the asset request."""
         # Different origins for different asset types
         if asset in ["gram-altin", "gumus", "ons"]:
@@ -65,10 +67,13 @@ class DovizcomProvider:
             origin = "https://www.doviz.com"
             referer = "https://www.doviz.com/"
         
+        # Get dynamic token
+        token = await self._auth_manager.get_valid_token('assets')
+        
         return {
             'Accept': '*/*',
             'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Authorization': 'Bearer d9e5ca031c76ccdbf776941b6cf9339a24f83f3e1f7e055de3c3a4bfea41bd5b',
+            'Authorization': f'Bearer {token}',
             'Origin': origin,
             'Referer': referer,
             'Sec-Ch-Ua': '"Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
@@ -81,13 +86,24 @@ class DovizcomProvider:
             'X-Requested-With': 'XMLHttpRequest'
         }
     
-    async def _make_request(self, endpoint: str, asset: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def _make_request(self, endpoint: str, asset: str, params: Dict[str, Any] = None, retry_on_401: bool = True) -> Dict[str, Any]:
         """Make HTTP request to doviz.com API with proper headers."""
         try:
             url = f"{self.BASE_URL}{endpoint}"
-            headers = self._get_request_headers(asset)
+            headers = await self._get_request_headers(asset)
             
             response = await self._http_client.get(url, headers=headers, params=params or {})
+            
+            # Handle 401 errors with token refresh
+            if response.status_code == 401 and retry_on_401:
+                logger.warning(f"Received 401 for {endpoint}, refreshing token and retrying")
+                # Get fresh token
+                token = await self._auth_manager.refresh_token_on_401('assets')
+                headers['Authorization'] = f'Bearer {token}'
+                
+                # Retry the request
+                response = await self._http_client.get(url, headers=headers, params=params or {})
+                
             response.raise_for_status()
             
             data = response.json()
