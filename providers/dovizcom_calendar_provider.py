@@ -25,6 +25,18 @@ class DovizcomCalendarProvider:
         "high": "yüksek"
     }
     
+    # Country code to name mapping
+    COUNTRY_MAPPING = {
+        'TR': 'Türkiye', 'US': 'ABD', 'EU': 'Euro Bölgesi', 'CN': 'Çin', 'DE': 'Almanya', 
+        'GB': 'Birleşik Krallık', 'IT': 'İtalya', 'FR': 'Fransa', 'JP': 'Japonya', 
+        'KR': 'Güney Kore', 'ZA': 'Güney Afrika', 'BR': 'Brezilya', 'AU': 'Avustralya',
+        'CA': 'Kanada', 'RU': 'Rusya', 'IN': 'Hindistan', 'ES': 'İspanya', 'NL': 'Hollanda',
+        'CH': 'İsviçre', 'SE': 'İsveç', 'NO': 'Norveç', 'DK': 'Danimarka', 'FI': 'Finlandiya',
+        'BE': 'Belçika', 'AT': 'Avusturya', 'IE': 'İrlanda', 'PT': 'Portekiz', 'GR': 'Yunanistan',
+        'CZ': 'Çek Cumhuriyeti', 'PL': 'Polonya', 'HU': 'Macaristan', 'SK': 'Slovakya',
+        'SI': 'Slovenya', 'EE': 'Estonya', 'LV': 'Letonya', 'LT': 'Litvanya'
+    }
+    
     def __init__(self, client: httpx.AsyncClient):
         self._http_client = client
     
@@ -82,7 +94,30 @@ class DovizcomCalendarProvider:
             return match.group(1)
         return ""
     
-    def _parse_html_content(self, html_content: str) -> List[Dict[str, Any]]:
+    def _parse_countries(self, country_filter: Optional[str]) -> List[str]:
+        """Parse country filter string and return list of country codes."""
+        if not country_filter:
+            return ['TR', 'US']  # Default to Turkey and USA
+        
+        # Split by comma and clean up
+        countries = [country.strip().upper() for country in country_filter.split(',')]
+        
+        # Validate country codes against our mapping
+        valid_countries = []
+        for country in countries:
+            if country in self.COUNTRY_MAPPING:
+                valid_countries.append(country)
+            else:
+                logger.warning(f"Unknown country code: {country}, skipping...")
+        
+        # If no valid countries, default to TR,US
+        if not valid_countries:
+            logger.warning("No valid countries found, defaulting to TR,US")
+            return ['TR', 'US']
+        
+        return valid_countries
+
+    def _parse_html_content(self, html_content: str, country_code: str = 'TR') -> List[Dict[str, Any]]:
         """Parse HTML content and extract economic events."""
         soup = BeautifulSoup(html_content, 'html.parser')
         events = []
@@ -140,13 +175,16 @@ class DovizcomCalendarProvider:
                         # Extract period from event name
                         period = self._extract_period_from_event(event_name)
                         
+                        # Get country name from mapping
+                        country_name = self.COUNTRY_MAPPING.get(country_code, country)
+                        
                         # Create event object
                         if event_name and current_date:
                             event_data = {
                                 'date': current_date,
                                 'time': event_time,
-                                'country': country,
-                                'country_code': 'TR',  # All events are Turkish
+                                'country': country_name,
+                                'country_code': country_code,
                                 'event_name': event_name,
                                 'importance': importance,
                                 'period': period,
@@ -194,28 +232,49 @@ class DovizcomCalendarProvider:
         count_per_day: int = 25
     ) -> EkonomikTakvimSonucu:
         """
-        Get Turkish economic calendar events from Dovizcom.
+        Get economic calendar events from Dovizcom for multiple countries.
         
         Args:
             start_date: Start date in YYYY-MM-DD format
             end_date: End date in YYYY-MM-DD format  
             high_importance_only: Only include high importance events
-            country_filter: Not used (always Turkey), kept for compatibility
+            country_filter: Comma-separated country codes (e.g., 'TR,US,GB'). Defaults to 'TR,US'
             count_per_day: Not used, kept for compatibility
         """
         try:
-            # Build API parameters - Dovizcom API is simpler
-            params = {
-                'country': 'TR',  # Always Turkey
-                'importance': '3,2,1' if not high_importance_only else '3'  # 3=high, 2=mid, 1=low
-            }
+            # Parse countries from filter
+            countries = self._parse_countries(country_filter)
+            logger.info(f"Fetching economic calendar for countries: {countries}")
             
-            # Make API request
-            data = await self._make_request(params)
+            # Collect all events from all countries
+            all_raw_events = []
+            actual_countries_covered = []
             
-            # Parse HTML content
-            html_content = data.get('calendarHTML', '')
-            raw_events = self._parse_html_content(html_content)
+            for country_code in countries:
+                try:
+                    # Build API parameters for this country
+                    params = {
+                        'country': country_code,
+                        'importance': '3,2,1' if not high_importance_only else '3'  # 3=high, 2=mid, 1=low
+                    }
+                    
+                    # Make API request for this country
+                    data = await self._make_request(params)
+                    
+                    # Parse HTML content for this country
+                    html_content = data.get('calendarHTML', '')
+                    country_events = self._parse_html_content(html_content, country_code)
+                    
+                    if country_events:
+                        all_raw_events.extend(country_events)
+                        actual_countries_covered.append(country_code)
+                        logger.info(f"Found {len(country_events)} events for {country_code}")
+                    else:
+                        logger.warning(f"No events found for country {country_code}")
+                        
+                except Exception as e:
+                    logger.error(f"Error fetching events for country {country_code}: {e}")
+                    continue
             
             # Filter events by date range if needed
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
@@ -225,7 +284,7 @@ class DovizcomCalendarProvider:
             events_by_date = {}
             total_events = 0
             
-            for event_data in raw_events:
+            for event_data in all_raw_events:
                 event_date = event_data['date']
                 
                 # Check if event is within date range
@@ -240,17 +299,20 @@ class DovizcomCalendarProvider:
                         events_by_date[date_key] = []
                     
                     # Create event detail
+                    country_name = event_data['country']
+                    description = f"{country_name} economic indicator: {event_data['event_name']}"
+                    
                     event_detail = EkonomikOlayDetayi(
                         event_name=event_data['event_name'],
                         country_code=event_data['country_code'],
-                        country_name=event_data['country'],
+                        country_name=country_name,
                         event_time=event_data['time'],
                         period=event_data['period'],
                         actual=event_data['actual'],
                         prior=event_data['previous'],
                         forecast=event_data['expected'],
                         importance=event_data['importance'],
-                        description=f"Turkish economic indicator: {event_data['event_name']}"
+                        description=description
                     )
                     
                     events_by_date[date_key].append(event_detail)
@@ -262,6 +324,7 @@ class DovizcomCalendarProvider:
                 # Calculate summary statistics
                 high_importance_count = sum(1 for e in day_events if e.importance == 'high')
                 event_types = list(set([e.event_name.split('(')[0].strip() for e in day_events]))
+                countries_in_day = list(set([e.country_name for e in day_events]))
                 
                 day_event = EkonomikOlay(
                     date=date_key.strftime('%Y-%m-%d'),
@@ -269,23 +332,32 @@ class DovizcomCalendarProvider:
                     event_count=len(day_events),
                     events=day_events,
                     high_importance_count=high_importance_count,
-                    countries_involved=['Turkey'],
+                    countries_involved=countries_in_day,
                     event_types=event_types[:10]  # Limit to avoid too long lists
                 )
                 all_events.append(day_event)
             
             # Calculate summary statistics
-            countries_covered = ['Turkey']
+            countries_covered = [self.COUNTRY_MAPPING.get(code, code) for code in actual_countries_covered]
             high_impact_events = sum(1 for event in all_events for detail in event.events if detail.importance == 'high')
             
-            # Extract major release categories
+            # Extract major release categories (check both Turkish and English keywords)
             major_releases = []
             market_moving_events = []
             
             for event in all_events:
                 for detail in event.events:
                     event_lower = detail.event_name.lower()
-                    if any(keyword in event_lower for keyword in ['işsizlik', 'enflasyon', 'üretim', 'gdp', 'büyüme']):
+                    # Check for important economic indicators in multiple languages
+                    important_keywords = [
+                        # Turkish keywords
+                        'işsizlik', 'enflasyon', 'üretim', 'büyüme', 'faiz', 'merkez bankası',
+                        # English keywords  
+                        'unemployment', 'inflation', 'gdp', 'growth', 'interest', 'federal reserve',
+                        'employment', 'cpi', 'ppi', 'retail sales', 'manufacturing'
+                    ]
+                    
+                    if any(keyword in event_lower for keyword in important_keywords):
                         if detail.importance == 'high':
                             market_moving_events.append(detail.event_name)
                         major_releases.append(detail.event_name)
@@ -297,7 +369,7 @@ class DovizcomCalendarProvider:
                 total_events=total_events,
                 total_days=len(all_events),
                 high_importance_only=high_importance_only,
-                country_filter='TR',
+                country_filter=','.join(countries),
                 countries_covered=countries_covered,
                 high_impact_events=high_impact_events,
                 major_releases=list(set(major_releases))[:20],  # Limit to top 20
@@ -309,13 +381,14 @@ class DovizcomCalendarProvider:
             
         except Exception as e:
             logger.error(f"Error getting economic calendar for {start_date} to {end_date}: {e}")
+            countries = self._parse_countries(country_filter)
             return EkonomikTakvimSonucu(
                 start_date=start_date,
                 end_date=end_date,
                 economic_events=[],
                 total_events=0,
                 high_importance_only=high_importance_only,
-                country_filter='TR',
+                country_filter=','.join(countries),
                 error_message=str(e),
                 data_source='Doviz.com',
                 api_endpoint=self.BASE_URL
