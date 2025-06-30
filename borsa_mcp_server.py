@@ -2341,8 +2341,8 @@ async def get_dovizcom_arsiv(
         )
 
 @app.tool(
-    description="ECONOMIC CALENDAR: Get economic events calendar from Yahoo Finance (GDP, inflation, employment data).",
-    tags=["economic", "calendar", "events", "readonly", "external", "macroeconomic"]
+    description="ECONOMIC CALENDAR: Get Turkish economic events calendar from Doviz.com (unemployment, inflation, PMI data).",
+    tags=["economic", "calendar", "events", "readonly", "external", "macroeconomic", "turkey"]
 )
 async def get_economic_calendar(
     start_date: Annotated[str, Field(
@@ -2359,17 +2359,42 @@ async def get_economic_calendar(
         description="Include only high importance economic events (default: True).",
         default=True
     )] = True,
-    country_filter: Annotated[Optional[str], Field(
-        description="Comma-separated country codes to filter (e.g., 'US,GB,JP'). Leave empty for all countries.",
-        default=None,
-        examples=["US,GB,JP", "US", "GB,DE,FR"]
-    )] = None
+    country_filter: Annotated[str, Field(
+        description="Country filter: 'TR' (Türkiye), 'US' (ABD), 'EU' (Euro Bölgesi), 'CN' (Çin), 'DE' (Almanya), 'GB' (Birleşik Krallık), 'IT' (İtalya), 'FR' (Fransa), 'JP' (Japonya), 'KR' (Güney Kore), 'ZA' (Güney Afrika), 'BR' (Brezilya), 'AU' (Avustralya), 'CA' (Kanada), 'RU' (Rusya), 'IN' (Hindistan), or other ISO country codes.",
+        default="TR,US",
+        examples=["TR", "US", "TR,US", "EU", "CN", "DE"]
+    )] = "TR,US"
 ) -> EkonomikTakvimSonucu:
     """
-    Get economic calendar events from Yahoo Finance.
+    Get economic calendar events from Doviz.com for multiple countries.
     
-    Provides macroeconomic events like GDP releases, inflation data, employment reports,
-    and other market-moving economic indicators from major economies.
+    Provides macroeconomic events like unemployment rates, inflation data, PMI indicators,
+    and other market-moving economic statistics for selected countries.
+    
+    **Data Coverage:**
+    - **Employment Data:** Unemployment rates, employment ratios, labor force participation
+    - **Industrial Indicators:** Manufacturing PMI, services PMI, industrial output
+    - **Economic Surveys:** Business confidence, consumer sentiment indicators
+    - **Trade Data:** Import/export statistics, trade balance information
+    
+    **Importance Levels:**
+    - **High:** Major indicators like unemployment, key PMI data
+    - **Medium:** Secondary economic indicators, regional data
+    - **Low:** Tertiary statistics, specialized sector data
+    
+    **Event Details Include:**
+    - **Actual Values:** Released economic data
+    - **Previous Values:** Prior period comparisons  
+    - **Expected Values:** Market forecasts (when available)
+    - **Period Information:** Data coverage period (e.g., "Mayıs" for May data)
+    
+    **Use Cases:**
+    - **Investment Analysis:** Monitor Turkish economic health
+    - **Market Timing:** Track high-impact economic releases
+    - **Policy Analysis:** Understand central bank decision factors
+    - **Sector Research:** Analyze industry-specific indicators
+    
+    **Response Time:** ~2-4 seconds
     """
     logger.info(f"Tool 'get_economic_calendar' called with start_date='{start_date}', end_date='{end_date}', high_importance_only={high_importance_only}, country_filter='{country_filter}'")
     try:
