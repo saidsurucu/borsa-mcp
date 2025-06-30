@@ -27,7 +27,7 @@ borsa-mcp = "borsa_mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["providers*"]
+include = ["providers*", "models*"]
 
 [tool.setuptools]
 py-modules = ["borsa_mcp_server", "borsa_client", "borsa_models", "fon_mevzuat_kisa"]
