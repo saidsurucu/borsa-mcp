@@ -24,7 +24,8 @@ from borsa_models import (
     KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu, KriptoTeknikAnalizSonucu,
     CoinbaseExchangeInfoSonucu, CoinbaseTickerSonucu, CoinbaseOrderbookSonucu,
     CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu, CoinbaseTeknikAnalizSonucu,
-    DovizcomGuncelSonucu, DovizcomDakikalikSonucu, DovizcomArsivSonucu
+    DovizcomGuncelSonucu, DovizcomDakikalikSonucu, DovizcomArsivSonucu,
+    EkonomikTakvimSonucu
 )
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,9 @@ class BorsaApiClient:
         # Import DovizcomProvider for currency and commodities data
         from providers.dovizcom_provider import DovizcomProvider
         self.dovizcom_provider = DovizcomProvider(self._http_client)
+        # Import YahooCalendarProvider for economic calendar data
+        from providers.yahoo_calendar_provider import YahooCalendarProvider
+        self.yahoo_calendar_provider = YahooCalendarProvider(self._http_client)
 
     async def close(self):
         await self._http_client.aclose()
@@ -1579,3 +1583,16 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
     async def get_dovizcom_arsiv_veri(self, asset: str, start_date: str, end_date: str) -> "DovizcomArsivSonucu":
         """Get historical OHLC archive data from doviz.com."""
         return await self.dovizcom_provider.get_asset_archive(asset, start_date, end_date)
+    
+    # --- Yahoo Calendar Provider Methods ---
+    async def get_economic_calendar(
+        self, 
+        start_date: str, 
+        end_date: str,
+        high_importance_only: bool = True,
+        country_filter: Optional[str] = None
+    ) -> "EkonomikTakvimSonucu":
+        """Get economic calendar events from Yahoo Finance."""
+        return await self.yahoo_calendar_provider.get_economic_calendar(
+            start_date, end_date, high_importance_only, country_filter
+        )

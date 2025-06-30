@@ -24,7 +24,8 @@ from borsa_models import (
     KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu, KriptoTeknikAnalizSonucu,
     CoinbaseExchangeInfoSonucu, CoinbaseTickerSonucu, CoinbaseOrderbookSonucu,
     CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu, CoinbaseTeknikAnalizSonucu,
-    DovizcomGuncelSonucu, DovizcomDakikalikSonucu, DovizcomArsivSonucu
+    DovizcomGuncelSonucu, DovizcomDakikalikSonucu, DovizcomArsivSonucu,
+    EkonomikTakvimSonucu
 )
 
 # --- Logging Configuration ---
@@ -2337,6 +2338,52 @@ async def get_dovizcom_arsiv(
             start_date=start_date,
             end_date=end_date,
             error_message=f"Doviz.com arşiv veri alınırken beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+@app.tool(
+    description="ECONOMIC CALENDAR: Get economic events calendar from Yahoo Finance (GDP, inflation, employment data).",
+    tags=["economic", "calendar", "events", "readonly", "external", "macroeconomic"]
+)
+async def get_economic_calendar(
+    start_date: Annotated[str, Field(
+        description="Start date in YYYY-MM-DD format (e.g., '2025-06-15').",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2025-06-15", "2025-06-30", "2025-07-01"]
+    )],
+    end_date: Annotated[str, Field(
+        description="End date in YYYY-MM-DD format (e.g., '2025-06-21').",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2025-06-21", "2025-07-06", "2025-07-31"]
+    )],
+    high_importance_only: Annotated[bool, Field(
+        description="Include only high importance economic events (default: True).",
+        default=True
+    )] = True,
+    country_filter: Annotated[Optional[str], Field(
+        description="Comma-separated country codes to filter (e.g., 'US,GB,JP'). Leave empty for all countries.",
+        default=None,
+        examples=["US,GB,JP", "US", "GB,DE,FR"]
+    )] = None
+) -> EkonomikTakvimSonucu:
+    """
+    Get economic calendar events from Yahoo Finance.
+    
+    Provides macroeconomic events like GDP releases, inflation data, employment reports,
+    and other market-moving economic indicators from major economies.
+    """
+    logger.info(f"Tool 'get_economic_calendar' called with start_date='{start_date}', end_date='{end_date}', high_importance_only={high_importance_only}, country_filter='{country_filter}'")
+    try:
+        return await borsa_client.get_economic_calendar(start_date, end_date, high_importance_only, country_filter)
+    except Exception as e:
+        logger.exception("Error in tool 'get_economic_calendar'")
+        return EkonomikTakvimSonucu(
+            start_date=start_date,
+            end_date=end_date,
+            economic_events=[],
+            total_events=0,
+            high_importance_only=high_importance_only,
+            country_filter=country_filter,
+            error_message=f"Ekonomik takvim alınırken beklenmeyen bir hata oluştu: {str(e)}"
         )
 
 def main():

@@ -1512,3 +1512,34 @@ class DovizcomArsivSonucu(BaseModel):
     end_date: str = Field(description="End date of the data range.")
     error_message: Optional[str] = Field(None, description="Error message if the operation failed.")
 
+# --- Yahoo Finance Economic Calendar Models ---
+class EkonomikOlayDetayi(BaseModel):
+    """Details of a single economic event."""
+    event_name: str = Field(description="Name of the economic event (e.g., 'GDP YY', 'Industrial Output YY').")
+    country_code: str = Field(description="Country code (e.g., 'US', 'GB', 'JP').")
+    country_name: str = Field(description="Full country name (e.g., 'United States', 'United Kingdom').")
+    event_time: datetime.datetime = Field(description="Exact time of the event.")
+    period: str = Field(description="Time period the data refers to (e.g., 'Q1', 'May').")
+    actual: Optional[str] = Field(None, description="Actual value reported.")
+    prior: Optional[str] = Field(None, description="Previous period's value.")
+    forecast: Optional[str] = Field(None, description="Forecasted value.")
+    revised_from: Optional[str] = Field(None, description="Revised from previous estimate.")
+    description: str = Field(description="Detailed description of the economic indicator.")
+
+class EkonomikOlay(BaseModel):
+    """Economic events for a single day."""
+    date: datetime.date = Field(description="Date of the economic events.")
+    timezone: str = Field(description="Timezone of the events (e.g., 'America/New_York').")
+    event_count: int = Field(description="Number of events on this date.")
+    events: List[EkonomikOlayDetayi] = Field(description="List of economic events for this date.")
+
+class EkonomikTakvimSonucu(BaseModel):
+    """Result of economic calendar query."""
+    start_date: str = Field(description="Start date of the query (YYYY-MM-DD).")
+    end_date: str = Field(description="End date of the query (YYYY-MM-DD).")
+    economic_events: List[EkonomikOlay] = Field(description="List of economic events by date.")
+    total_events: int = Field(description="Total number of economic events found.")
+    high_importance_only: bool = Field(description="Whether only high importance events were included.")
+    country_filter: Optional[str] = Field(None, description="Country filter applied (comma-separated codes).")
+    error_message: Optional[str] = Field(None, description="Error message if the operation failed.")
+

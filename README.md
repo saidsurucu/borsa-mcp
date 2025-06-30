@@ -12,7 +12,7 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
 🎯 **Temel Özellikler**
 
 * Borsa İstanbul (BIST), Türk yatırım fonları, global kripto para verileri ve döviz/emtia verilerine programatik erişim için kapsamlı bir MCP arayüzü.
-* **39 Araç** ile tam finansal analiz desteği:
+* **40 Araç** ile tam finansal analiz desteği:
     * **Şirket Arama:** 758 BIST şirketi arasında ticker kodu ve şirket adına göre arama (çoklu ticker desteği ile).
     * **Finansal Veriler:** Bilanço, kar-zarar, nakit akışı tabloları ve geçmiş OHLCV verileri.
     * **Teknik Analiz:** RSI, MACD, Bollinger Bantları gibi teknik göstergeler ve al-sat sinyalleri.
@@ -27,6 +27,7 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
     * **Kripto Teknik Analiz:** RSI, MACD, Bollinger Bantları ve al-sat sinyalleri ile hem Türk hem global kripto piyasalar için kapsamlı teknik analiz.
     * **Doviz.com Döviz & Emtia:** 28+ varlık ile döviz kurları (USD, EUR, GBP), kıymetli madenler (altın, gümüş), enerji emtiaları (petrol), yakıt fiyatları (dizel, benzin, LPG).
     * **Gerçek Zamanlı Döviz:** Dakikalık fiyat güncellemeleri ve tarihsel OHLC analizi ile kapsamlı döviz takibi.
+    * **Yahoo Ekonomik Takvim:** GDP, enflasyon, istihdam verileri gibi makroekonomik olaylar ve piyasa etkili ekonomik göstergeler.
     * **Hibrit Veri:** Yahoo Finance + Mynet Finans'tan birleştirilmiş şirket bilgileri.
 * Türk hisse senetleri, endeksler, yatırım fonları ve kripto para için optimize edilmiş veri işleme.
 * **LLM Optimizasyonu:** Domain-özel araç ön ekleri ("BIST STOCKS:", "CRYPTO BtcTurk:", "CRYPTO Coinbase:") ile gelişmiş araç seçimi.
@@ -145,6 +146,9 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_dovizcom_dakikalik`**: Gerçek zamanlı izleme için dakikalık veriler (60 veri noktasına kadar).
 * **`get_dovizcom_arsiv`**: Teknik analiz ve trend araştırması için tarihsel OHLC verileri.
 
+### Yahoo Ekonomik Takvim Araçları
+* **`get_economic_calendar`**: Ekonomik olaylar takvimi (GDP, enflasyon, istihdam verileri) Yahoo Finance'dan.
+
 🔍 **Veri Kaynakları & Kapsam**
 
 ### KAP (Kamuyu Aydınlatma Platformu)
@@ -210,6 +214,16 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Piyasa Odağı**: Çapraz piyasa analizi için uluslararası USD/EUR karşılaştırmaları ile Türk TRY bazlı fiyatlandırma
 - **Kimlik Doğrulama**: Güvenilir API erişimi için uygun başlık yönetimi ile Bearer token kimlik doğrulaması
 - **Kapsam**: Döviz ticareti, kıymetli maden yatırımı, emtia analizi ve yakıt fiyat takibi için tam finansal piyasalar kapsamı
+
+### Yahoo Finance Ekonomik Takvim
+- **Makroekonomik Olaylar**: GDP, enflasyon, istihdam, sanayi üretimi ve diğer piyasa etkili ekonomik göstergeler
+- **Ülke Kapsamı**: 25+ ülke (US, GB, JP, DE, FR, CA, AU, CN, KR, BR, TR vb.) için ekonomik veri takibi
+- **API Endpoint**: Resmi Yahoo Finance Screeners API (https://query1.finance.yahoo.com/ws/screeners/v1/finance/calendar-events)
+- **Filtreleme Özellikleri**: Ülke bazlı filtreleme, yüksek önem seviyesi seçimi, özelleştirilebilir tarih aralıkları
+- **Veri Detayları**: Gerçek değerler, önceki dönem verileri, tahminler, revizyon bilgileri ve detaylı açıklamalar
+- **Güncelleme Sıklığı**: Gerçek zamanlı ekonomik olay takibi ve piyasa etkisi analizi
+- **Zaman Dilimi Desteği**: Amerika/New_York ana zaman dilimi ile global koordinasyon
+- **Veri Kalitesi**: Yahoo Finance'ın küresel finansal veri ağından profesyonel seviye makroekonomik bilgiler
 
 📊 **Örnek Kullanım**
 
@@ -300,6 +314,15 @@ Dizel, benzin ve LPG fiyatlarının güncel durumunu ve haftalık değişimlerin
 
 # Yakıt fiyat karşılaştırması
 Son 3 aylık dizel ve benzin fiyat trendlerini karşılaştır ve analiz et
+
+# Haftalık ekonomik takvim
+Bu haftanın önemli ekonomik olaylarını listele ve piyasa etkilerini değerlendir
+
+# Aylık makroekonomik takip
+Temmuz ayı için US, GB ve JP'nin tüm önemli ekonomik verilerini getir
+
+# Ekonomik veri analizi
+Son çeyreğin GDP büyüme verilerini karşılaştır ve trend analizini yap
 ```
 
 📜 **Lisans**
