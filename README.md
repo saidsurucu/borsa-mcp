@@ -46,29 +46,62 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
 * Claude Desktop uygulaması ile kolay entegrasyon.
 * Borsa MCP, [5ire](https://5ire.app) gibi Claude Desktop haricindeki MCP istemcilerini de destekler.
 
-## 🆕 **Son Güncelleme Özellikleri (Haziran 2025)**
+## 📑 **İçindekiler**
 
-### ✅ **Çoklu Ülke Ekonomik Takvim Desteği**
-- **30+ ülke** için ekonomik olaylar (TR, US, EU, GB, DE, FR, JP, CN vb.)
-- **Esnek filtreleme**: Virgülle ayrılmış ülke kodları (`TR,US,DE`)
-- **Varsayılan TR,US**: Türkiye ve ABD verileri otomatik gösterim
-- **Gerçek zamanlı**: GDP, enflasyon, istihdam, PMI verileri
+<details>
+<summary><b>🚀 Kurulum</b></summary>
 
+- [Claude Desktop Dışı Kullanım (5ire vb.)](#-claude-haricindeki-modellerle-kullanmak-için-çok-kolay-kurulum-örnek-5ire-için)
+- [Claude Desktop Manuel Kurulumu](#️-claude-desktop-manuel-kurulumu)
 
-### ✅ **Yakıt Fiyatları Archive Endpoint Desteği**
-- **Benzin**: 48.89 TL/litre (güncel fiyat)
-- **Diesel**: 50.20 TL/litre (güncel fiyat)
-- **LPG**: 25.59 TL/litre (güncel fiyat)
-- **Archive API**: `/daily` yerine `/archive` endpoint kullanımı
-- **Akıllı fallback**: Daily boşsa otomatik archive deneme
+</details>
 
-### ✅ **Geliştirilmiş Hata Yönetimi**
-- **Çoklu endpoint desteği**: Asset türüne göre optimal endpoint seçimi
-- **Robust parsing**: Farklı API response formatları için esnek ayrıştırma
-- **Detaylı logging**: Kapsamlı hata takibi ve debugging
+<details>
+<summary><b>🛠️ Kullanılabilir Araçlar</b></summary>
+
+- [Temel Şirket & Finansal Veriler](#temel-şirket--finansal-veriler)
+- [Gelişmiş Analiz Araçları](#gelişmiş-analiz-araçları)
+- [KAP & Haberler](#kap--haberler)
+- [BIST Endeks Araçları](#bist-endeks-araçları)
+- [Katılım Finans](#katılım-finans)
+- [TEFAS Fon Araçları](#tefas-fon-araçları)
+- [BtcTurk Kripto Araçları](#btcturk-kripto-para-araçları-türk-piyasası)
+- [Coinbase Global Kripto Araçları](#coinbase-global-kripto-para-araçları-uluslararası-piyasalar)
+- [Dovizcom Döviz & Emtia Araçları](#dovizcom-döviz--emtia-araçları-türk--uluslararası-piyasalar)
+- [Ekonomik Takvim](#dovizcom-ekonomik-takvim-araçları)
+- [TCMB Enflasyon Araçları](#tcmb-enflasyon-araçları)
+
+</details>
+
+<details>
+<summary><b>🔍 Veri Kaynakları & Kapsam</b></summary>
+
+- [KAP (Kamuyu Aydınlatma Platformu)](#kap-kamuyu-aydınlatma-platformu)
+- [Yahoo Finance](#yahoo-finance-entegrasyonu)
+- [Mynet Finans](#mynet-finans-hibrit-mod)
+- [TEFAS](#tefas-türkiye-elektronik-fon-alım-satım-platformu)
+- [BtcTurk & Coinbase](#btcturk-kripto-para-borsası-türk-piyasası)
+- [Dovizcom](#dovizcom-döviz--emtia-platformu-türk--uluslararası-piyasalar)
+- [TCMB](#tcmb-enflasyon-verileri-resmi-merkez-bankası)
+
+</details>
+
+<details>
+<summary><b>📊 Örnek Kullanım</b></summary>
+
+- [Hisse Senedi Analizleri](#-örnek-kullanım)
+- [Fon Analizleri](#-örnek-kullanım)
+- [Kripto Para Analizleri](#-örnek-kullanım)
+- [Döviz & Emtia Analizleri](#-örnek-kullanım)
+- [Ekonomik Takvim](#-örnek-kullanım)
+- [Enflasyon Analizleri](#-örnek-kullanım)
+
+</details>
 
 ---
-🚀 **Claude Haricindeki Modellerle Kullanmak İçin Çok Kolay Kurulum (Örnek: 5ire için)**
+
+<details>
+<summary><b>🚀 Claude Haricindeki Modellerle Kullanmak İçin Çok Kolay Kurulum (Örnek: 5ire için)</b></summary>
 
 Bu bölüm, Borsa MCP aracını 5ire gibi Claude Desktop dışındaki MCP istemcileriyle kullanmak isteyenler içindir.
 
@@ -91,8 +124,10 @@ Bu bölüm, Borsa MCP aracını 5ire gibi Claude Desktop dışındaki MCP istemc
 * Şimdi **Tools** altında **Borsa MCP**'yi görüyor olmalısınız. Üstüne geldiğinizde sağda çıkan butona tıklayıp etkinleştirin (yeşil ışık yanmalı).
 * Artık Borsa MCP ile konuşabilirsiniz.
 
----
-⚙️ **Claude Desktop Manuel Kurulumu**
+</details>
+
+<details>
+<summary><b>⚙️ Claude Desktop Manuel Kurulumu</b></summary>
 
 1.  **Ön Gereksinimler:** Python, `uv`, (Windows için) Microsoft Visual C++ Redistributable'ın sisteminizde kurulu olduğundan emin olun. Detaylı bilgi için yukarıdaki "5ire için Kurulum" bölümündeki ilgili adımlara bakabilirsiniz.
 2.  Claude Desktop **Settings -> Developer -> Edit Config**.
@@ -114,7 +149,10 @@ Bu bölüm, Borsa MCP aracını 5ire gibi Claude Desktop dışındaki MCP istemc
     ```
 4.  Claude Desktop'ı kapatıp yeniden başlatın.
 
-🛠️ **Kullanılabilir Araçlar (MCP Tools)**
+</details>
+
+<details>
+<summary><b>🛠️ Kullanılabilir Araçlar (MCP Tools)</b></summary>
 
 Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 
@@ -185,7 +223,10 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_turkiye_enflasyon`**: Resmi TCMB TÜFE/ÜFE enflasyon verileri - TÜFE: tüketici fiyatları (2005-2025, 245+ kayıt), ÜFE: üretici fiyatları (2014-2025, 137+ kayıt) - yıllık/aylık oranlar, tarih aralığı filtreleme, istatistiksel özet.
 * **`get_enflasyon_hesapla`**: TCMB resmi enflasyon hesaplama API'si - iki tarih arası kümülatif enflasyon hesaplama, sepet değeri analizi, satın alma gücü kaybı/kazancı, ortalama yıllık enflasyon, TÜFE endeks değerleri.
 
-🔍 **Veri Kaynakları & Kapsam**
+</details>
+
+<details>
+<summary><b>🔍 Veri Kaynakları & Kapsam</b></summary>
 
 ### KAP (Kamuyu Aydınlatma Platformu)
 - **Şirketler**: 758 BIST şirketi (ticker kodları, adlar, şehirler, çoklu ticker desteği)
@@ -278,7 +319,10 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
   - **ÜFE:** %23.13 (yıllık), %2.48 (aylık)
 - **Ekonomik Analiz**: ÜFE öncü gösterge olarak TÜFE hareketlerini öngörmede kullanılır
 
-📊 **Örnek Kullanım**
+</details>
+
+<details>
+<summary><b>📊 Örnek Kullanım</b></summary>
 
 ```
 # Şirket arama
@@ -413,6 +457,10 @@ Son 6 aylık enflasyon etkisini hesapla ve yıllık bazda projeksiyon yap
 # Kontrat endeksleme hesaplaması
 Kira sözleşmelerinin enflasyon ayarlaması için gerekli artış oranını hesapla
 ```
+
+</details>
+
+---
 
 📜 **Lisans**
 
