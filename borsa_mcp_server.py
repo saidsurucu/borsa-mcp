@@ -2268,13 +2268,13 @@ async def get_dovizcom_guncel(
         )
 
 @app.tool(
-    description="CURRENCY & COMMODITIES: Get minute data (currencies/metals work best, fuel prices updated less frequently).",
+    description="CURRENCY & COMMODITIES: Get minute data for currencies/metals only. DO NOT use for fuel assets (gasoline, diesel, lpg).",
     tags=["currency", "commodities", "realtime", "readonly", "external"]
 )
 async def get_dovizcom_dakikalik(
     asset: Annotated[DovizcomAssetLiteral, Field(
-        description="Asset symbol: USD, EUR, GBP, gram-altin (Turkish gold), ons (troy ounce gold), BRENT (oil), diesel, gasoline, lpg, etc.",
-        examples=["USD", "EUR", "gram-altin", "ons", "BRENT", "diesel", "gasoline", "lpg"]
+        description="Asset symbol for minute data. BEST: USD, EUR, GBP, gram-altin, ons. AVOID: diesel, gasoline, lpg (no minute data).",
+        examples=["USD", "EUR", "gram-altin", "ons", "BRENT"]
     )],
     limit: Annotated[int, Field(
         description="Number of data points to fetch (1-60 minutes of data).",
