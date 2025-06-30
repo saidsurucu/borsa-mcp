@@ -64,11 +64,14 @@ class YahooCalendarProvider:
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
         }
     
-    def _date_to_timestamp(self, date_str: str) -> int:
+    def _date_to_timestamp(self, date_str: str, end_of_day: bool = False) -> int:
         """Convert YYYY-MM-DD date string to Unix timestamp."""
         try:
             dt = datetime.strptime(date_str, "%Y-%m-%d")
-            # Set to start of day (00:00:00)
+            if end_of_day:
+                # Set to end of day (23:59:59)
+                dt = dt.replace(hour=23, minute=59, second=59)
+            # Set to start of day (00:00:00) by default
             return int(dt.timestamp() * 1000)  # Yahoo API expects milliseconds
         except ValueError:
             raise ValueError(f"Invalid date format: {date_str}. Use YYYY-MM-DD format.")
@@ -122,17 +125,17 @@ class YahooCalendarProvider:
         try:
             # Validate date format and convert to timestamps
             start_timestamp = self._date_to_timestamp(start_date)
-            end_timestamp = self._date_to_timestamp(end_date)
+            end_timestamp = self._date_to_timestamp(end_date, end_of_day=True)
             
-            # Validate date range
-            if start_timestamp >= end_timestamp:
+            # Validate date range - allow same day queries
+            if start_timestamp > end_timestamp:
                 return EkonomikTakvimSonucu(
                     start_date=start_date,
                     end_date=end_date,
                     economic_events=[],
                     total_events=0,
                     high_importance_only=high_importance_only,
-                    error_message="Start date must be before end date"
+                    error_message="Start date must be before or equal to end date"
                 )
             
             # Validate country filter
