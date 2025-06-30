@@ -20,6 +20,9 @@ class DovizcomProvider:
     BASE_URL = "https://api.doviz.com/api/v12"
     CACHE_DURATION = 60  # 1 minute cache for current data
     
+    # Fuel assets that require archive endpoint (no daily data available)
+    FUEL_ASSETS = {"gasoline", "diesel", "lpg"}
+    
     # Supported assets
     SUPPORTED_ASSETS = {
         # Major Currencies
@@ -121,6 +124,36 @@ class DovizcomProvider:
             logger.error(f"Error making request to {endpoint}: {e}")
             raise
     
+    async def _get_asset_from_archive(self, asset: str, days_back: int = 7) -> Dict[str, Any]:
+        """
+        Get latest asset data from archive endpoint.
+        Used for fuel assets that don't have daily data.
+        """
+        try:
+            # Calculate date range (last N days)
+            end_time = int(time.time())
+            start_time = end_time - (days_back * 24 * 60 * 60)  # N days ago
+            
+            endpoint = f"/assets/{asset}/archive"
+            params = {
+                "start": start_time,
+                "end": end_time
+            }
+            
+            data = await self._make_request(endpoint, asset, params)
+            
+            archive_data = data.get('data', {}).get('archive', [])
+            if not archive_data:
+                return None
+            
+            # Get the most recent entry (last in array)
+            latest = archive_data[-1]
+            return latest
+            
+        except Exception as e:
+            logger.error(f"Error getting archive data for {asset}: {e}")
+            return None
+    
     async def get_asset_current(self, asset: str) -> DovizcomGuncelSonucu:
         """
         Get current exchange rate or commodity price for the specified asset.
@@ -147,22 +180,38 @@ class DovizcomProvider:
                     cached=True
                 )
             
-            # Fetch current data (get latest from daily endpoint)
-            endpoint = f"/assets/{asset}/daily"
-            params = {"limit": 1}
-            
-            data = await self._make_request(endpoint, asset, params)
-            
-            archive_data = data.get('data', {}).get('archive', [])
-            if not archive_data:
-                return DovizcomGuncelSonucu(
-                    asset=asset,
-                    guncel_deger=None,
-                    guncelleme_tarihi=None,
-                    error_message="No data available for this asset"
-                )
-            
-            latest = archive_data[0]  # Most recent data point
+            # Check if this is a fuel asset that needs archive endpoint
+            if asset in self.FUEL_ASSETS:
+                # Use archive endpoint for fuel assets
+                latest = await self._get_asset_from_archive(asset)
+                if not latest:
+                    return DovizcomGuncelSonucu(
+                        asset=asset,
+                        guncel_deger=None,
+                        guncelleme_tarihi=None,
+                        error_message="No fuel price data available for this asset"
+                    )
+            else:
+                # Use daily endpoint for non-fuel assets
+                endpoint = f"/assets/{asset}/daily"
+                params = {"limit": 1}
+                
+                data = await self._make_request(endpoint, asset, params)
+                
+                archive_data = data.get('data', {}).get('archive', [])
+                if not archive_data:
+                    # Fallback to archive endpoint if daily has no data
+                    logger.info(f"Daily endpoint empty for {asset}, trying archive fallback")
+                    latest = await self._get_asset_from_archive(asset)
+                    if not latest:
+                        return DovizcomGuncelSonucu(
+                            asset=asset,
+                            guncel_deger=None,
+                            guncelleme_tarihi=None,
+                            error_message="No data available for this asset"
+                        )
+                else:
+                    latest = archive_data[0]  # Most recent data point
             
             # Cache the result
             self._cache[cache_key] = latest

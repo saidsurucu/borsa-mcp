@@ -12,7 +12,7 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
 🎯 **Temel Özellikler**
 
 * Borsa İstanbul (BIST), Türk yatırım fonları, global kripto para verileri ve döviz/emtia verilerine programatik erişim için kapsamlı bir MCP arayüzü.
-* **40 Araç** ile tam finansal analiz desteği:
+* **41 Araç** ile tam finansal analiz desteği:
     * **Şirket Arama:** 758 BIST şirketi arasında ticker kodu ve şirket adına göre arama (çoklu ticker desteği ile).
     * **Finansal Veriler:** Bilanço, kar-zarar, nakit akışı tabloları ve geçmiş OHLCV verileri.
     * **Teknik Analiz:** RSI, MACD, Bollinger Bantları gibi teknik göstergeler ve al-sat sinyalleri.
@@ -27,13 +27,40 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
     * **Kripto Teknik Analiz:** RSI, MACD, Bollinger Bantları ve al-sat sinyalleri ile hem Türk hem global kripto piyasalar için kapsamlı teknik analiz.
     * **Doviz.com Döviz & Emtia:** 28+ varlık ile döviz kurları (USD, EUR, GBP), kıymetli madenler (altın, gümüş), enerji emtiaları (petrol), yakıt fiyatları (dizel, benzin, LPG).
     * **Gerçek Zamanlı Döviz:** Dakikalık fiyat güncellemeleri ve tarihsel OHLC analizi ile kapsamlı döviz takibi.
-    * **Yahoo Ekonomik Takvim:** GDP, enflasyon, istihdam verileri gibi makroekonomik olaylar ve piyasa etkili ekonomik göstergeler.
+    * **Dovizcom Ekonomik Takvim:** Çoklu ülke desteği ile ekonomik takvim (TR,US varsayılan) - GDP, enflasyon, istihdam verileri ve makroekonomik olaylar.
+    * **Dinamik Token Yönetimi:** Otomatik token çıkarma ve yenileme sistemi ile kesintisiz API erişimi.
     * **Hibrit Veri:** Yahoo Finance + Mynet Finans'tan birleştirilmiş şirket bilgileri.
 * Türk hisse senetleri, endeksler, yatırım fonları ve kripto para için optimize edilmiş veri işleme.
 * **LLM Optimizasyonu:** Domain-özel araç ön ekleri ("BIST STOCKS:", "CRYPTO BtcTurk:", "CRYPTO Coinbase:") ile gelişmiş araç seçimi.
 * **Hızlı İşleme:** Kısa araç açıklamaları ve LLM-dostu dokümantasyon ile optimize edilmiş performans.
 * Claude Desktop uygulaması ile kolay entegrasyon.
 * Borsa MCP, [5ire](https://5ire.app) gibi Claude Desktop haricindeki MCP istemcilerini de destekler.
+
+## 🆕 **Son Güncelleme Özellikleri (Haziran 2025)**
+
+### ✅ **Çoklu Ülke Ekonomik Takvim Desteği**
+- **30+ ülke** için ekonomik olaylar (TR, US, EU, GB, DE, FR, JP, CN vb.)
+- **Esnek filtreleme**: Virgülle ayrılmış ülke kodları (`TR,US,DE`)
+- **Varsayılan TR,US**: Türkiye ve ABD verileri otomatik gösterim
+- **Gerçek zamanlı**: GDP, enflasyon, istihdam, PMI verileri
+
+### ✅ **Dinamik Token Yönetimi Sistemi** 
+- **Otomatik token çıkarma**: Doviz.com web sitesinden programatik token alma
+- **401 hata yönetimi**: Otomatik token yenileme ve tekrar deneme
+- **Kesintisiz erişim**: Bakım gerektirmeyen sürekli API erişimi
+- **Çoklu kaynak desteği**: Calendar ve Asset API'leri için farklı token yönetimi
+
+### ✅ **Yakıt Fiyatları Archive Endpoint Desteği**
+- **Benzin**: 48.89 TL/litre (güncel fiyat)
+- **Diesel**: 50.20 TL/litre (güncel fiyat)
+- **LPG**: 25.59 TL/litre (güncel fiyat)
+- **Archive API**: `/daily` yerine `/archive` endpoint kullanımı
+- **Akıllı fallback**: Daily boşsa otomatik archive deneme
+
+### ✅ **Geliştirilmiş Hata Yönetimi**
+- **Çoklu endpoint desteği**: Asset türüne göre optimal endpoint seçimi
+- **Robust parsing**: Farklı API response formatları için esnek ayrıştırma
+- **Detaylı logging**: Kapsamlı hata takibi ve debugging
 
 ---
 🚀 **Claude Haricindeki Modellerle Kullanmak İçin Çok Kolay Kurulum (Örnek: 5ire için)**
@@ -146,8 +173,8 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_dovizcom_dakikalik`**: Gerçek zamanlı izleme için dakikalık veriler (60 veri noktasına kadar).
 * **`get_dovizcom_arsiv`**: Teknik analiz ve trend araştırması için tarihsel OHLC verileri.
 
-### Yahoo Ekonomik Takvim Araçları
-* **`get_economic_calendar`**: Ekonomik olaylar takvimi (GDP, enflasyon, istihdam verileri) Yahoo Finance'dan.
+### Dovizcom Ekonomik Takvim Araçları
+* **`get_economic_calendar`**: Çoklu ülke ekonomik takvimi (TR,US varsayılan) - GDP, enflasyon, istihdam verileri ve makroekonomik olaylar.
 
 🔍 **Veri Kaynakları & Kapsam**
 
@@ -215,15 +242,18 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Kimlik Doğrulama**: Güvenilir API erişimi için uygun başlık yönetimi ile Bearer token kimlik doğrulaması
 - **Kapsam**: Döviz ticareti, kıymetli maden yatırımı, emtia analizi ve yakıt fiyat takibi için tam finansal piyasalar kapsamı
 
-### Yahoo Finance Ekonomik Takvim
-- **Makroekonomik Olaylar**: GDP, enflasyon, istihdam, sanayi üretimi ve diğer piyasa etkili ekonomik göstergeler
-- **Ülke Kapsamı**: 25+ ülke (US, GB, JP, DE, FR, CA, AU, CN, KR, BR, TR vb.) için ekonomik veri takibi
-- **API Endpoint**: Resmi Yahoo Finance Screeners API (https://query1.finance.yahoo.com/ws/screeners/v1/finance/calendar-events)
-- **Filtreleme Özellikleri**: Ülke bazlı filtreleme, yüksek önem seviyesi seçimi, özelleştirilebilir tarih aralıkları
-- **Veri Detayları**: Gerçek değerler, önceki dönem verileri, tahminler, revizyon bilgileri ve detaylı açıklamalar
-- **Güncelleme Sıklığı**: Gerçek zamanlı ekonomik olay takibi ve piyasa etkisi analizi
-- **Zaman Dilimi Desteği**: Amerika/New_York ana zaman dilimi ile global koordinasyon
-- **Veri Kalitesi**: Yahoo Finance'ın küresel finansal veri ağından profesyonel seviye makroekonomik bilgiler
+### Dovizcom Ekonomik Takvim (Çoklu Ülke Desteği)
+- **Makroekonomik Olaylar**: GDP, enflasyon, istihdam, sanayi üretimi, PMI, işsizlik oranları ve diğer piyasa etkili ekonomik göstergeler
+- **Ülke Kapsamı**: 30+ ülke (TR, US, EU, GB, JP, DE, FR, CA, AU, CN, KR, BR vb.) için ekonomik veri takibi
+- **Çoklu Ülke Filtreleme**: Virgülle ayrılmış ülke kodları ile esnek filtreleme (örn: "TR,US,DE")
+- **Varsayılan Davranış**: Türkiye ve ABD ekonomik olayları (TR,US) varsayılan olarak gösterilir
+- **API Endpoint**: Resmi Doviz.com Economic Calendar API (https://www.doviz.com/calendar/getCalendarEvents)
+- **Filtreleme Özellikleri**: Ülke bazlı filtreleme, önem seviyesi seçimi (yüksek/orta/düşük), özelleştirilebilir tarih aralıkları
+- **Veri Detayları**: Gerçek değerler, önceki dönem verileri, tahminler (mevcut olduğunda), dönem bilgileri Türkçe açıklamalar
+- **Güncelleme Sıklığı**: Gerçek zamanlı ekonomik olay takibi ve uluslararası piyasa etkisi analizi
+- **Zaman Dilimi Desteği**: Avrupa/İstanbul ana zaman dilimi ile Türk saati koordinasyonu
+- **Veri Kalitesi**: Doviz.com'un özelleşmiş finansal veri ağından profesyonel seviye uluslararası makroekonomik bilgiler
+- **Dinamik Token Yönetimi**: Otomatik token yenileme ve kimlik doğrulama yönetimi ile kesintisiz erişim
 
 📊 **Örnek Kullanım**
 
@@ -315,14 +345,17 @@ Dizel, benzin ve LPG fiyatlarının güncel durumunu ve haftalık değişimlerin
 # Yakıt fiyat karşılaştırması
 Son 3 aylık dizel ve benzin fiyat trendlerini karşılaştır ve analiz et
 
-# Haftalık ekonomik takvim
-Bu haftanın önemli ekonomik olaylarını listele ve piyasa etkilerini değerlendir
+# Haftalık ekonomik takvim (çoklu ülke)
+Bu haftanın önemli ekonomik olaylarını TR,US,DE için listele ve piyasa etkilerini değerlendir
 
-# Aylık makroekonomik takip
-Temmuz ayı için US, GB ve JP'nin tüm önemli ekonomik verilerini getir
+# Tek ülke ekonomik takip
+Sadece Almanya'nın bu ayki ekonomik verilerini getir ve analiz et
+
+# Çoklu ülke ekonomik karşılaştırma
+TR,US,GB,FR,DE ülkelerinin bu haftaki tüm ekonomik verilerini karşılaştır
 
 # Ekonomik veri analizi
-Son çeyreğin GDP büyüme verilerini karşılaştır ve trend analizini yap
+Türkiye ve ABD'nin son çeyrek GDP büyüme verilerini karşılaştır ve trend analizini yap
 ```
 
 📜 **Lisans**
