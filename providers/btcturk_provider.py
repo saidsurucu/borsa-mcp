@@ -418,10 +418,41 @@ class BtcTurkProvider:
             response.raise_for_status()
             data = response.json()
             
-            # Graph API returns array directly (no 'data' wrapper)
-            # Limit to last 100 records to prevent MCP response size issues
-            MAX_RECORDS = 100
-            limited_data = data[-MAX_RECORDS:] if len(data) > MAX_RECORDS else data
+            # Calculate time frame for optimization
+            time_frame_days = 30  # Default
+            if from_timestamp and to_timestamp:
+                time_frame_days = (to_timestamp - from_timestamp) / (24 * 60 * 60)
+                
+            # Apply token optimization
+            from token_optimizer import TokenOptimizer
+            original_count = len(data)
+            
+            # Convert to dict format for optimization
+            data_dicts = []
+            for item in data:
+                data_dicts.append({
+                    'timestamp': item.get('time'),
+                    'open': item.get('open'),
+                    'high': item.get('high'),
+                    'low': item.get('low'),
+                    'close': item.get('close'),
+                    'volume': item.get('volume')
+                })
+            
+            optimized_data = TokenOptimizer.optimize_crypto_data(data_dicts, time_frame_days)
+            
+            # Convert back to original format
+            limited_data = []
+            for item in optimized_data:
+                limited_data.append({
+                    'time': item.get('timestamp'),
+                    'open': item.get('open'),
+                    'high': item.get('high'),
+                    'low': item.get('low'),
+                    'close': item.get('close'),
+                    'volume': item.get('volume'),
+                    'pair': pair.upper()
+                })
             
             ohlc_data_list = []
             for ohlc in limited_data:
@@ -442,13 +473,21 @@ class BtcTurkProvider:
                 )
                 ohlc_data_list.append(ohlc_obj)
             
-            return KriptoOHLCSonucu(
+            result = KriptoOHLCSonucu(
                 pair=pair.upper(),
                 ohlc_data=ohlc_data_list,
                 toplam_veri=len(ohlc_data_list),
                 from_time=from_timestamp,
                 to_time=to_timestamp
             )
+            
+            # Add optimization metadata
+            result_dict = result.dict()
+            result_dict = TokenOptimizer.add_optimization_metadata(
+                result_dict, original_count, len(ohlc_data_list), time_frame_days
+            )
+            
+            return KriptoOHLCSonucu(**result_dict)
             
         except Exception as e:
             logger.error(f"Error getting OHLC data for {pair}: {e}")

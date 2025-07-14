@@ -749,11 +749,19 @@ class TefasProvider:
             # Sort by date (newest first)
             price_history.sort(key=lambda x: x['tarih'], reverse=True)
             
+            # Calculate time frame for optimization
+            time_frame_days = (end_dt - start_dt).days
+            
+            # Apply token optimization
+            from token_optimizer import TokenOptimizer
+            original_count = len(price_history)
+            optimized_history = TokenOptimizer.optimize_fund_performance(price_history, time_frame_days)
+            
             # Calculate returns
-            if len(price_history) >= 2:
+            if len(optimized_history) >= 2:
                 # Get first and last prices (sorted newest first)
-                latest_price = price_history[0]['fiyat']
-                oldest_price = price_history[-1]['fiyat']
+                latest_price = optimized_history[0]['fiyat']
+                oldest_price = optimized_history[-1]['fiyat']
                 
                 if oldest_price > 0:
                     total_return = ((latest_price - oldest_price) / oldest_price) * 100
@@ -771,16 +779,23 @@ class TefasProvider:
                 total_return = None
                 annualized_return = None
             
-            return {
+            result = {
                 'fon_kodu': fund_code,
                 'baslangic_tarihi': start_date,
                 'bitis_tarihi': end_date,
-                'fiyat_geçmisi': price_history,
+                'fiyat_geçmisi': optimized_history,
                 'toplam_getiri': total_return,
                 'yillik_getiri': annualized_return,
-                'veri_sayisi': len(price_history),
+                'veri_sayisi': len(optimized_history),
                 'kaynak': 'TEFAS BindHistoryInfo API'
             }
+            
+            # Add optimization metadata
+            result = TokenOptimizer.add_optimization_metadata(
+                result, original_count, len(optimized_history), time_frame_days
+            )
+            
+            return result
             
         except Exception as e:
             logger.error(f"Error getting performance for {fund_code}: {e}")

@@ -127,19 +127,59 @@ class YahooFinanceProvider:
             return {"error": str(e)}
 
     async def get_finansal_veri(self, ticker_kodu: str, period: YFinancePeriodEnum) -> Dict[str, Any]:
-        """Fetches historical OHLCV data."""
+        """Fetches historical OHLCV data with token optimization for long time frames."""
         try:
+            from token_optimizer import TokenOptimizer
+            
             ticker = self._get_ticker(ticker_kodu)
             hist_df = ticker.history(period=period.value)
             if hist_df.empty:
                 return {"veri_noktalari": []}
-            veri_noktalari = [
+            
+            # Convert to list of dictionaries for optimization
+            veri_noktalari = []
+            for index, row in hist_df.iterrows():
+                veri_noktalari.append({
+                    'tarih': index.to_pydatetime(),
+                    'acilis': row['Open'],
+                    'en_yuksek': row['High'],
+                    'en_dusuk': row['Low'],
+                    'kapanis': row['Close'],
+                    'hacim': row['Volume']
+                })
+            
+            # Calculate time frame for optimization
+            period_days_mapping = {
+                '1d': 1, '5d': 5, '1mo': 30, '3mo': 90, '6mo': 180,
+                '1y': 365, '2y': 730, '5y': 1825, 'ytd': 365, 'max': 3650
+            }
+            time_frame_days = period_days_mapping.get(period.value, 365)
+            
+            # Apply token optimization
+            original_count = len(veri_noktalari)
+            optimized_data = TokenOptimizer.optimize_ohlc_data(veri_noktalari, time_frame_days)
+            
+            # Convert optimized data back to Pydantic models
+            optimized_noktalari = [
                 FinansalVeriNoktasi(
-                    tarih=index.to_pydatetime(), acilis=row['Open'], en_yuksek=row['High'], 
-                    en_dusuk=row['Low'], kapanis=row['Close'], hacim=row['Volume']
-                ) for index, row in hist_df.iterrows()
+                    tarih=point['tarih'],
+                    acilis=point['acilis'],
+                    en_yuksek=point['en_yuksek'],
+                    en_dusuk=point['en_dusuk'],
+                    kapanis=point['kapanis'],
+                    hacim=point['hacim']
+                ) for point in optimized_data
             ]
-            return {"veri_noktalari": veri_noktalari}
+            
+            result = {"veri_noktalari": optimized_noktalari}
+            
+            # Add optimization metadata
+            result = TokenOptimizer.add_optimization_metadata(
+                result, original_count, len(optimized_noktalari), time_frame_days
+            )
+            
+            return result
+            
         except Exception as e:
             logger.exception(f"Error fetching historical data from yfinance for {ticker_kodu}")
             return {"error": str(e)}
