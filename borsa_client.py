@@ -66,9 +66,14 @@ class BorsaApiClient:
         await self._http_client.aclose()
         
     # --- KAP Provider Methods ---
-    async def search_companies_from_kap(self, query: str) -> List[SirketInfo]:
+    async def search_companies_from_kap(self, query: str) -> SirketAramaSonucu:
         """Delegates company search to KAPProvider."""
-        return await self.kap_provider.search_companies(query)
+        results = await self.kap_provider.search_companies(query)
+        return SirketAramaSonucu(
+            arama_terimi=query,
+            sonuclar=results,
+            sonuc_sayisi=len(results)
+        )
     
     async def get_katilim_finans_uygunluk(self, ticker_kodu: str) -> Dict[str, Any]:
         """Delegates participation finance compatibility data fetching to KAPProvider."""

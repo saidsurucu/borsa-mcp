@@ -149,7 +149,7 @@ async def get_sirket_profili(
                 from token_optimizer import TokenOptimizer
                 result_dict = result.model_dump()
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
-                return SirketProfiliSonucu(**compacted_dict)
+                return compacted_dict
             
             return result
         else:
@@ -165,7 +165,7 @@ async def get_sirket_profili(
                 from token_optimizer import TokenOptimizer
                 result_dict = result.model_dump()
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
-                return SirketProfiliSonucu(**compacted_dict)
+                return compacted_dict
             
             return result
             
@@ -304,7 +304,8 @@ async def get_finansal_veri(
             else:
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
             
-            return FinansalVeriSonucu(**compacted_dict)
+            # Return the compacted dictionary directly (don't try to create Pydantic model)
+            return compacted_dict
         
         return result
     except Exception as e:
@@ -1171,7 +1172,7 @@ async def get_fund_performance(
             else:
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
             
-            return FonPerformansSonucu(**compacted_dict)
+            return compacted_dict
         
         return result
     except Exception as e:
@@ -1749,7 +1750,7 @@ async def get_kripto_ohlc(
             else:
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
             
-            return KriptoOHLCSonucu(**compacted_dict)
+            return compacted_dict
         
         return result
     except Exception as e:
@@ -1863,7 +1864,7 @@ async def get_kripto_kline(
             else:
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
             
-            return KriptoKlineSonucu(**compacted_dict)
+            return compacted_dict
         
         return result
     except Exception as e:
