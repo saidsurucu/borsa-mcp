@@ -317,10 +317,28 @@ async def get_finansal_veri(
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
             
             # Create a new model instance with the compacted data but preserve required fields
+            # Transform the nested data points back to original field names
+            data_points = compacted_dict.get("data_points", [])
+            transformed_data = []
+            for point in data_points:
+                if isinstance(point, dict):
+                    # Transform compacted field names back to original Turkish names
+                    transformed_point = {
+                        "tarih": point.get("date", point.get("tarih")),
+                        "acilis": point.get("open", point.get("acilis")),
+                        "en_yuksek": point.get("high", point.get("en_yuksek")),
+                        "en_dusuk": point.get("low", point.get("en_dusuk")),
+                        "kapanis": point.get("close", point.get("kapanis")),
+                        "hacim": point.get("volume", point.get("hacim"))
+                    }
+                    transformed_data.append(transformed_point)
+                else:
+                    transformed_data.append(point)
+            
             return FinansalVeriSonucu(
                 ticker_kodu=compacted_dict.get("ticker", ticker_kodu),
                 zaman_araligi=compacted_dict.get("period", zaman_araligi), 
-                veri_noktalari=compacted_dict.get("data", []),
+                veri_noktalari=transformed_data,
                 error_message=compacted_dict.get("error_message")
             )
         

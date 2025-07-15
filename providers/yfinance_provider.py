@@ -155,7 +155,9 @@ class YahooFinanceProvider:
                 '1d': 1, '5d': 5, '1mo': 30, '3mo': 90, '6mo': 180,
                 '1y': 365, '2y': 730, '5y': 1825, 'ytd': 365, 'max': 3650
             }
-            time_frame_days = period_days_mapping.get(period.value, 365)
+            # Handle both enum and string values for period
+            period_value = period.value if hasattr(period, 'value') else period
+            time_frame_days = period_days_mapping.get(period_value, 365)
             
             # Apply token optimization
             original_count = len(veri_noktalari)
