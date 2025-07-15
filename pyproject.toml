@@ -30,5 +30,5 @@ where = ["."]
 include = ["providers*", "models*"]
 
 [tool.setuptools]
-py-modules = ["borsa_mcp_server", "borsa_client", "borsa_models", "fon_mevzuat_kisa"]
+py-modules = ["borsa_mcp_server", "borsa_client", "borsa_models", "fon_mevzuat_kisa", "token_optimizer", "compact_json_optimizer", "array_format_optimizer"]
 include-package-data = true
