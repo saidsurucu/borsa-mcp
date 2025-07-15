@@ -458,3 +458,25 @@ class TokenOptimizer:
             logger.error(f"Error optimizing trade data: {e}")
             return trades[:max_trades]
     
+    @staticmethod
+    def apply_compact_format(data: Any, format_type: str = "full") -> Any:
+        """
+        Apply compact JSON format if requested.
+        
+        Args:
+            data: The data structure to potentially compact
+            format_type: "full" or "compact"
+            
+        Returns:
+            Compacted data if format_type is "compact", otherwise original data
+        """
+        if format_type == "compact":
+            try:
+                from compact_json_optimizer import CompactJSONOptimizer
+                return CompactJSONOptimizer.apply_compact_optimizations(data)
+            except ImportError:
+                logger.warning("CompactJSONOptimizer not available, returning original data")
+                return data
+        
+        return data
+    

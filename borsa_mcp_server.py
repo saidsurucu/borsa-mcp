@@ -74,6 +74,7 @@ StatementPeriodLiteral = Literal["annual", "quarterly"]
 FundCategoryLiteral = Literal["all", "debt", "variable", "basket", "guaranteed", "real_estate", "venture", "equity", "mixed", "participation", "precious_metals", "money_market", "flexible"]
 CryptoCurrencyLiteral = Literal["TRY", "USDT", "BTC", "ETH", "USD", "EUR"]
 DovizcomAssetLiteral = Literal["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "gram-altin", "gumus", "ons", "XAG-USD", "XPT-USD", "XPD-USD", "BRENT", "WTI", "diesel", "gasoline", "lpg"]
+ResponseFormatLiteral = Literal["full", "compact"]
 
 @app.tool(
     description="BIST STOCKS: Search companies by name to find ticker codes. STOCKS ONLY - use get_kripto_exchange_info for crypto.",
@@ -114,7 +115,11 @@ async def get_sirket_profili(
     mynet_detaylari: Annotated[bool, Field(
         description="Include Turkish details: management, shareholders, subsidiaries. False=faster response.",
         default=False
-    )] = False
+    )] = False,
+    format: Annotated[ResponseFormatLiteral, Field(
+        description="Response format: 'full' for complete data, 'compact' for shortened field names and reduced size.",
+        default="full"
+    )] = "full"
 ) -> SirketProfiliSonucu:
     """
     Get company profile with financial metrics, sector, business info. Optional Turkish details.
@@ -131,19 +136,38 @@ async def get_sirket_profili(
                 return SirketProfiliSonucu(ticker_kodu=ticker_kodu, bilgiler=None, error_message=data["error"])
             
             # Return hybrid result structure
-            return SirketProfiliSonucu(
+            result = SirketProfiliSonucu(
                 ticker_kodu=ticker_kodu, 
                 bilgiler=data.get("yahoo_data", {}).get("bilgiler"),
                 mynet_bilgileri=data.get("mynet_data", {}).get("bilgiler"),
                 veri_kalitesi=data.get("veri_kalitesi"),
                 kaynak="hibrit"
             )
+            
+            # Apply compact format if requested
+            if format == "compact":
+                from token_optimizer import TokenOptimizer
+                result_dict = result.model_dump()
+                compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
+                return SirketProfiliSonucu(**compacted_dict)
+            
+            return result
         else:
             # Standard Yahoo Finance only approach
             data = await borsa_client.get_sirket_bilgileri_yfinance(ticker_kodu)
             if data.get("error"):
                 return SirketProfiliSonucu(ticker_kodu=ticker_kodu, bilgiler=None, error_message=data["error"])
-            return SirketProfiliSonucu(ticker_kodu=ticker_kodu, bilgiler=data.get("bilgiler"), kaynak="yahoo")
+            
+            result = SirketProfiliSonucu(ticker_kodu=ticker_kodu, bilgiler=data.get("bilgiler"), kaynak="yahoo")
+            
+            # Apply compact format if requested
+            if format == "compact":
+                from token_optimizer import TokenOptimizer
+                result_dict = result.model_dump()
+                compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
+                return SirketProfiliSonucu(**compacted_dict)
+            
+            return result
             
     except Exception as e:
         logger.exception(f"Error in tool 'get_sirket_profili' for ticker {ticker_kodu}.")
@@ -232,7 +256,11 @@ async def get_finansal_veri(
     zaman_araligi: Annotated[YFinancePeriodLiteral, Field(
         description="Time period: 1d/5d/1mo/3mo/6mo/1y/2y/5y/ytd/max. Trading=1d-1mo, analysis=3mo-1y, trends=2y-max.",
         default="1mo"
-    )] = "1mo"
+    )] = "1mo",
+    format: Annotated[ResponseFormatLiteral, Field(
+        description="Response format: 'full' for complete data, 'compact' for shortened field names and reduced size.",
+        default="full"
+    )] = "full"
 ) -> FinansalVeriSonucu:
     """
     Get historical OHLCV price data for BIST stocks and indices. For charts and returns.
@@ -247,11 +275,20 @@ async def get_finansal_veri(
         if data.get("error"):
             return FinansalVeriSonucu(ticker_kodu=ticker_kodu, zaman_araligi=zaman_araligi_enum, veri_noktalari=[], error_message=data["error"])
         
-        return FinansalVeriSonucu(
+        result = FinansalVeriSonucu(
             ticker_kodu=ticker_kodu,
             zaman_araligi=zaman_araligi_enum,
             veri_noktalari=data.get("veri_noktalari", [])
         )
+        
+        # Apply compact format if requested
+        if format == "compact":
+            from token_optimizer import TokenOptimizer
+            result_dict = result.model_dump()
+            compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
+            return FinansalVeriSonucu(**compacted_dict)
+        
+        return result
     except Exception as e:
         logger.exception(f"Error in tool 'get_finansal_veri' for ticker {ticker_kodu}.")
         return FinansalVeriSonucu(ticker_kodu=ticker_kodu, zaman_araligi=YFinancePeriodEnum(zaman_araligi), veri_noktalari=[], error_message=f"An unexpected error occurred: {str(e)}")
