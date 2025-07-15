@@ -168,7 +168,6 @@ class FinansalVeriSonucu(BaseModel):
     ticker_kodu: str = Field(description="The ticker code of the stock.")
     zaman_araligi: YFinancePeriodEnum = Field(description="The time range requested for the data.")
     veri_noktalari: List[FinansalVeriNoktasi] = Field(description="The list of historical data points.")
-    optimizasyon_bilgisi: Optional[Dict[str, Any]] = Field(None, description="Token optimization metadata.")
     error_message: Optional[str] = Field(None, description="Error message if the operation failed.")
 
 # --- Analyst Data Models ---
@@ -760,7 +759,6 @@ class FonPerformansSonucu(BaseModel):
     yillik_getiri: Optional[float] = Field(None, description="Annualized return (%).")
     veri_sayisi: int = Field(description="Number of data points.")
     kaynak: Optional[str] = Field(None, description="Data source API used.")
-    optimizasyon_bilgisi: Optional[Dict[str, Any]] = Field(None, description="Token optimization metadata.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
 class PortfoyVarlik(BaseModel):
@@ -1165,7 +1163,6 @@ class KriptoOHLCSonucu(BaseModel):
     toplam_veri: int = Field(description="Total number of data points.")
     from_time: Optional[int] = Field(None, description="Start time filter.")
     to_time: Optional[int] = Field(None, description="End time filter.")
-    optimizasyon_bilgisi: Optional[Dict[str, Any]] = Field(None, description="Token optimization metadata.")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
 class KriptoKline(BaseModel):

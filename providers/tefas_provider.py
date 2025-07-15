@@ -362,10 +362,15 @@ class TefasProvider:
             # Limit results
             limited_funds = matching_funds[:limit]
             
+            # Apply token optimization to fund search results
+            from token_optimizer import TokenOptimizer
+            original_count = len(matching_funds)
+            optimized_funds = TokenOptimizer.optimize_fund_search_results(matching_funds, limit)
+            
             return {
                 'arama_terimi': search_term,
-                'sonuclar': limited_funds,
-                'sonuc_sayisi': len(limited_funds),
+                'sonuclar': optimized_funds,
+                'sonuc_sayisi': len(optimized_funds),
                 'toplam_bulunan': len(matching_funds),
                 'kaynak': 'TEFAS BindComparisonFundReturns API',
                 'fund_type': fund_type,
@@ -779,7 +784,7 @@ class TefasProvider:
                 total_return = None
                 annualized_return = None
             
-            result = {
+            return {
                 'fon_kodu': fund_code,
                 'baslangic_tarihi': start_date,
                 'bitis_tarihi': end_date,
@@ -789,13 +794,6 @@ class TefasProvider:
                 'veri_sayisi': len(optimized_history),
                 'kaynak': 'TEFAS BindHistoryInfo API'
             }
-            
-            # Add optimization metadata
-            result = TokenOptimizer.add_optimization_metadata(
-                result, original_count, len(optimized_history), time_frame_days
-            )
-            
-            return result
             
         except Exception as e:
             logger.error(f"Error getting performance for {fund_code}: {e}")

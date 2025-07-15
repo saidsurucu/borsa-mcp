@@ -171,14 +171,7 @@ class YahooFinanceProvider:
                 ) for point in optimized_data
             ]
             
-            result = {"veri_noktalari": optimized_noktalari}
-            
-            # Add optimization metadata
-            result = TokenOptimizer.add_optimization_metadata(
-                result, original_count, len(optimized_noktalari), time_frame_days
-            )
-            
-            return result
+            return {"veri_noktalari": optimized_noktalari}
             
         except Exception as e:
             logger.exception(f"Error fetching historical data from yfinance for {ticker_kodu}")

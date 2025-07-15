@@ -158,6 +158,11 @@ class BtcTurkProvider:
             # Parse trading pairs
             trading_pairs = []
             symbols_data = data.get('data', {}).get('symbols', [])
+            
+            # Apply token optimization for large datasets
+            from token_optimizer import TokenOptimizer
+            original_symbols_count = len(symbols_data)
+            
             for symbol in symbols_data:
                 trading_pair = TradingPair(
                     id=symbol.get('id'),
@@ -180,6 +185,8 @@ class BtcTurkProvider:
             # Parse currencies
             currencies = []
             currencies_data = data.get('data', {}).get('currencies', [])
+            original_currencies_count = len(currencies_data)
+            
             for currency in currencies_data:
                 currency_obj = Currency(
                     id=currency.get('id'),
@@ -198,6 +205,45 @@ class BtcTurkProvider:
                 )
                 currencies.append(currency_obj)
             
+            # Optimize crypto exchange info
+            optimized_pairs_data = []
+            for pair in trading_pairs:
+                optimized_pairs_data.append({
+                    'symbol': pair.name,
+                    'name': pair.name,
+                    'status': pair.status,
+                    'numerator': pair.numerator,
+                    'denominator': pair.denominator
+                })
+            
+            optimized_currencies_data = []
+            for currency in currencies:
+                optimized_currencies_data.append({
+                    'symbol': currency.symbol,
+                    'name': currency.name,
+                    'currency_type': currency.currency_type
+                })
+            
+            # Apply optimization
+            optimized_pairs_data, optimized_currencies_data = TokenOptimizer.optimize_crypto_exchange_info(
+                optimized_pairs_data, optimized_currencies_data
+            )
+            
+            # Convert back to model objects
+            optimized_pairs = []
+            for pair_data in optimized_pairs_data:
+                # Find original pair object
+                original_pair = next((p for p in trading_pairs if p.name == pair_data['symbol']), None)
+                if original_pair:
+                    optimized_pairs.append(original_pair)
+            
+            optimized_currencies = []
+            for curr_data in optimized_currencies_data:
+                # Find original currency object
+                original_currency = next((c for c in currencies if c.symbol == curr_data['symbol']), None)
+                if original_currency:
+                    optimized_currencies.append(original_currency)
+            
             # Parse currency operation blocks
             operation_blocks = []
             blocks_data = data.get('data', {}).get('currencyOperationBlocks', [])
@@ -210,11 +256,11 @@ class BtcTurkProvider:
                 operation_blocks.append(operation_block)
             
             return KriptoExchangeInfoSonucu(
-                trading_pairs=trading_pairs,
-                currencies=currencies,
+                trading_pairs=optimized_pairs,
+                currencies=optimized_currencies,
                 currency_operation_blocks=operation_blocks,
-                toplam_cift=len(trading_pairs),
-                toplam_para_birimi=len(currencies)
+                toplam_cift=len(optimized_pairs),
+                toplam_para_birimi=len(optimized_currencies)
             )
             
         except Exception as e:
@@ -366,10 +412,35 @@ class BtcTurkProvider:
                 )
                 trades.append(trade_obj)
             
+            # Apply token optimization to trade data
+            from token_optimizer import TokenOptimizer
+            original_count = len(trades)
+            
+            # Convert to dict format for optimization
+            trades_dict_list = []
+            for trade in trades:
+                trades_dict_list.append({
+                    'timestamp': trade.date,
+                    'tid': trade.tid,
+                    'price': trade.price,
+                    'amount': trade.amount,
+                    'pair': trade.pair
+                })
+            
+            optimized_trades_dict = TokenOptimizer.optimize_trade_data(trades_dict_list, last)
+            
+            # Convert back to model objects
+            optimized_trades = []
+            for trade_dict in optimized_trades_dict:
+                # Find original trade object
+                original_trade = next((t for t in trades if t.tid == trade_dict.get('tid')), None)
+                if original_trade:
+                    optimized_trades.append(original_trade)
+            
             return KriptoTradesSonucu(
                 pair_symbol=pair_symbol.upper(),
-                trades=trades,
-                toplam_islem=len(trades)
+                trades=optimized_trades,
+                toplam_islem=len(optimized_trades)
             )
             
         except Exception as e:
@@ -473,21 +544,13 @@ class BtcTurkProvider:
                 )
                 ohlc_data_list.append(ohlc_obj)
             
-            result = KriptoOHLCSonucu(
+            return KriptoOHLCSonucu(
                 pair=pair.upper(),
                 ohlc_data=ohlc_data_list,
                 toplam_veri=len(ohlc_data_list),
                 from_time=from_timestamp,
                 to_time=to_timestamp
             )
-            
-            # Add optimization metadata
-            result_dict = result.dict()
-            result_dict = TokenOptimizer.add_optimization_metadata(
-                result_dict, original_count, len(ohlc_data_list), time_frame_days
-            )
-            
-            return KriptoOHLCSonucu(**result_dict)
             
         except Exception as e:
             logger.error(f"Error getting OHLC data for {pair}: {e}")

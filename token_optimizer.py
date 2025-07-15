@@ -271,30 +271,190 @@ class TokenOptimizer:
             return 30  # Default to 30 days
     
     @staticmethod
-    def add_optimization_metadata(result: Dict[str, Any], original_count: int, optimized_count: int, 
-                                 time_frame_days: int) -> Dict[str, Any]:
+    def optimize_list_data(data_list: List[Dict[str, Any]], max_items: int = 50, 
+                          sort_key: str = None, sort_reverse: bool = True) -> List[Dict[str, Any]]:
         """
-        Add optimization metadata to result.
+        Optimize list data by limiting items and sorting by relevance.
         
         Args:
-            result: Original result dictionary
-            original_count: Original data point count
-            optimized_count: Optimized data point count
-            time_frame_days: Time frame duration
+            data_list: List of data items
+            max_items: Maximum number of items to return
+            sort_key: Key to sort by (optional)
+            sort_reverse: Sort in reverse order (default: True)
             
         Returns:
-            Dict: Result with optimization metadata
+            List[Dict]: Optimized list
         """
-        if 'optimizasyon_bilgisi' not in result:
-            result['optimizasyon_bilgisi'] = {}
+        if not data_list or len(data_list) <= max_items:
+            return data_list
         
-        result['optimizasyon_bilgisi'].update({
-            'optimizasyon_yapildi': original_count != optimized_count,
-            'orijinal_veri_sayisi': original_count,
-            'optimize_veri_sayisi': optimized_count,
-            'zaman_araligi_gun': time_frame_days,
-            'ornekleme_frekansi': TokenOptimizer.get_sampling_frequency(time_frame_days),
-            'token_tasarrufu_yuzdesi': round(((original_count - optimized_count) / original_count) * 100, 1) if original_count > 0 else 0
-        })
+        try:
+            # Sort if sort_key is provided
+            if sort_key:
+                sorted_list = sorted(data_list, 
+                                   key=lambda x: x.get(sort_key, 0) if isinstance(x.get(sort_key), (int, float)) else 0,
+                                   reverse=sort_reverse)
+            else:
+                sorted_list = data_list
+            
+            # Limit to max_items
+            optimized_list = sorted_list[:max_items]
+            
+            logger.info(f"Optimized list data: {len(data_list)} -> {len(optimized_list)} items")
+            return optimized_list
+            
+        except Exception as e:
+            logger.error(f"Error optimizing list data: {e}")
+            return data_list[:max_items]  # Fallback to simple truncation
+    
+    @staticmethod
+    def optimize_crypto_exchange_info(trading_pairs: List[Dict[str, Any]], 
+                                     currencies: List[Dict[str, Any]]) -> tuple:
+        """
+        Optimize crypto exchange info by filtering popular pairs and currencies.
         
-        return result
+        Args:
+            trading_pairs: List of trading pairs
+            currencies: List of currencies
+            
+        Returns:
+            tuple: (optimized_pairs, optimized_currencies)
+        """
+        try:
+            # Priority currencies (TRY, USDT, USD, EUR, BTC, ETH)
+            priority_currencies = {'TRY', 'USDT', 'USD', 'EUR', 'BTC', 'ETH'}
+            
+            # Filter priority currencies first
+            priority_curr_list = [c for c in currencies 
+                                if c.get('symbol', '').upper() in priority_currencies]
+            
+            # Add remaining currencies up to limit
+            remaining_currencies = [c for c in currencies 
+                                  if c.get('symbol', '').upper() not in priority_currencies]
+            
+            max_currencies = 30
+            optimized_currencies = priority_curr_list + remaining_currencies[:max_currencies-len(priority_curr_list)]
+            
+            # Filter trading pairs for popular combinations
+            popular_pairs = []
+            other_pairs = []
+            
+            for pair in trading_pairs:
+                pair_symbol = pair.get('symbol', '').upper()
+                
+                # Priority pairs (TRY, USDT markets)
+                if ('TRY' in pair_symbol or 'USDT' in pair_symbol or 
+                    'BTC' in pair_symbol or 'ETH' in pair_symbol):
+                    popular_pairs.append(pair)
+                else:
+                    other_pairs.append(pair)
+            
+            # Limit popular pairs and add others
+            max_pairs = 100
+            optimized_pairs = popular_pairs[:max_pairs//2] + other_pairs[:max_pairs//2]
+            
+            logger.info(f"Optimized crypto exchange info: {len(trading_pairs)} -> {len(optimized_pairs)} pairs, "
+                       f"{len(currencies)} -> {len(optimized_currencies)} currencies")
+            
+            return optimized_pairs, optimized_currencies
+            
+        except Exception as e:
+            logger.error(f"Error optimizing crypto exchange info: {e}")
+            return trading_pairs[:100], currencies[:30]  # Fallback limits
+    
+    @staticmethod
+    def optimize_fund_search_results(funds: List[Dict[str, Any]], max_funds: int = 20) -> List[Dict[str, Any]]:
+        """
+        Optimize fund search results by sorting by performance and limiting results.
+        
+        Args:
+            funds: List of fund data
+            max_funds: Maximum number of funds to return
+            
+        Returns:
+            List[Dict]: Optimized fund list
+        """
+        if not funds or len(funds) <= max_funds:
+            return funds
+        
+        try:
+            # Sort by 1-year performance (getiri_1_yil) if available
+            def get_performance_key(fund):
+                perf = fund.get('getiri_1_yil') or fund.get('getiri_1_y') or 0
+                return float(perf) if isinstance(perf, (int, float, str)) and str(perf).replace('.', '').replace('-', '').isdigit() else 0
+            
+            sorted_funds = sorted(funds, key=get_performance_key, reverse=True)
+            optimized_funds = sorted_funds[:max_funds]
+            
+            logger.info(f"Optimized fund search: {len(funds)} -> {len(optimized_funds)} funds")
+            return optimized_funds
+            
+        except Exception as e:
+            logger.error(f"Error optimizing fund search results: {e}")
+            return funds[:max_funds]  # Fallback to simple truncation
+    
+    @staticmethod
+    def optimize_news_data(news_items: List[Dict[str, Any]], max_items: int = 10) -> List[Dict[str, Any]]:
+        """
+        Optimize news data by limiting items and truncating long titles.
+        
+        Args:
+            news_items: List of news items
+            max_items: Maximum number of news items
+            
+        Returns:
+            List[Dict]: Optimized news list
+        """
+        if not news_items or len(news_items) <= max_items:
+            return news_items
+        
+        try:
+            # Limit news items
+            limited_news = news_items[:max_items]
+            
+            # Truncate long titles
+            MAX_TITLE_LENGTH = 100
+            for item in limited_news:
+                if 'baslik' in item and len(item['baslik']) > MAX_TITLE_LENGTH:
+                    item['baslik'] = item['baslik'][:MAX_TITLE_LENGTH] + '...'
+                if 'title' in item and len(item['title']) > MAX_TITLE_LENGTH:
+                    item['title'] = item['title'][:MAX_TITLE_LENGTH] + '...'
+            
+            logger.info(f"Optimized news data: {len(news_items)} -> {len(limited_news)} items")
+            return limited_news
+            
+        except Exception as e:
+            logger.error(f"Error optimizing news data: {e}")
+            return news_items[:max_items]
+    
+    @staticmethod
+    def optimize_trade_data(trades: List[Dict[str, Any]], max_trades: int = 50) -> List[Dict[str, Any]]:
+        """
+        Optimize trade data by limiting to most recent trades.
+        
+        Args:
+            trades: List of trade data
+            max_trades: Maximum number of trades
+            
+        Returns:
+            List[Dict]: Optimized trade list
+        """
+        if not trades or len(trades) <= max_trades:
+            return trades
+        
+        try:
+            # Sort by timestamp/date (most recent first)
+            def get_timestamp_key(trade):
+                return (trade.get('timestamp') or trade.get('tarih') or 
+                       trade.get('date') or trade.get('time') or 0)
+            
+            sorted_trades = sorted(trades, key=get_timestamp_key, reverse=True)
+            optimized_trades = sorted_trades[:max_trades]
+            
+            logger.info(f"Optimized trade data: {len(trades)} -> {len(optimized_trades)} trades")
+            return optimized_trades
+            
+        except Exception as e:
+            logger.error(f"Error optimizing trade data: {e}")
+            return trades[:max_trades]
+    

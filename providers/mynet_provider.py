@@ -126,7 +126,7 @@ class MynetProvider:
                 return {"error": "KAP news list not found."}
             
             haberler = []
-            news_items = news_list.find_all("li")[:limit]  # Limit the number of news items
+            news_items = news_list.find_all("li")  # Get all news items first
             
             for item in news_items:
                 link_tag = item.find("a")
@@ -147,10 +147,15 @@ class MynetProvider:
                     }
                     haberler.append(haber)
             
+            # Apply token optimization to news data
+            from token_optimizer import TokenOptimizer
+            original_count = len(haberler)
+            optimized_haberler = TokenOptimizer.optimize_news_data(haberler, limit)
+            
             return {
                 "ticker_kodu": ticker_kodu,
-                "kap_haberleri": haberler,
-                "toplam_haber": len(haberler),
+                "kap_haberleri": optimized_haberler,
+                "toplam_haber": len(optimized_haberler),
                 "kaynak_url": target_url
             }
             
