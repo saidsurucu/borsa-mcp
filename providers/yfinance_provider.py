@@ -132,7 +132,9 @@ class YahooFinanceProvider:
             from token_optimizer import TokenOptimizer
             
             ticker = self._get_ticker(ticker_kodu)
-            hist_df = ticker.history(period=period.value)
+            # Handle both enum and string periods
+            period_value = period.value if hasattr(period, 'value') else period
+            hist_df = ticker.history(period=period_value)
             if hist_df.empty:
                 return {"veri_noktalari": []}
             

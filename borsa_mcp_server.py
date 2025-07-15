@@ -260,7 +260,11 @@ async def get_finansal_veri(
     format: Annotated[ResponseFormatLiteral, Field(
         description="Response format: 'full' for complete data, 'compact' for shortened field names and reduced size.",
         default="full"
-    )] = "full"
+    )] = "full",
+    array_format: Annotated[bool, Field(
+        description="Use ultra-compact array format for OHLCV data. Saves 60-70% tokens. Format: [date, open, high, low, close, volume].",
+        default=False
+    )] = False
 ) -> FinansalVeriSonucu:
     """
     Get historical OHLCV price data for BIST stocks and indices. For charts and returns.
@@ -282,10 +286,24 @@ async def get_finansal_veri(
         )
         
         # Apply compact format if requested
-        if format == "compact":
+        if format == "compact" or array_format:
             from token_optimizer import TokenOptimizer
             result_dict = result.model_dump()
-            compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
+            
+            # Apply array format optimization if requested
+            if array_format:
+                from compact_json_optimizer import CompactJSONOptimizer
+                compacted_dict = CompactJSONOptimizer.apply_compact_optimizations(
+                    result_dict, 
+                    remove_nulls=True,
+                    shorten_fields=(format == "compact"),
+                    shorten_enums=(format == "compact"),
+                    optimize_numbers=True,
+                    array_format=array_format
+                )
+            else:
+                compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
+            
             return FinansalVeriSonucu(**compacted_dict)
         
         return result
@@ -1055,7 +1073,15 @@ async def get_fund_detail(
 async def get_fund_performance(
     fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB', 'AAK')."),
     start_date: str = Field(None, description="Start date in YYYY-MM-DD format (default: 1 year ago). Example: '2024-01-01'"),
-    end_date: str = Field(None, description="End date in YYYY-MM-DD format (default: today). Example: '2024-12-31'")
+    end_date: str = Field(None, description="End date in YYYY-MM-DD format (default: today). Example: '2024-12-31'"),
+    format: Annotated[ResponseFormatLiteral, Field(
+        description="Response format: 'full' for complete data, 'compact' for shortened field names and reduced size.",
+        default="full"
+    )] = "full",
+    array_format: Annotated[bool, Field(
+        description="Use ultra-compact array format for performance data. Saves 60-70% tokens. Format: [date, price, portfolio_value, shares, investors].",
+        default=False
+    )] = False
 ) -> FonPerformansSonucu:
     """
     Fetches historical performance data for a Turkish mutual fund using official TEFAS BindHistoryInfo API.
@@ -1124,7 +1150,30 @@ async def get_fund_performance(
         raise ToolError("Fund code cannot be empty")
     
     try:
-        return await borsa_client.get_fund_performance(fund_code.strip().upper(), start_date, end_date)
+        result = await borsa_client.get_fund_performance(fund_code.strip().upper(), start_date, end_date)
+        
+        # Apply optimization if requested
+        if format == "compact" or array_format:
+            from token_optimizer import TokenOptimizer
+            result_dict = result.model_dump()
+            
+            # Apply array format optimization if requested
+            if array_format:
+                from compact_json_optimizer import CompactJSONOptimizer
+                compacted_dict = CompactJSONOptimizer.apply_compact_optimizations(
+                    result_dict, 
+                    remove_nulls=True,
+                    shorten_fields=(format == "compact"),
+                    shorten_enums=(format == "compact"),
+                    optimize_numbers=True,
+                    array_format=array_format
+                )
+            else:
+                compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
+            
+            return FonPerformansSonucu(**compacted_dict)
+        
+        return result
     except Exception as e:
         logger.exception(f"Error in tool 'get_fund_performance' for fund_code '{fund_code}'.")
         return FonPerformansSonucu(
@@ -1621,7 +1670,15 @@ async def get_kripto_ohlc(
     to_time: Annotated[str, Field(
         description="End time: Unix timestamp or human-readable date (2025-01-02, 2025-01-02 16:00:00). Optional, defaults to now.",
         examples=["2025-01-02", "2025-01-02 16:00:00", "1704153600"]
-    )] = None
+    )] = None,
+    format: Annotated[ResponseFormatLiteral, Field(
+        description="Response format: 'full' for complete data, 'compact' for shortened field names and reduced size.",
+        default="full"
+    )] = "full",
+    array_format: Annotated[bool, Field(
+        description="Use ultra-compact array format for OHLCV data. Saves 60-70% tokens. Format: [timestamp, open, high, low, close, volume].",
+        default=False
+    )] = False
 ) -> KriptoOHLCSonucu:
     """
     Get OHLC (Open, High, Low, Close) data for cryptocurrency charting and technical analysis.
@@ -1671,7 +1728,30 @@ async def get_kripto_ohlc(
     """
     logger.info(f"Tool 'get_kripto_ohlc' called with pair='{pair}', from_time={from_time}, to_time={to_time}")
     try:
-        return await borsa_client.get_kripto_ohlc(pair, from_time, to_time)
+        result = await borsa_client.get_kripto_ohlc(pair, from_time, to_time)
+        
+        # Apply optimization if requested
+        if format == "compact" or array_format:
+            from token_optimizer import TokenOptimizer
+            result_dict = result.model_dump()
+            
+            # Apply array format optimization if requested
+            if array_format:
+                from compact_json_optimizer import CompactJSONOptimizer
+                compacted_dict = CompactJSONOptimizer.apply_compact_optimizations(
+                    result_dict, 
+                    remove_nulls=True,
+                    shorten_fields=(format == "compact"),
+                    shorten_enums=(format == "compact"),
+                    optimize_numbers=True,
+                    array_format=array_format
+                )
+            else:
+                compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
+            
+            return KriptoOHLCSonucu(**compacted_dict)
+        
+        return result
     except Exception as e:
         logger.exception("Error in tool 'get_kripto_ohlc'")
         return KriptoOHLCSonucu(
@@ -1702,7 +1782,15 @@ async def get_kripto_kline(
     to_time: Annotated[str, Field(
         description="End time: Unix timestamp or human-readable date (2025-01-02, 2025-01-02 16:00:00). Optional, defaults to now.",
         examples=["2025-01-02", "2025-01-02 16:00:00", "1704153600"] 
-    )] = None
+    )] = None,
+    format: Annotated[ResponseFormatLiteral, Field(
+        description="Response format: 'full' for complete data, 'compact' for shortened field names and reduced size.",
+        default="full"
+    )] = "full",
+    array_format: Annotated[bool, Field(
+        description="Use ultra-compact array format for OHLCV data. Saves 60-70% tokens. Format: [timestamp, open, high, low, close, volume].",
+        default=False
+    )] = False
 ) -> KriptoKlineSonucu:
     """
     Get Kline (candlestick) data for advanced cryptocurrency charting and technical analysis.
@@ -1754,7 +1842,30 @@ async def get_kripto_kline(
     """
     logger.info(f"Tool 'get_kripto_kline' called with symbol='{symbol}', resolution='{resolution}', from_time={from_time}, to_time={to_time}")
     try:
-        return await borsa_client.get_kripto_kline(symbol, resolution, from_time, to_time)
+        result = await borsa_client.get_kripto_kline(symbol, resolution, from_time, to_time)
+        
+        # Apply optimization if requested
+        if format == "compact" or array_format:
+            from token_optimizer import TokenOptimizer
+            result_dict = result.model_dump()
+            
+            # Apply array format optimization if requested
+            if array_format:
+                from compact_json_optimizer import CompactJSONOptimizer
+                compacted_dict = CompactJSONOptimizer.apply_compact_optimizations(
+                    result_dict, 
+                    remove_nulls=True,
+                    shorten_fields=(format == "compact"),
+                    shorten_enums=(format == "compact"),
+                    optimize_numbers=True,
+                    array_format=array_format
+                )
+            else:
+                compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
+            
+            return KriptoKlineSonucu(**compacted_dict)
+        
+        return result
     except Exception as e:
         logger.exception("Error in tool 'get_kripto_kline'")
         return KriptoKlineSonucu(

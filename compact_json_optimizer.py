@@ -83,7 +83,33 @@ class CompactJSONOptimizer:
         "base_currency": "base",
         "guncel_fiyat": "current_price",
         "degisim_yuzdesi": "change_pct",
-        "degisim_miktari": "change_amt"
+        "degisim_miktari": "change_amt",
+        "pair_symbol": "pair",
+        "ohlc_data": "ohlc",
+        "kline_data": "kline",
+        "klines": "klines",
+        "resolution": "res",
+        "total_periods": "periods",
+        "total_candles": "candles",
+        "from_timestamp": "from",
+        "to_timestamp": "to",
+        "from_time": "from",
+        "to_time": "to",
+        "toplam_veri": "total",
+        "toplam_islem": "total",
+        
+        # Fund data
+        "fiyat_noktalari": "prices",
+        "performans_noktalari": "perf",
+        "baslangic_tarihi": "start",
+        "bitis_tarihi": "end",
+        "toplam_getiri": "total_return",
+        "yillik_getiri": "annual_return",
+        "en_yuksek_fiyat": "max_price",
+        "en_dusuk_fiyat": "min_price",
+        "volatilite": "volatility",
+        "veri_nokta_sayisi": "data_count",
+        "kaynak": "source"
     }
     
     # Enum value mappings for compact format
@@ -225,7 +251,8 @@ class CompactJSONOptimizer:
                                   remove_nulls: bool = True,
                                   shorten_fields: bool = True,
                                   shorten_enums: bool = True,
-                                  optimize_numbers: bool = True) -> Any:
+                                  optimize_numbers: bool = True,
+                                  array_format: bool = False) -> Any:
         """
         Apply all compact JSON optimizations to the data.
         
@@ -235,11 +262,16 @@ class CompactJSONOptimizer:
             shorten_fields: Whether to shorten field names
             shorten_enums: Whether to shorten enum values
             optimize_numbers: Whether to optimize numeric precision
+            array_format: Whether to convert OHLCV data to array format
             
         Returns:
             Optimized data structure
         """
         result = data
+        
+        # Apply array format optimization first (most impactful)
+        if array_format:
+            result = CompactJSONOptimizer.apply_array_format_optimization(result)
         
         if remove_nulls:
             result = CompactJSONOptimizer.remove_null_values(result)
@@ -254,6 +286,43 @@ class CompactJSONOptimizer:
             result = CompactJSONOptimizer.optimize_numeric_precision(result)
         
         return result
+    
+    @staticmethod
+    def apply_array_format_optimization(data: Any) -> Any:
+        """
+        Apply array format optimization to OHLCV data.
+        
+        Args:
+            data: The data structure to optimize
+            
+        Returns:
+            Data structure with array format optimization applied
+        """
+        try:
+            from array_format_optimizer import ArrayFormatOptimizer
+            
+            # Determine data type based on structure
+            if isinstance(data, dict):
+                # Stock/Index OHLCV data
+                if 'veri_noktalari' in data:
+                    return ArrayFormatOptimizer.optimize_data_to_arrays(data, "ohlcv")
+                
+                # Crypto OHLCV data
+                elif 'ohlc_data' in data or 'klines' in data or 'kline_data' in data:
+                    return ArrayFormatOptimizer.optimize_data_to_arrays(data, "crypto")
+                
+                # Fund performance data
+                elif 'fiyat_noktalari' in data:
+                    return ArrayFormatOptimizer.optimize_data_to_arrays(data, "fund")
+            
+            return data
+            
+        except ImportError:
+            logger.warning("ArrayFormatOptimizer not available, skipping array format optimization")
+            return data
+        except Exception as e:
+            logger.error(f"Error applying array format optimization: {e}")
+            return data
     
     @staticmethod
     def estimate_token_savings(original_data: Any, optimized_data: Any) -> Dict[str, Any]:
