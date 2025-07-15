@@ -149,7 +149,13 @@ async def get_sirket_profili(
                 from token_optimizer import TokenOptimizer
                 result_dict = result.model_dump()
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
-                return compacted_dict
+                # Create a new model instance with the compacted data but preserve required fields
+                return SirketProfiliSonucu(
+                    ticker_kodu=compacted_dict.get("ticker", ticker_kodu),
+                    bilgiler=compacted_dict.get("info"),
+                    kaynak=compacted_dict.get("source", "hybrid"),
+                    error_message=compacted_dict.get("error_message")
+                )
             
             return result
         else:
@@ -165,7 +171,13 @@ async def get_sirket_profili(
                 from token_optimizer import TokenOptimizer
                 result_dict = result.model_dump()
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
-                return compacted_dict
+                # Create a new model instance with the compacted data but preserve required fields
+                return SirketProfiliSonucu(
+                    ticker_kodu=compacted_dict.get("ticker", ticker_kodu),
+                    bilgiler=compacted_dict.get("info"),
+                    kaynak=compacted_dict.get("source", "hybrid"),
+                    error_message=compacted_dict.get("error_message")
+                )
             
             return result
             
@@ -304,8 +316,13 @@ async def get_finansal_veri(
             else:
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
             
-            # Return the compacted dictionary directly (don't try to create Pydantic model)
-            return compacted_dict
+            # Create a new model instance with the compacted data but preserve required fields
+            return FinansalVeriSonucu(
+                ticker_kodu=compacted_dict.get("ticker", ticker_kodu),
+                zaman_araligi=compacted_dict.get("period", zaman_araligi), 
+                veri_noktalari=compacted_dict.get("data", []),
+                error_message=compacted_dict.get("error_message")
+            )
         
         return result
     except Exception as e:
@@ -1172,7 +1189,17 @@ async def get_fund_performance(
             else:
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
             
-            return compacted_dict
+            # Create a new model instance with the compacted data but preserve required fields
+            return FonPerformansSonucu(
+                fon_kodu=compacted_dict.get("code", fund_code),
+                baslangic_tarihi=compacted_dict.get("start", start_date or ""),
+                bitis_tarihi=compacted_dict.get("end", end_date or ""),
+                fiyat_geçmisi=compacted_dict.get("prices", []),
+                toplam_getiri=compacted_dict.get("total_return"),
+                yillik_getiri=compacted_dict.get("annual_return"),
+                kaynak=compacted_dict.get("source", "TEFAS"),
+                error_message=compacted_dict.get("error_message")
+            )
         
         return result
     except Exception as e:
@@ -1750,7 +1777,13 @@ async def get_kripto_ohlc(
             else:
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
             
-            return compacted_dict
+            # Create a new model instance with the compacted data but preserve required fields
+            return KriptoOHLCSonucu(
+                pair_symbol=compacted_dict.get("pair", pair_symbol),
+                time_frame=compacted_dict.get("timeframe", time_frame),
+                ohlc_data=compacted_dict.get("ohlc", []),
+                error_message=compacted_dict.get("error_message")
+            )
         
         return result
     except Exception as e:
@@ -1864,7 +1897,17 @@ async def get_kripto_kline(
             else:
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
             
-            return compacted_dict
+            # Create a new model instance with the compacted data but preserve required fields
+            return KriptoKlineSonucu(
+                symbol=compacted_dict.get("symbol", symbol),
+                resolution=compacted_dict.get("resolution", resolution),
+                klines=compacted_dict.get("klines", []),
+                toplam_veri=compacted_dict.get("total", 0),
+                from_time=compacted_dict.get("from_time", from_time),
+                to_time=compacted_dict.get("to_time", to_time),
+                status=compacted_dict.get("status", "success"),
+                error_message=compacted_dict.get("error_message")
+            )
         
         return result
     except Exception as e:
