@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/saidsurucu-borsa-mcp-badge.png)](https://mseep.ai/app/saidsurucu-borsa-mcp)
+
 # Borsa MCP: Borsa İstanbul (BIST), TEFAS Fonları ve Türk/Global Kripto Piyasaları için MCP Sunucusu
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
