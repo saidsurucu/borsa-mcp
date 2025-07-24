@@ -199,4 +199,4 @@ if hasattr(mcp_app, 'lifespan'):
 logger.info("MCP app mounted successfully at /mcp/")
 
 # Export for uvicorn
-__all__ = ["app"]# Fixed import
+__all__ = ["app"]
