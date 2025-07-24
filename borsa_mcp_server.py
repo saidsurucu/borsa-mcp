@@ -2832,14 +2832,11 @@ async def get_enflasyon_hesapla(
             error_message=f"Enflasyon hesaplama sırasında beklenmeyen bir hata oluştu: {str(e)}"
         )
 
-@app.resource(
-    uri="system://prompt",
-    name="BIST Uzmanı System Prompt",
-    description="Borsa MCP system prompt. Read this before calling any of Borsa MCP tools.",
-    mime_type="text/markdown",
-    tags={"system", "prompt", "bist", "uzman"}
+@app.tool(
+    description="Use this tool to read Borsa MCP system prompt before calling any tool of Borsa MCP.",
+    tags=["system", "prompt", "bist", "uzman", "readonly"]
 )
-def system_prompt_resource() -> str:
+async def get_system_prompt() -> str:
     """
     BIST Uzmanı karakteri için kapsamlı sistem prompt'u.
     LLM'lerin bu karakteri benimsemesi için gerekli tüm direktifleri içerir.
