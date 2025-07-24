@@ -18,7 +18,7 @@ from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
 # Import the MCP server
-from borsa_mcp_server import create_server
+from borsa_mcp_server import app as mcp_server
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -58,8 +58,7 @@ custom_middleware = [
     ),
 ]
 
-# Create MCP server instance
-mcp_server = create_server()
+# MCP server is already imported as mcp_server
 
 # Create MCP Starlette sub-application with root path - mount will add /mcp prefix
 mcp_app = mcp_server.http_app(path="/")
