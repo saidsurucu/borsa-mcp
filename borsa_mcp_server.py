@@ -109,7 +109,7 @@ async def find_ticker_code(
 async def get_sirket_profili(
     ticker_kodu: Annotated[str, Field(
         description="BIST ticker: stock (GARAN, ASELS) or index (XU100, XBANK). No .IS suffix needed.",
-        pattern=r"^[A-Z]{2,6}$",
+        pattern=r"^[A-Z0-9]{2,6}$",
         examples=["GARAN", "ASELS", "TUPRS", "XU100", "XBANK"]
     )],
     mynet_detaylari: Annotated[bool, Field(
