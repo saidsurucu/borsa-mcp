@@ -12,6 +12,7 @@ PORT = "8000"
 LOG_LEVEL = "info"
 
 [build]
+  dockerfile = "Dockerfile"
 
 [http_service]
   internal_port = 8000
