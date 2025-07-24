@@ -3,7 +3,7 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'borsa-mcp'
+app = 'borsa-mcp-ss'
 primary_region = 'fra'
 
 [env]
