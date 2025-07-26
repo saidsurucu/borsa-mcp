@@ -283,9 +283,38 @@ class MynetProvider:
             piyasa_degeri_data = parsed_info.get("Piyasa Değeri", [])
             piyasa_degeri_model = None
             if piyasa_degeri_data:
-                pd_dict = { "doviz_varliklari_tl": next((row[1] for row in piyasa_degeri_data if "Döviz Varlıkları" in row[0]), None), "doviz_yukumlulukleri_tl": next((row[1] for row in piyasa_degeri_data if "Döviz Yükümlülükleri" in row[0]), None), "net_doviz_pozisyonu_tl": next((row[1] for row in piyasa_degeri_data if "Net Döviz Pozisyonu" in row[0]), None), "turev_enstrumanlar_net_pozisyonu_tl": next((row[1] for row in piyasa_degeri_data if "Türev Enstrümanlar" in row[0]), None) }
+                # Extract currency position data if available
+                doviz_varliklari = next((row[1] for row in piyasa_degeri_data if "Döviz Varlıkları" in row[0]), None)
+                doviz_yukumlulukleri = next((row[1] for row in piyasa_degeri_data if "Döviz Yükümlülükleri" in row[0]), None)
+                net_pozisyon = next((row[1] for row in piyasa_degeri_data if "Net Döviz Pozisyonu" in row[0]), None)
+                
+                # Convert string numbers to float
+                def parse_currency_value(val):
+                    if not val:
+                        return None
+                    return float(val.replace('.', '').replace(',', '.')) if isinstance(val, str) else val
+                
+                pd_dict = {
+                    "doviz_pozisyonu": {
+                        "varlıklar": parse_currency_value(doviz_varliklari), 
+                        "yükümlülükler": parse_currency_value(doviz_yukumlulukleri)
+                    } if doviz_varliklari or doviz_yukumlulukleri else None,
+                    "net_kur_pozisyonu": parse_currency_value(net_pozisyon)
+                }
                 piyasa_degeri_model = PiyasaDegeri(**pd_dict)
-            sirket_bilgileri = SirketGenelBilgileri(bist_kodu=parsed_info.get("BIST Kodu"), halka_acilma_tarihi=parsed_info.get("Halka Açılma Tarihi"), kurulus_tarihi=parsed_info.get("Kuruluş Tarihi"), faaliyet_alani=parsed_info.get("Faaliyet Alanı"), sermaye=parsed_info.get("Sermaye"), genel_mudur=parsed_info.get("Genel Müdür"), personel_sayisi=int(parsed_info.get("Personel Sayısı")) if parsed_info.get("Personel Sayısı", "").isdigit() else None, web_adresi=parsed_info.get("Web Adresi"), sirket_unvani=parsed_info.get("Şirket Ünvanı"), yonetim_kurulu=[Yonetici(isim=item[0]) for item in parsed_info.get("Yön. Kurulu Üyeleri", []) if item], istirakler=[Istirak(isim=item[0], sermaye=item[1], pay_orani=item[2]) for item in parsed_info.get("İştirakler", []) if len(item) == 3], ortaklar=[Ortak(isim=item[0], sermaye_tutari=item[1], sermaye_orani=item[2]) for item in parsed_info.get("Ortaklar", []) if len(item) == 3 and "TOPLAM" not in item[0].upper()], piyasa_degeri=piyasa_degeri_model)
+            sirket_bilgileri = SirketGenelBilgileri(
+                bist_kodu=parsed_info.get("BIST Kodu", ticker_upper),
+                sirket_adi=parsed_info.get("Şirket Ünvanı", ""),
+                faaliyet_konusu=parsed_info.get("Faaliyet Alanı"),
+                sermaye=float(parsed_info.get("Sermaye", "0").replace('.', '').replace(',', '.')) if parsed_info.get("Sermaye") else None,
+                genel_mudur=parsed_info.get("Genel Müdür"),
+                personel_sayisi=int(parsed_info.get("Personel Sayısı")) if parsed_info.get("Personel Sayısı", "").isdigit() else None,
+                web_sitesi=parsed_info.get("Web Adresi"),
+                yonetim_kurulu=[Yonetici(adi_soyadi=item[0], gorevi=item[1] if len(item) > 1 else "Yönetim Kurulu Üyesi") for item in parsed_info.get("Yön. Kurulu Üyeleri", []) if item],
+                istirakler=[Istirak(sirket_adi=item[0], pay_orani=float(item[2].replace(',', '.').replace('%', '')) if len(item) >= 3 and item[2] else 0) for item in parsed_info.get("İştirakler", []) if len(item) >= 2],
+                ortaklar=[Ortak(ortak_adi=item[0], pay_orani=float(item[2].replace(',', '.').replace('%', '')) if len(item) >= 3 and item[2] else 0) for item in parsed_info.get("Ortaklar", []) if len(item) >= 1 and "TOPLAM" not in item[0].upper()],
+                piyasa_degeri_detay=piyasa_degeri_model
+            )
             return {"bilgiler": sirket_bilgileri, "mynet_url": target_url}
         except Exception as e:
             logger.exception(f"Error parsing company info page for {ticker_upper}")
