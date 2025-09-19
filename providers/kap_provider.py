@@ -12,7 +12,7 @@ import pandas as pd
 from typing import List, Optional, Dict, Any
 from models import (
     SirketInfo, KatilimFinansUygunlukBilgisi, KatilimFinansUygunlukSonucu,
-    EndeksBilgisi, EndeksAramaSonucu, EndeksKoduAramaSonucu, EndeksAramaOgesi
+    EndeksBilgisi, EndeksKoduAramaSonucu, EndeksAramaOgesi
 )
 from bs4 import BeautifulSoup
 
@@ -88,13 +88,16 @@ class KAPProvider:
                 for page in pdf.pages:
                     for table in page.extract_tables():
                         for row in table:
-                            if not row or len(row) < 3 or row[0] is None or "BIST KODU" in row[0]: continue
-                            ticker, name, city = (row[0] or "").strip(), (row[1] or "").strip(), (row[2] or "").strip()
+                            if not row or len(row) < 3 or row[0] is None or "BIST KODU" in row[0]:
+                                continue
+                            ticker = (row[0] or "").strip()
+                            name = (row[1] or "").strip()
+                            city = (row[2] or "").strip()
                             if ticker and name:
                                 all_companies.append(SirketInfo(sirket_adi=name, ticker_kodu=ticker, sehir=city))
             logger.info(f"Successfully fetched {len(all_companies)} companies from KAP PDF.")
             return all_companies
-        except Exception as e:
+        except Exception:
             logger.exception("Error in KAPProvider._fetch_company_data_from_pdf")
             return None
 
@@ -112,9 +115,11 @@ class KAPProvider:
         return re.sub(r"[\.,']|\s+a\.s\.?|\s+anonim sirketi", "", text.translate(tr_map).lower()).strip()
 
     async def search_companies(self, query: str) -> List[SirketInfo]:
-        if not query: return []
+        if not query:
+            return []
         all_companies = await self.get_all_companies()
-        if not all_companies: return []
+        if not all_companies:
+            return []
         normalized_query = self._normalize_text(query)
         query_tokens = set(normalized_query.split())
         scored_results = []
@@ -122,13 +127,17 @@ class KAPProvider:
             score = 0
             normalized_ticker = self._normalize_text(company.ticker_kodu)
             normalized_name = self._normalize_text(company.sirket_adi)
-            if normalized_query == normalized_ticker: score += 1000
+            if normalized_query == normalized_ticker:
+                score += 1000
             matched_tokens = query_tokens.intersection(set(normalized_name.split()))
             if matched_tokens:
                 score += len(matched_tokens) * 100
-                if normalized_name.startswith(normalized_query): score += 300
-                if matched_tokens == query_tokens: score += 200
-            if score > 0: scored_results.append((score, company))
+                if normalized_name.startswith(normalized_query):
+                    score += 300
+                if matched_tokens == query_tokens:
+                    score += 200
+            if score > 0:
+                scored_results.append((score, company))
         scored_results.sort(key=lambda x: x[0], reverse=True)
         return [company for score, company in scored_results]
 
@@ -367,9 +376,6 @@ class KAPProvider:
                         continue
                         
                     index_code = code_match.group(1).upper()
-                    
-                    # For now, we don't have company count on the main page
-                    company_count = 0
                     
                     # Check if query matches index code or name
                     if (query_upper in index_code or 

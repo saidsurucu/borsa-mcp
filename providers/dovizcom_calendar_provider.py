@@ -6,7 +6,7 @@ Doviz.com economic calendar API, including fetching Turkish economic events.
 import httpx
 import logging
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 from bs4 import BeautifulSoup
 import re
 from models import (

@@ -4,9 +4,8 @@ Contains models for hybrid company data, KAP news, financial statements,
 and Turkish-specific company information.
 """
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict
 import datetime
-from .base import ZamanAraligiEnum
 
 # --- Mynet Provider Models ---
 

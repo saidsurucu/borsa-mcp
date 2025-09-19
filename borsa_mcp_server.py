@@ -5,13 +5,57 @@ This version uses KAP for company search and yfinance for all financial data.
 import logging
 import os
 import ssl
-import urllib3
-from pydantic import Field
-from typing import Literal, List, Dict, Any, Annotated, Optional
 from datetime import datetime
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
+import urllib3
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from pydantic import Field
+
+from borsa_client import BorsaApiClient
+from models import (
+    AnalistVerileriSonucu,
+    CoinbaseExchangeInfoSonucu,
+    CoinbaseOrderbookSonucu,
+    CoinbaseServerTimeSonucu,
+    CoinbaseTeknikAnalizSonucu,
+    CoinbaseOHLCSonucu,
+    CoinbaseTickerSonucu,
+    CoinbaseTradesSonucu,
+    DovizcomArsivSonucu,
+    DovizcomDakikalikSonucu,
+    DovizcomGuncelSonucu,
+    EkonomikTakvimSonucu,
+    EndeksKoduAramaSonucu,
+    EndeksSirketleriSonucu,
+    FinansalTabloSonucu,
+    FinansalVeriSonucu,
+    FonAramaSonucu,
+    FonDetayBilgisi,
+    FonMevzuatSonucu,
+    FonPerformansSonucu,
+    FonPortfoySonucu,
+    HizliBilgiSonucu,
+    KapHaberDetayi,
+    KapHaberleriSonucu,
+    KatilimFinansUygunlukSonucu,
+    KazancTakvimSonucu,
+    KriptoExchangeInfoSonucu,
+    KriptoKlineSonucu,
+    KriptoOHLCSonucu,
+    KriptoOrderbookSonucu,
+    KriptoTeknikAnalizSonucu,
+    KriptoTickerSonucu,
+    KriptoTradesSonucu,
+    SektorKarsilastirmaSonucu,
+    SirketAramaSonucu,
+    SirketProfiliSonucu,
+    TemettuVeAksiyonlarSonucu,
+    TeknikAnalizSonucu,
+    YFinancePeriodEnum,
+)
+from models.tcmb_models import EnflasyonHesaplamaSonucu, TcmbEnflasyonSonucu
 
 # Disable SSL verification globally to avoid certificate issues
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -21,25 +65,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 os.environ['PYTHONHTTPSVERIFY'] = '0'
 os.environ['CURL_CAINFO'] = ''
 os.environ['REQUESTS_CA_BUNDLE'] = ''
-
-from borsa_client import BorsaApiClient
-from models import (
-    SirketAramaSonucu, FinansalVeriSonucu, YFinancePeriodEnum,
-    SirketProfiliSonucu, FinansalTabloSonucu, AnalistVerileriSonucu,
-    TemettuVeAksiyonlarSonucu, HizliBilgiSonucu, KazancTakvimSonucu,
-    TeknikAnalizSonucu, SektorKarsilastirmaSonucu, KapHaberleriSonucu,
-    KapHaberDetayi, KapHaberSayfasi, KatilimFinansUygunlukSonucu, EndeksAramaSonucu,
-    EndeksSirketleriSonucu, EndeksKoduAramaSonucu, FonAramaSonucu, FonDetayBilgisi,
-    FonPerformansSonucu, FonPortfoySonucu, FonKarsilastirmaSonucu, FonTaramaKriterleri,
-    FonTaramaSonucu, FonMevzuatSonucu,
-    KriptoExchangeInfoSonucu, KriptoTickerSonucu, KriptoOrderbookSonucu,
-    KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu, KriptoTeknikAnalizSonucu,
-    CoinbaseExchangeInfoSonucu, CoinbaseTickerSonucu, CoinbaseOrderbookSonucu,
-    CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu, CoinbaseTeknikAnalizSonucu,
-    DovizcomGuncelSonucu, DovizcomDakikalikSonucu, DovizcomArsivSonucu,
-    EkonomikTakvimSonucu
-)
-from models.tcmb_models import TcmbEnflasyonSonucu, EnflasyonHesaplamaSonucu
 
 # --- Logging Configuration ---
 LOG_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
@@ -1796,10 +1821,20 @@ async def get_kripto_ohlc(
                 compacted_dict = TokenOptimizer.apply_compact_format(result_dict, format)
             
             # Create a new model instance with the compacted data but preserve required fields
+            original_pair = (
+                result_dict.get("pair_symbol")
+                or result_dict.get("pair")
+                or pair
+            )
+            original_timeframe = (
+                result_dict.get("time_frame")
+                or result_dict.get("timeframe")
+            )
+
             return KriptoOHLCSonucu(
-                pair_symbol=compacted_dict.get("pair", pair_symbol),
-                time_frame=compacted_dict.get("timeframe", time_frame),
-                ohlc_data=compacted_dict.get("ohlc", []),
+                pair_symbol=compacted_dict.get("pair_symbol", original_pair),
+                time_frame=compacted_dict.get("time_frame", original_timeframe),
+                ohlc_data=compacted_dict.get("ohlc_data") or compacted_dict.get("ohlc", []),
                 error_message=compacted_dict.get("error_message")
             )
         
@@ -3119,7 +3154,7 @@ def main():
         app.run()
     except KeyboardInterrupt:
         logger.info(f"{app.name} server shut down by user.")
-    except Exception as e:
+    except Exception:
         logger.exception(f"{app.name} server crashed.")
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ Compact JSON Optimizer
 Reduces JSON response size by removing null values, shortening field names, and optimizing data structures.
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict
 import logging
 
 logger = logging.getLogger(__name__)

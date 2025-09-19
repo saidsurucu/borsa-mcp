@@ -6,9 +6,9 @@ BtcTurk Kripto API, including fetching cryptocurrency market data.
 import httpx
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from zoneinfo import ZoneInfo
-from typing import List, Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union
 from models import (
     KriptoExchangeInfoSonucu, KriptoTickerSonucu, KriptoOrderbookSonucu,
     KriptoTradesSonucu, KriptoOHLCSonucu, KriptoKlineSonucu, KriptoTeknikAnalizSonucu,
@@ -161,7 +161,6 @@ class BtcTurkProvider:
             
             # Apply token optimization for large datasets
             from token_optimizer import TokenOptimizer
-            original_symbols_count = len(symbols_data)
             
             for symbol in symbols_data:
                 trading_pair = TradingPair(
@@ -185,7 +184,6 @@ class BtcTurkProvider:
             # Parse currencies
             currencies = []
             currencies_data = data.get('data', {}).get('currencies', [])
-            original_currencies_count = len(currencies_data)
             
             for currency in currencies_data:
                 currency_obj = Currency(
@@ -414,7 +412,6 @@ class BtcTurkProvider:
             
             # Apply token optimization to trade data
             from token_optimizer import TokenOptimizer
-            original_count = len(trades)
             
             # Convert to dict format for optimization
             trades_dict_list = []
@@ -496,7 +493,6 @@ class BtcTurkProvider:
                 
             # Apply token optimization
             from token_optimizer import TokenOptimizer
-            original_count = len(data)
             
             # Convert to dict format for optimization
             data_dicts = []
@@ -671,8 +667,7 @@ class BtcTurkProvider:
         """
         try:
             import pandas as pd
-            import numpy as np
-            from datetime import datetime, timedelta
+            from datetime import datetime
             
             current_time = datetime.now().replace(microsecond=0)
             

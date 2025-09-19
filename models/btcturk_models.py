@@ -3,7 +3,7 @@ BtcTurk cryptocurrency exchange models.
 Contains models for Turkish crypto market data including trading pairs,
 ticker prices, order books, trades, OHLC data, and technical analysis.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any, Union
 import datetime
 
@@ -14,6 +14,8 @@ class TradingPair(BaseModel):
     # Handle both 'symbol' and 'name' from API
     symbol: Optional[str] = Field(None, description="Trading pair symbol (e.g., 'BTCTRY', 'ETHUSDT').")
     name: Optional[str] = Field(None, description="Trading pair name (alternative to symbol).")
+    name_normalized: Optional[str] = Field(None, description="Normalized trading pair name.")
+    status: Optional[str] = Field(None, description="Trading pair status (active, inactive, etc.).")
     numerator: Optional[str] = Field(None, description="Base currency.")
     denominator: Optional[str] = Field(None, description="Quote currency.")
     numeratorScale: Optional[int] = Field(None, description="Decimal precision for base currency.")
@@ -28,7 +30,9 @@ class TradingPair(BaseModel):
     isNew: Optional[bool] = Field(None, description="Whether this is a newly listed pair.")
     marketPriceWarningThreshold: Optional[float] = Field(None, description="Market price warning threshold.")
     maximumOrderAmount: Optional[float] = Field(None, description="Maximum order amount.")
-    
+    maximum_limit_order_price: Optional[float] = Field(None, description="Maximum limit order price.")
+    minimum_limit_order_price: Optional[float] = Field(None, description="Minimum limit order price.")
+
     # Additional fields that might come from API
     id: Optional[int] = Field(None, description="Trading pair ID.")
     minimumOrderAmount: Optional[float] = Field(None, description="Minimum order amount.")
@@ -38,14 +42,14 @@ class TradingPair(BaseModel):
 class Currency(BaseModel):
     """Currency information from BtcTurk."""
     symbol: Optional[str] = Field(None, description="Currency symbol (e.g., 'BTC', 'TRY', 'USDT').")
-    minWithdrawal: Optional[float] = Field(None, description="Minimum withdrawal amount.")
-    minDeposit: Optional[float] = Field(None, description="Minimum deposit amount.")
+    min_withdrawal: Optional[float] = Field(None, alias="minWithdrawal", description="Minimum withdrawal amount.")
+    min_deposit: Optional[float] = Field(None, alias="minDeposit", description="Minimum deposit amount.")
     precision: Optional[int] = Field(None, description="Decimal precision.")
     address: Optional[Dict[str, Any]] = Field(None, description="Address configuration for crypto currencies.")
-    currencyType: Optional[str] = Field(None, description="Currency type: 'crypto' or 'fiat'.")
+    currency_type: Optional[str] = Field(None, alias="currencyType", description="Currency type: 'crypto' or 'fiat'.")
     tag: Optional[Union[str, Dict[str, Any]]] = Field(None, description="Currency tag/memo for deposits.")
     color: Optional[str] = Field(None, description="Display color.")
-    
+
     # Additional fields that might come from API
     id: Optional[int] = Field(None, description="Currency ID.")
     name: Optional[str] = Field(None, description="Currency name.")
@@ -163,11 +167,17 @@ class KriptoOHLCSonucu(BaseModel):
 
 class KriptoKline(BaseModel):
     """Kline (candlestick) data from Graph API."""
+    model_config = ConfigDict(populate_by_name=True)
     s: Optional[str] = Field(None, description="Symbol/pair.")
     t: List[int] = Field(default_factory=list, description="Timestamps (Unix timestamps).")
     o: List[float] = Field(default_factory=list, description="Open prices.")
     h: List[float] = Field(default_factory=list, description="High prices.")
-    l: List[float] = Field(default_factory=list, description="Low prices.")
+    low: List[float] = Field(
+        default_factory=list,
+        alias="l",
+        serialization_alias="l",
+        description="Low prices.",
+    )
     c: List[float] = Field(default_factory=list, description="Close prices.")
     v: List[float] = Field(default_factory=list, description="Volumes.")
 

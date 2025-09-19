@@ -6,7 +6,7 @@ import httpx
 import logging
 import time
 import re
-from typing import Optional, Dict, Any
+from typing import Optional
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)

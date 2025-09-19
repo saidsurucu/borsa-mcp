@@ -4,7 +4,7 @@ Converts OHLCV data to ultra-compact array format for maximum token efficiency.
 Achieves 60-70% token savings compared to object format.
 """
 
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional
 import logging
 from datetime import datetime
 

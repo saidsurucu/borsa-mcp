@@ -6,7 +6,7 @@ Coinbase API, including fetching global cryptocurrency market data.
 import httpx
 import logging
 import time
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any
 from models import (
     CoinbaseExchangeInfoSonucu, CoinbaseTickerSonucu, CoinbaseOrderbookSonucu,
     CoinbaseTradesSonucu, CoinbaseOHLCSonucu, CoinbaseServerTimeSonucu, CoinbaseTeknikAnalizSonucu,
@@ -392,7 +392,6 @@ class CoinbaseProvider:
         """
         try:
             import pandas as pd
-            import numpy as np
             from datetime import datetime, timedelta
             
             # Map user-friendly resolution to Coinbase granularity

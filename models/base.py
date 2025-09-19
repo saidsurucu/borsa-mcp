@@ -2,10 +2,7 @@
 Base models and shared enums for the Borsa MCP server.
 Contains common data structures used across multiple providers.
 """
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
 from enum import Enum
-import datetime
 
 # --- Shared Enums ---
 class YFinancePeriodEnum(str, Enum):

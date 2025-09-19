@@ -6,8 +6,8 @@ doviz.com API, including fetching currency, precious metals, and commodity data.
 import httpx
 import logging
 import time
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from typing import Dict, Any
+from datetime import datetime
 from models import (
     DovizcomGuncelSonucu, DovizcomDakikalikSonucu, DovizcomArsivSonucu,
     DovizcomVarligi, DovizcomOHLCVarligi
@@ -305,7 +305,7 @@ class DovizcomProvider:
                 try:
                     baslangic_tarihi = datetime.strptime(start_date, "%Y-%m-%d").date()
                     bitis_tarihi = datetime.strptime(end_date, "%Y-%m-%d").date()
-                except:
+                except (ValueError, TypeError):
                     baslangic_tarihi = None
                     bitis_tarihi = None
                     
@@ -368,7 +368,7 @@ class DovizcomProvider:
             try:
                 baslangic_tarihi = datetime.strptime(start_date, "%Y-%m-%d").date()
                 bitis_tarihi = datetime.strptime(end_date, "%Y-%m-%d").date()
-            except:
+            except (ValueError, TypeError):
                 baslangic_tarihi = None
                 bitis_tarihi = None
             
@@ -385,7 +385,7 @@ class DovizcomProvider:
             try:
                 baslangic_tarihi = datetime.strptime(start_date, "%Y-%m-%d").date()
                 bitis_tarihi = datetime.strptime(end_date, "%Y-%m-%d").date()
-            except:
+            except (ValueError, TypeError):
                 baslangic_tarihi = None
                 bitis_tarihi = None
                 

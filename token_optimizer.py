@@ -3,9 +3,9 @@ Token Optimizer for MCP Server
 Optimizes data outputs to prevent context window overflow for long time frames.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)

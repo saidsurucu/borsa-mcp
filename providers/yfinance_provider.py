@@ -14,9 +14,7 @@ from models import (
     AnalistTavsiyesi, AnalistFiyatHedefi, TavsiyeOzeti,
     Temettu, HisseBolunmesi, KurumsalAksiyon, HizliBilgi,
     KazancTarihi, KazancTakvimi, KazancBuyumeVerileri,
-    TaramaKriterleri, TaranmisHisse, TaramaSonucu,
-    DegerYatirimiKriterleri, TemettuYatirimiKriterleri, 
-    BuyumeYatirimiKriterleri, MuhafazakarYatirimiKriterleri
+    TaramaKriterleri, TaranmisHisse
 )
 
 logger = logging.getLogger(__name__)
@@ -160,7 +158,6 @@ class YahooFinanceProvider:
             time_frame_days = period_days_mapping.get(period_value, 365)
             
             # Apply token optimization
-            original_count = len(veri_noktalari)
             optimized_data = TokenOptimizer.optimize_ohlc_data(veri_noktalari, time_frame_days)
             
             # Convert optimized data back to Pydantic models
@@ -506,8 +503,7 @@ class YahooFinanceProvider:
         """Comprehensive technical analysis with indicators, trends, and signals."""
         try:
             import pandas as pd
-            import numpy as np
-            from datetime import datetime, timedelta
+            from datetime import datetime
             
             ticker = self._get_ticker(ticker_kodu)
             
@@ -517,7 +513,6 @@ class YahooFinanceProvider:
                 return {"error": f"Historical data not available for {ticker.ticker}"}
             
             # Get current info
-            info = ticker.info
             current_time = datetime.now().replace(microsecond=0)
             
             # Initialize result
@@ -837,8 +832,7 @@ class YahooFinanceProvider:
         """Comprehensive sector analysis and comparison for multiple companies."""
         try:
             import pandas as pd
-            import numpy as np
-            from datetime import datetime, timedelta
+            from datetime import datetime
             from collections import defaultdict
             
             current_time = datetime.now().replace(microsecond=0)
@@ -943,21 +937,33 @@ class YahooFinanceProvider:
                         sector_info = sector_data[sector]
                         sector_info['companies'].append(ticker_kodu)
                         
-                        if market_cap: sector_info['market_caps'].append(market_cap)
-                        if pe_ratio and not pd.isna(pe_ratio): sector_info['pe_ratios'].append(pe_ratio)
-                        if pb_ratio and not pd.isna(pb_ratio): sector_info['pb_ratios'].append(pb_ratio)
-                        if roe and not pd.isna(roe): sector_info['roe_values'].append(roe * 100)
-                        if debt_to_equity and not pd.isna(debt_to_equity): sector_info['debt_ratios'].append(debt_to_equity)
-                        if profit_margins and not pd.isna(profit_margins): sector_info['profit_margins'].append(profit_margins * 100)
-                        if yearly_return and not pd.isna(yearly_return): sector_info['returns'].append(yearly_return)
-                        if volatility and not pd.isna(volatility): sector_info['volatilities'].append(volatility)
-                        if avg_volume and not pd.isna(avg_volume): sector_info['volumes'].append(avg_volume)
+                        if market_cap:
+                            sector_info['market_caps'].append(market_cap)
+                        if pe_ratio and not pd.isna(pe_ratio):
+                            sector_info['pe_ratios'].append(pe_ratio)
+                        if pb_ratio and not pd.isna(pb_ratio):
+                            sector_info['pb_ratios'].append(pb_ratio)
+                        if roe and not pd.isna(roe):
+                            sector_info['roe_values'].append(roe * 100)
+                        if debt_to_equity and not pd.isna(debt_to_equity):
+                            sector_info['debt_ratios'].append(debt_to_equity)
+                        if profit_margins and not pd.isna(profit_margins):
+                            sector_info['profit_margins'].append(profit_margins * 100)
+                        if yearly_return and not pd.isna(yearly_return):
+                            sector_info['returns'].append(yearly_return)
+                        if volatility and not pd.isna(volatility):
+                            sector_info['volatilities'].append(volatility)
+                        if avg_volume and not pd.isna(avg_volume):
+                            sector_info['volumes'].append(avg_volume)
                     
                     # Aggregate data
                     successful_companies += 1
-                    if market_cap: total_market_cap += market_cap
-                    if yearly_return and not pd.isna(yearly_return): all_returns.append(yearly_return)
-                    if volatility and not pd.isna(volatility): all_volatilities.append(volatility)
+                    if market_cap:
+                        total_market_cap += market_cap
+                    if yearly_return and not pd.isna(yearly_return):
+                        all_returns.append(yearly_return)
+                    if volatility and not pd.isna(volatility):
+                        all_volatilities.append(volatility)
                     
                 except Exception as e:
                     logger.warning(f"Error processing {ticker_kodu}: {e}")
@@ -1024,7 +1030,7 @@ class YahooFinanceProvider:
             return result
             
         except Exception as e:
-            logger.exception(f"Error in sector analysis")
+            logger.exception("Error in sector analysis")
             return {"error": str(e)}
     
     async def hisse_tarama(self, kriterler: TaramaKriterleri, sirket_listesi: List[Any]) -> Dict[str, Any]:
@@ -1040,7 +1046,6 @@ class YahooFinanceProvider:
         """
         try:
             import pandas as pd
-            import numpy as np
             from datetime import datetime
             
             current_time = datetime.now().replace(microsecond=0)
@@ -1122,7 +1127,7 @@ class YahooFinanceProvider:
                             daily_returns = hist['Close'].pct_change().dropna()
                             if len(daily_returns) > 1:
                                 volatilite = daily_returns.std() * (252**0.5) * 100
-                    except:
+                    except Exception:
                         yillik_getiri = None
                         volatilite = None
                         hafta_52_yuksek = info.get('fiftyTwoWeekHigh')
@@ -1340,7 +1345,7 @@ class YahooFinanceProvider:
             return tarama_sonucu
             
         except Exception as e:
-            logger.exception(f"Error in stock screening")
+            logger.exception("Error in stock screening")
             return {"error": str(e)}
     
     async def deger_yatirim_taramasi(self, sirket_listesi: List[Any]) -> Dict[str, Any]:

@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 from typing import List, Optional, Dict, Any
 from markitdown import MarkItDown
 from models import (
-    HisseDetay, SirketGenelBilgileri, Istirak, Ortak, Yonetici, 
+    SirketGenelBilgileri, Istirak, Ortak, Yonetici, 
     PiyasaDegeri, BilancoKalemi, MevcutDonem, KarZararKalemi,
     FinansalVeriNoktasi, ZamanAraligiEnum, EndeksBilgisi
 )
@@ -37,7 +37,8 @@ class MynetProvider:
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'lxml')
             table_body = soup.select_one("div.scrollable-box-hisseler tbody.tbody-type-default")
-            if not table_body: return None
+            if not table_body:
+                return None
             url_map = {}
             for row in table_body.find_all("tr"):
                 link_tag = row.select_one("td > strong > a")
@@ -67,9 +68,11 @@ class MynetProvider:
         return self._ticker_to_url
 
     def _clean_and_convert_value(self, value_str: str) -> Any:
-        if not isinstance(value_str, str): return value_str
+        if not isinstance(value_str, str):
+            return value_str
         cleaned_str = value_str.replace('TL', '').strip()
-        if re.match(r'^\d{2}\.\d{2}\.\d{4}$', cleaned_str): return cleaned_str
+        if re.match(r'^\d{2}\.\d{2}\.\d{4}$', cleaned_str):
+            return cleaned_str
         standardized_num_str = cleaned_str.replace('.', '').replace(',', '.') if ',' in cleaned_str else cleaned_str
         try:
             num = float(standardized_num_str)
@@ -80,14 +83,16 @@ class MynetProvider:
     async def get_hisse_detay(self, ticker_kodu: str) -> Dict[str, Any]:
         ticker_upper = ticker_kodu.upper()
         url_map = await self.get_url_map()
-        if ticker_upper not in url_map: return {"error": "Mynet Finans page for the specified ticker could not be found."}
+        if ticker_upper not in url_map:
+            return {"error": "Mynet Finans page for the specified ticker could not be found."}
         target_url = url_map[ticker_upper]
         try:
             response = await self._http_client.get(target_url)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'lxml')
             data_container = soup.select_one("div.flex-list-2-col")
-            if not data_container: return {"error": "Could not parse the stock details content."}
+            if not data_container:
+                return {"error": "Could not parse the stock details content."}
             data = {"mynet_url": target_url}
             LABEL_TO_FIELD_MAP = {
                 "Hissenin ilk işlem tarihi": "ilk_islem_tarihi", "Son İşlem Fiyatı": "son_islem_fiyati", "Alış": "alis", "Satış": "satis", "Günlük Değişim": "gunluk_degisim", "Günlük Değişim (%)": "gunluk_degisim_yuzde", "Günlük Hacim (Lot)": "gunluk_hacim_lot", "Günlük Hacim (TL)": "gunluk_hacim_tl", "Günlük Ortalama": "gunluk_ortalama", "Gün İçi En Düşük": "gun_ici_en_dusuk", "Gün İçi En Yüksek": "gun_ici_en_yuksek", "Açılış Fiyatı": "acilis_fiyati", "Fiyat Adımı": "fiyat_adimi", "Önceki Kapanış Fiyatı": "onceki_kapanis_fiyati", "Alt Marj Fiyatı": "alt_marj_fiyati", "Üst Marj Fiyatı": "ust_marj_fiyati", "20 Günlük Ortalama": "20_gunluk_ortalama", "52 Günlük Ortalama": "52_gunluk_ortalama", "Haftalık En Düşük": "haftalik_en_dusuk", "Haftalık En Yüksek": "haftalik_en_yuksek", "Aylık En Düşük": "aylik_en_dusuk", "Aylık En Yüksek": "aylik_en_yuksek", "Yıllık En Düşük": "yillik_en_dusuk", "Yıllık En Yüksek": "yillik_en_yuksek", "Baz Fiyatı": "baz_fiyat"
@@ -96,7 +101,8 @@ class MynetProvider:
                 spans = li.find_all("span")
                 if len(spans) == 2:
                     label, value = spans[0].get_text(strip=True), spans[1].get_text(strip=True)
-                    if label in LABEL_TO_FIELD_MAP: data[LABEL_TO_FIELD_MAP[label]] = self._clean_and_convert_value(value)
+                    if label in LABEL_TO_FIELD_MAP:
+                        data[LABEL_TO_FIELD_MAP[label]] = self._clean_and_convert_value(value)
             return data
         except Exception as e:
             logger.exception(f"Error processing detail page for {ticker_upper}")
@@ -149,7 +155,6 @@ class MynetProvider:
             
             # Apply token optimization to news data
             from token_optimizer import TokenOptimizer
-            original_count = len(haberler)
             optimized_haberler = TokenOptimizer.optimize_news_data(haberler, limit)
             
             return {
@@ -239,7 +244,7 @@ class MynetProvider:
                 elif sayfa_numarasi == toplam_sayfa:
                     sayfa_icerik = f"*Sayfa {sayfa_numarasi}/{toplam_sayfa} (Son sayfa)*\n\n---\n\n" + sayfa_icerik
                 else:
-                    sayfa_icerik = f"*Sayfa {sayfa_numarasi}/{toplam_sayfa}*\n\n---\n\n" + sayfa_icerik + f"\n\n---\n*Sonraki sayfa için sayfa numarasını belirtin*"
+                    sayfa_icerik = f"*Sayfa {sayfa_numarasi}/{toplam_sayfa}*\n\n---\n\n" + sayfa_icerik + "\n\n---\n*Sonraki sayfa için sayfa numarasını belirtin*"
             
             return {
                 "baslik": title,
@@ -261,14 +266,16 @@ class MynetProvider:
     async def get_sirket_bilgileri(self, ticker_kodu: str) -> Dict[str, Any]:
         ticker_upper = ticker_kodu.upper()
         url_map = await self.get_url_map()
-        if ticker_upper not in url_map: return {"error": "Mynet Finans page for the specified ticker could not be found."}
+        if ticker_upper not in url_map:
+            return {"error": "Mynet Finans page for the specified ticker could not be found."}
         target_url = f"{url_map[ticker_upper]}sirket-bilgileri/"
         try:
             response = await self._http_client.get(target_url)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'lxml')
             data_container = soup.select_one("div.flex-list-1-col")
-            if not data_container: return {"error": "Could not find the company information content."}
+            if not data_container:
+                return {"error": "Could not find the company information content."}
             parsed_info = {}
             for li in data_container.select("ul > li.li-c-2-L"):
                 key_tag, value_tag = li.find("strong"), li.find("span", class_="text-r")
@@ -323,26 +330,32 @@ class MynetProvider:
     async def get_finansal_veri(self, ticker_kodu: str, zaman_araligi: ZamanAraligiEnum) -> Dict[str, Any]:
         ticker_upper = ticker_kodu.upper()
         url_map = await self.get_url_map()
-        if ticker_upper not in url_map: return {"error": "Mynet Finans page for the specified ticker could not be found."}
+        if ticker_upper not in url_map:
+            return {"error": "Mynet Finans page for the specified ticker could not be found."}
         target_url = url_map[ticker_upper]
         try:
             response = await self._http_client.get(target_url)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'lxml')
             chart_script = next((s.string for s in soup.find_all("script") if s.string and "initChartData" in s.string), None)
-            if not chart_script: return {"error": "Could not find chart data script on the page."}
+            if not chart_script:
+                return {"error": "Could not find chart data script on the page."}
             match = re.search(r'"data"\s*:\s*(\[\[.*?\]\])', chart_script, re.DOTALL)
-            if not match: return {"error": "Could not parse 'data' array from the chart script."}
+            if not match:
+                return {"error": "Could not parse 'data' array from the chart script."}
             raw_data_list = json.loads(match.group(1))
             all_data_points = []
             for i, point in enumerate(raw_data_list):
                 try:
-                    if not isinstance(point, list) or len(point) < 5: continue
+                    if not isinstance(point, list) or len(point) < 5:
+                        continue
                     all_data_points.append(FinansalVeriNoktasi(tarih=datetime.fromtimestamp(float(point[0]) / 1000), acilis=float(point[1]), en_yuksek=float(point[2]), en_dusuk=float(point[3]), kapanis=float(point[1]), hacim=float(point[4])))
                 except (ValueError, TypeError, IndexError) as e:
                     logger.error(f"Could not convert data point #{i+1}: {point}. Error: {e}. Skipping.")
-            if not all_data_points: return {"veri_noktalari": []}
-            if zaman_araligi == ZamanAraligiEnum.TUMU: return {"veri_noktalari": all_data_points}
+            if not all_data_points:
+                return {"veri_noktalari": []}
+            if zaman_araligi == ZamanAraligiEnum.TUMU:
+                return {"veri_noktalari": all_data_points}
             latest_date = all_data_points[-1].tarih
             delta_map = {ZamanAraligiEnum.GUNLUK: timedelta(days=1), ZamanAraligiEnum.HAFTALIK: timedelta(weeks=1), ZamanAraligiEnum.AYLIK: timedelta(days=30), ZamanAraligiEnum.UC_AYLIK: timedelta(days=90), ZamanAraligiEnum.ALTI_AYLIK: timedelta(days=180), ZamanAraligiEnum.YILLIK: timedelta(days=365), ZamanAraligiEnum.UC_YILLIK: timedelta(days=3*365), ZamanAraligiEnum.BES_YILLIK: timedelta(days=5*365)}
             start_date = latest_date - delta_map.get(zaman_araligi, timedelta(days=0))
@@ -354,32 +367,39 @@ class MynetProvider:
     async def _get_available_periods(self, ticker_kodu: str, page_type: str) -> Dict[str, Any]:
         ticker_upper = ticker_kodu.upper()
         url_map = await self.get_url_map()
-        if ticker_upper not in url_map: return {"error": "Mynet Finans page for the specified ticker could not be found."}
+        if ticker_upper not in url_map:
+            return {"error": "Mynet Finans page for the specified ticker could not be found."}
         try:
             response = await self._http_client.get(f"{url_map[ticker_upper]}{page_type}/")
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'lxml')
             select_box = soup.find("select", {"id": "i"})
-            if not select_box: return {"error": "Could not find the period selection dropdown."}
+            if not select_box:
+                return {"error": "Could not find the period selection dropdown."}
             donemler = [MevcutDonem(yil=int(p[0]), donem=int(p[1]), aciklama=opt.get_text(strip=True)) for opt in select_box.find_all("option") if (p := opt['value'].strip('/').split('/')[-2].split('-')) and len(p) == 2]
             return {"mevcut_donemler": donemler}
         except Exception as e:
             logger.exception(f"Error parsing available periods for {ticker_upper}")
             return {"error": f"An unexpected error occurred: {e}"}
 
-    async def get_available_bilanco_periods(self, ticker_kodu: str) -> Dict[str, Any]: return await self._get_available_periods(ticker_kodu, "bilanco")
-    async def get_available_kar_zarar_periods(self, ticker_kodu: str) -> Dict[str, Any]: return await self._get_available_periods(ticker_kodu, "karzarar")
+    async def get_available_bilanco_periods(self, ticker_kodu: str) -> Dict[str, Any]:
+        return await self._get_available_periods(ticker_kodu, "bilanco")
+
+    async def get_available_kar_zarar_periods(self, ticker_kodu: str) -> Dict[str, Any]:
+        return await self._get_available_periods(ticker_kodu, "karzarar")
 
     async def get_bilanco(self, ticker_kodu: str, yil: int, donem: int) -> Dict[str, Any]:
         ticker_upper = ticker_kodu.upper()
         url_map = await self.get_url_map()
-        if ticker_upper not in url_map: return {"error": "Mynet Finans page could not be found."}
+        if ticker_upper not in url_map:
+            return {"error": "Mynet Finans page could not be found."}
         try:
             response = await self._http_client.get(f"{url_map[ticker_upper]}bilanco/{yil}-{donem}/1/")
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'lxml')
             data_container = soup.select_one("div.flex-list-1-col")
-            if not data_container: return {"error": "Balance sheet content could not be found."}
+            if not data_container:
+                return {"error": "Balance sheet content could not be found."}
             kalemler = [BilancoKalemi(kalem=k.get_text(strip=True), deger=v.get_text(strip=True)) for li in data_container.select("ul > li") if (k := li.find("strong")) and (v := li.find("span", class_="text-r"))]
             return {"bilanco": kalemler}
         except Exception as e:
@@ -389,13 +409,15 @@ class MynetProvider:
     async def get_kar_zarar(self, ticker_kodu: str, yil: int, donem: int) -> Dict[str, Any]:
         ticker_upper = ticker_kodu.upper()
         url_map = await self.get_url_map()
-        if ticker_upper not in url_map: return {"error": "Mynet Finans page for the specified ticker could not be found."}
+        if ticker_upper not in url_map:
+            return {"error": "Mynet Finans page for the specified ticker could not be found."}
         try:
             response = await self._http_client.get(f"{url_map[ticker_upper]}karzarar/{yil}-{donem}/1/")
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'lxml')
             data_container = soup.select_one("div.flex-list-1-col")
-            if not data_container: return {"error": "P/L statement content could not be found."}
+            if not data_container:
+                return {"error": "P/L statement content could not be found."}
             kalemler = [KarZararKalemi(kalem=k.get_text(strip=True), deger=v.get_text(strip=True)) for li in data_container.select("ul > li") if (k := li.find("strong")) and (v := li.find("span", class_="text-r"))]
             return {"kar_zarar_tablosu": kalemler}
         except Exception as e:

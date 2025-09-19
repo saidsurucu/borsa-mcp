@@ -4,7 +4,6 @@ Provides comprehensive fund data, performance metrics, and screening capabilitie
 """
 
 import requests
-from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import pandas as pd
 from typing import List, Dict, Any, Optional
@@ -77,7 +76,7 @@ class TefasProvider:
             # Clean up temp file
             try:
                 os.remove(temp_file)
-            except:
+            except OSError:
                 pass
             
             logger.info(f"Successfully loaded {len(fund_list)} funds from Takasbank")
@@ -364,8 +363,7 @@ class TefasProvider:
             
             # Apply token optimization to fund search results
             from token_optimizer import TokenOptimizer
-            original_count = len(matching_funds)
-            optimized_funds = TokenOptimizer.optimize_fund_search_results(matching_funds, limit)
+            optimized_funds = TokenOptimizer.optimize_fund_search_results(limited_funds, limit)
             
             return {
                 'arama_terimi': search_term,
@@ -759,7 +757,6 @@ class TefasProvider:
             
             # Apply token optimization
             from token_optimizer import TokenOptimizer
-            original_count = len(price_history)
             optimized_history = TokenOptimizer.optimize_fund_performance(price_history, time_frame_days)
             
             # Calculate returns
@@ -1302,7 +1299,7 @@ class TefasProvider:
                                         try:
                                             value = float(cells[i].replace('%', '').replace(',', '.'))
                                             fund_item[f'column_{i}_{header.lower().replace(" ", "_")}'] = value
-                                        except:
+                                        except (ValueError, AttributeError):
                                             fund_item[f'column_{i}_{header.lower().replace(" ", "_")}'] = cells[i]
                                 
                                 comparison_results.append(fund_item)
