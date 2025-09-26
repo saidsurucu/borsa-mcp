@@ -20,8 +20,8 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
 
 🎯 **Temel Özellikler**
 
-* Borsa İstanbul (BIST), Türk yatırım fonları, global kripto para verileri ve döviz/emtia verilerine programatik erişim için kapsamlı bir MCP arayüzü.
-* **43 Araç** ile tam finansal analiz desteği:
+* Borsa İstanbul (BIST), Türk yatırım fonları, global kripto para verileri, döviz/emtia verileri ve **YENİ: S&P 500 & NASDAQ** verilerine programatik erişim için kapsamlı bir MCP arayüzü.
+* **52 Araç** ile tam finansal analiz desteği:
     * **Şirket Arama:** 758 BIST şirketi arasında ticker kodu ve şirket adına göre arama (çoklu ticker desteği ile).
     * **Finansal Veriler:** Bilanço, kar-zarar, nakit akışı tabloları ve geçmiş OHLCV verileri.
     * **Teknik Analiz:** RSI, MACD, Bollinger Bantları gibi teknik göstergeler ve al-sat sinyalleri.
@@ -38,6 +38,8 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
     * **Gerçek Zamanlı Döviz:** Dakikalık fiyat güncellemeleri ve tarihsel OHLC analizi ile kapsamlı döviz takibi.
     * **Dovizcom Ekonomik Takvim:** Çoklu ülke desteği ile ekonomik takvim (TR,US varsayılan) - GDP, enflasyon, istihdam verileri ve makroekonomik olaylar.
     * **TCMB Enflasyon Verileri:** Resmi Merkez Bankası TÜFE/ÜFE verileri - TÜFE (2005-2025, 245+ kayıt), ÜFE (2014-2025, 137+ kayıt) - yıllık/aylık enflasyon oranları, tarih aralığı filtreleme.
+    * **S&P 500 & NASDAQ:** Amerikan borsalarından hisse senedi verileri - gerçek zamanlı kotasyonlar, endeks verileri (S&P 500, NASDAQ, DOW), sektör performansı, piyasa hareketleri, opsiyon zincirleri.
+    * **US Piyasa Analizi:** Piyasa duyarlılığı (VIX, Fear & Greed), hisse taraması, kazanç takvimi, 52 haftalık yüksek/düşük takibi.
     * **Dinamik Token Yönetimi:** Otomatik token çıkarma ve yenileme sistemi ile kesintisiz API erişimi.
     * **Hibrit Veri:** Yahoo Finance + Mynet Finans'tan birleştirilmiş şirket bilgileri.
 * Türk hisse senetleri, endeksler, yatırım fonları ve kripto para için optimize edilmiş veri işleme.
@@ -223,6 +225,17 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_turkiye_enflasyon`**: Resmi TCMB TÜFE/ÜFE enflasyon verileri - TÜFE: tüketici fiyatları (2005-2025, 245+ kayıt), ÜFE: üretici fiyatları (2014-2025, 137+ kayıt) - yıllık/aylık oranlar, tarih aralığı filtreleme, istatistiksel özet.
 * **`get_enflasyon_hesapla`**: TCMB resmi enflasyon hesaplama API'si - iki tarih arası kümülatif enflasyon hesaplama, sepet değeri analizi, satın alma gücü kaybı/kazancı, ortalama yıllık enflasyon, TÜFE endeks değerleri.
 
+### US Markets (S&P 500 & NASDAQ) Araçları
+* **`search_us_stocks`**: S&P 500 ve NASDAQ hisse senetleri arama - ticker veya şirket adına göre.
+* **`get_us_stock_quote`**: Amerikan hisse senetleri için gerçek zamanlı fiyat kotasyonları.
+* **`get_us_indices`**: Büyük ABD endekslerinin verileri (S&P 500, NASDAQ, DOW, Russell 2000, VIX).
+* **`get_us_sector_performance`**: S&P 500 sektör performans verileri (11 ana sektör).
+* **`get_us_market_movers`**: Günün en çok kazananları, kaybedenleri ve en aktif hisse senetleri.
+* **`screen_us_stocks`**: Piyasa değeri, P/E oranı, temettü verimi gibi kriterlere göre hisse taraması.
+* **`get_us_options_chain`**: Amerikan hisse senetleri için opsiyon zinciri verileri.
+* **`get_us_earnings_calendar`**: S&P 500 şirketleri için yaklaşan kazanç takvimi.
+* **`get_us_market_sentiment`**: Piyasa duyarlılığı göstergeleri (VIX, Fear & Greed, yeni yüksek/düşükler).
+
 </details>
 
 <details>
@@ -303,6 +316,16 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Güncelleme Sıklığı**: Gerçek zamanlı ekonomik olay takibi ve uluslararası piyasa etkisi analizi
 - **Zaman Dilimi Desteği**: Avrupa/İstanbul ana zaman dilimi ile Türk saati koordinasyonu
 - **Veri Kalitesi**: Doviz.com'un özelleşmiş finansal veri ağından profesyonel seviye uluslararası makroekonomik bilgiler
+
+### US Markets (S&P 500 & NASDAQ)
+- **İşlem Çiftleri**: S&P 500 (500+ şirket), NASDAQ-100 (100 şirket), NYSE, tüm büyük ABD borsaları
+- **Endeksler**: S&P 500 (^GSPC), NASDAQ Composite (^IXIC), DOW Jones (^DJI), Russell 2000 (^RUT), VIX (^VIX)
+- **API Kaynağı**: Yahoo Finance API (yfinance kütüphanesi üzerinden)
+- **Sektör Verileri**: 11 ana S&P 500 sektörü ETF'leri üzerinden (XLK, XLV, XLF vb.)
+- **Piyasa Verileri**: Gerçek zamanlı fiyatlar, opsiyon zincirleri, kazanç takvimleri, piyasa genişliği
+- **Tarama Özellikleri**: Piyasa değeri, P/E oranı, temettü verimi, sektör bazlı filtreleme
+- **Güncelleme Sıklığı**: Gerçek zamanlı (Yahoo Finance API limitleri dahilinde)
+- **Veri Kalitesi**: Kurumsal seviye piyasa verileri, 15-20 dakika gecikme olabilir
 
 ### TCMB Enflasyon Verileri (Resmi Merkez Bankası)
 - **Veri Kaynağı**: Türkiye Cumhuriyet Merkez Bankası resmi enflasyon istatistikleri sayfaları
@@ -456,6 +479,16 @@ Son 6 aylık enflasyon etkisini hesapla ve yıllık bazda projeksiyon yap
 
 # Kontrat endeksleme hesaplaması
 Kira sözleşmelerinin enflasyon ayarlaması için gerekli artış oranını hesapla
+
+# US Markets - S&P 500 & NASDAQ örnekleri
+Apple hissesinin güncel fiyatını ve analizini göster
+S&P 500 ve NASDAQ endekslerinin günlük performansını karşılaştır
+Amerikan teknoloji sektörünün bugünkü performansını analiz et
+Günün en çok kazanan ve kaybeden S&P 500 hisselerini listele
+100 milyar dolardan büyük, P/E oranı 25'ten düşük teknoloji hisselerini bul
+AAPL için opsiyon zincirini göster
+VIX endeksi ve piyasa duyarlılığını analiz et
+Önümüzdeki 7 günün kazanç takvimini göster
 ```
 
 </details>

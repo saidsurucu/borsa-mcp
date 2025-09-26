@@ -56,6 +56,13 @@ from models import (
     YFinancePeriodEnum,
 )
 from models.tcmb_models import EnflasyonHesaplamaSonucu, TcmbEnflasyonSonucu
+from models.us_markets_models import (
+    USStockInfo, USMarketQuote, USIndexData, USSectorPerformance,
+    USMarketMovers, USStockScreener, USOptionsChain, USEarningsCalendar,
+    USMarketSentiment, USStockSearchResponse, USMarketQuoteResponse,
+    USIndexResponse, USSectorResponse, USMarketMoversResponse, USScreenerResponse
+)
+from providers.us_markets_provider import USMarketsProvider
 
 # Disable SSL verification globally to avoid certificate issues
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -92,6 +99,7 @@ app = FastMCP(
 )
 
 borsa_client = BorsaApiClient()
+us_markets_provider = USMarketsProvider()
 
 # Define Literal types for yfinance periods to ensure clean schema generation
 YFinancePeriodLiteral = Literal["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "ytd", "max"]
@@ -2865,6 +2873,284 @@ async def get_enflasyon_hesapla(
             hesaplama_tarihi=datetime.now(),
             data_source='TCMB Enflasyon Hesaplama API',
             error_message=f"Enflasyon hesaplama sırasında beklenmeyen bir hata oluştu: {str(e)}"
+        )
+
+# ============= US MARKETS (S&P 500 & NASDAQ) TOOLS =============
+
+@app.tool(description="US MARKETS: Search S&P 500 and NASDAQ stocks by ticker or company name")
+async def search_us_stocks(
+    query: Annotated[str, Field(description="Search query (ticker or company name)")],
+    limit: Annotated[int, Field(description="Maximum number of results", default=20)] = 20
+) -> USStockSearchResponse:
+    """
+    Search for US stocks in S&P 500 and NASDAQ indices
+
+    **Key Features:**
+    - Search by ticker symbol (e.g., AAPL, MSFT, GOOGL)
+    - Search by company name (e.g., Apple, Microsoft, Google)
+    - Returns company info with sector, industry, market cap
+    - Shows index membership (S&P500, NASDAQ100)
+    - Covers major US exchanges (NYSE, NASDAQ)
+    """
+    logger.info(f"Tool 'search_us_stocks' called with query='{query}', limit={limit}")
+    try:
+        results = us_markets_provider.search_stocks(query, limit)
+        return USStockSearchResponse(
+            success=True,
+            data=results,
+            count=len(results),
+            query=query
+        )
+    except Exception as e:
+        logger.exception("Error in tool 'search_us_stocks'")
+        return USStockSearchResponse(
+            success=False,
+            data=[],
+            count=0,
+            query=query
+        )
+
+@app.tool(description="US MARKETS: Get real-time quotes for US stocks (S&P 500, NASDAQ, NYSE)")
+async def get_us_stock_quote(
+    tickers: Annotated[List[str], Field(description="List of ticker symbols (e.g., ['AAPL', 'MSFT', 'GOOGL'])", min_length=1, max_length=10)]
+) -> USMarketQuoteResponse:
+    """
+    Get real-time market quotes for US stocks
+
+    **Key Features:**
+    - Real-time price, change, and volume
+    - 52-week high/low
+    - P/E ratio, dividend yield, beta
+    - Market capitalization
+    - Supports multiple tickers (up to 10)
+    """
+    logger.info(f"Tool 'get_us_stock_quote' called with tickers={tickers}")
+    try:
+        quotes = us_markets_provider.get_quote(tickers)
+        return USMarketQuoteResponse(
+            success=True,
+            data=quotes,
+            timestamp=datetime.now()
+        )
+    except Exception as e:
+        logger.exception("Error in tool 'get_us_stock_quote'")
+        return USMarketQuoteResponse(
+            success=False,
+            data=[],
+            timestamp=datetime.now()
+        )
+
+@app.tool(description="US MARKETS: Get major US index data (S&P 500, NASDAQ, DOW)")
+async def get_us_indices(
+    indices: Annotated[Optional[List[str]], Field(description="Index names: 'sp500', 'nasdaq', 'dow', 'russell2000', 'vix', 'nasdaq100' (None for all)")] = None
+) -> USIndexResponse:
+    """
+    Get US market index data
+
+    **Available Indices:**
+    - **sp500**: S&P 500 Index (^GSPC)
+    - **nasdaq**: NASDAQ Composite (^IXIC)
+    - **dow**: Dow Jones Industrial Average (^DJI)
+    - **russell2000**: Russell 2000 Small Cap (^RUT)
+    - **vix**: Volatility Index (^VIX)
+    - **nasdaq100**: NASDAQ-100 (^NDX)
+    """
+    logger.info(f"Tool 'get_us_indices' called with indices={indices}")
+    try:
+        index_data = us_markets_provider.get_index_data(indices)
+        return USIndexResponse(
+            success=True,
+            data=index_data,
+            timestamp=datetime.now()
+        )
+    except Exception as e:
+        logger.exception("Error in tool 'get_us_indices'")
+        return USIndexResponse(
+            success=False,
+            data=[],
+            timestamp=datetime.now()
+        )
+
+@app.tool(description="US MARKETS: Get S&P 500 sector performance")
+async def get_us_sector_performance() -> USSectorResponse:
+    """
+    Get S&P 500 sector performance data
+
+    **Sectors Tracked:**
+    - Technology (XLK)
+    - Healthcare (XLV)
+    - Financials (XLF)
+    - Consumer Discretionary (XLY)
+    - Communication Services (XLC)
+    - Industrials (XLI)
+    - Consumer Staples (XLP)
+    - Energy (XLE)
+    - Utilities (XLU)
+    - Real Estate (XLRE)
+    - Materials (XLB)
+    """
+    logger.info("Tool 'get_us_sector_performance' called")
+    try:
+        sector_data = us_markets_provider.get_sector_performance()
+        return USSectorResponse(
+            success=True,
+            data=sector_data,
+            timestamp=datetime.now()
+        )
+    except Exception as e:
+        logger.exception("Error in tool 'get_us_sector_performance'")
+        return USSectorResponse(
+            success=False,
+            data=[],
+            timestamp=datetime.now()
+        )
+
+@app.tool(description="US MARKETS: Get market movers - top gainers, losers, and most active stocks")
+async def get_us_market_movers() -> USMarketMoversResponse:
+    """
+    Get US market movers (S&P 500)
+
+    **Returns:**
+    - Top 10 gainers of the day
+    - Top 10 losers of the day
+    - Top 10 most active stocks by volume
+    - Price changes and percentages
+    - Trading volumes
+    """
+    logger.info("Tool 'get_us_market_movers' called")
+    try:
+        movers = us_markets_provider.get_market_movers()
+        return USMarketMoversResponse(
+            success=True,
+            gainers=movers.get('gainers', USMarketMovers(category="gainers", stocks=[], timestamp=datetime.now())),
+            losers=movers.get('losers', USMarketMovers(category="losers", stocks=[], timestamp=datetime.now())),
+            most_active=movers.get('most_active', USMarketMovers(category="most_active", stocks=[], timestamp=datetime.now())),
+            timestamp=datetime.now()
+        )
+    except Exception as e:
+        logger.exception("Error in tool 'get_us_market_movers'")
+        return USMarketMoversResponse(
+            success=False,
+            gainers=USMarketMovers(category="gainers", stocks=[], timestamp=datetime.now()),
+            losers=USMarketMovers(category="losers", stocks=[], timestamp=datetime.now()),
+            most_active=USMarketMovers(category="most_active", stocks=[], timestamp=datetime.now()),
+            timestamp=datetime.now()
+        )
+
+@app.tool(description="US MARKETS: Screen stocks based on criteria (market cap, P/E, sector, etc.)")
+async def screen_us_stocks(
+    market_cap_min: Annotated[Optional[float], Field(description="Minimum market cap in USD")] = None,
+    market_cap_max: Annotated[Optional[float], Field(description="Maximum market cap in USD")] = None,
+    pe_min: Annotated[Optional[float], Field(description="Minimum P/E ratio")] = None,
+    pe_max: Annotated[Optional[float], Field(description="Maximum P/E ratio")] = None,
+    dividend_yield_min: Annotated[Optional[float], Field(description="Minimum dividend yield (as decimal, e.g., 0.02 for 2%)")] = None,
+    sector: Annotated[Optional[str], Field(description="Sector filter (e.g., 'Technology', 'Healthcare')")] = None,
+    limit: Annotated[int, Field(description="Maximum results", default=50)] = 50
+) -> USScreenerResponse:
+    """
+    Screen US stocks based on fundamental criteria
+
+    **Screening Criteria:**
+    - Market capitalization range
+    - P/E ratio range
+    - Minimum dividend yield
+    - Sector filter
+    - Returns up to 50 matching stocks
+    """
+    logger.info(f"Tool 'screen_us_stocks' called with various criteria")
+    try:
+        criteria = {}
+        if market_cap_min is not None:
+            criteria['market_cap_min'] = market_cap_min
+        if market_cap_max is not None:
+            criteria['market_cap_max'] = market_cap_max
+        if pe_min is not None:
+            criteria['pe_min'] = pe_min
+        if pe_max is not None:
+            criteria['pe_max'] = pe_max
+        if dividend_yield_min is not None:
+            criteria['dividend_yield_min'] = dividend_yield_min
+        if sector:
+            criteria['sector'] = sector
+
+        screener_results = us_markets_provider.screen_stocks(criteria, limit)
+        return USScreenerResponse(
+            success=True,
+            data=screener_results,
+            timestamp=datetime.now()
+        )
+    except Exception as e:
+        logger.exception("Error in tool 'screen_us_stocks'")
+        return USScreenerResponse(
+            success=False,
+            data=USStockScreener(criteria={}, results=[], count=0, timestamp=datetime.now()),
+            timestamp=datetime.now()
+        )
+
+@app.tool(description="US MARKETS: Get options chain for a US stock")
+async def get_us_options_chain(
+    ticker: Annotated[str, Field(description="Stock ticker symbol (e.g., 'AAPL')")]
+) -> Optional[USOptionsChain]:
+    """
+    Get options chain data for a US stock
+
+    **Key Features:**
+    - Available expiration dates
+    - Call and put options data
+    - Strike prices, volumes, open interest
+    - Implied volatility
+    - Greeks (when available)
+    """
+    logger.info(f"Tool 'get_us_options_chain' called with ticker={ticker}")
+    try:
+        return us_markets_provider.get_options_chain(ticker)
+    except Exception as e:
+        logger.exception("Error in tool 'get_us_options_chain'")
+        return None
+
+@app.tool(description="US MARKETS: Get upcoming earnings calendar for S&P 500 companies")
+async def get_us_earnings_calendar(
+    days_ahead: Annotated[int, Field(description="Number of days to look ahead", default=7)] = 7
+) -> USEarningsCalendar:
+    """
+    Get upcoming earnings calendar for US stocks
+
+    **Key Features:**
+    - Upcoming earnings dates for S&P 500 companies
+    - Company names and tickers
+    - Earnings date and time (when available)
+    - Looks ahead specified number of days
+    """
+    logger.info(f"Tool 'get_us_earnings_calendar' called with days_ahead={days_ahead}")
+    try:
+        return us_markets_provider.get_earnings_calendar(days_ahead)
+    except Exception as e:
+        logger.exception("Error in tool 'get_us_earnings_calendar'")
+        return USEarningsCalendar(date=datetime.now().strftime("%Y-%m-%d"), stocks=[])
+
+@app.tool(description="US MARKETS: Get market sentiment indicators (VIX, breadth, highs/lows)")
+async def get_us_market_sentiment() -> USMarketSentiment:
+    """
+    Get US market sentiment indicators
+
+    **Indicators:**
+    - Fear & Greed Index approximation
+    - VIX (Volatility Index)
+    - Advance/Decline ratio
+    - New 52-week highs and lows
+    - Market breadth analysis
+    """
+    logger.info("Tool 'get_us_market_sentiment' called")
+    try:
+        return us_markets_provider.get_market_sentiment()
+    except Exception as e:
+        logger.exception("Error in tool 'get_us_market_sentiment'")
+        return USMarketSentiment(
+            fear_greed_index=50,
+            vix=20,
+            new_highs=0,
+            new_lows=0,
+            timestamp=datetime.now()
         )
 
 @app.tool(
