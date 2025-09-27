@@ -10,11 +10,14 @@ from functools import lru_cache
 import pandas as pd
 import yfinance as yf
 import httpx
+from providers.enhanced_screener import EnhancedScreener
 from models.us_markets_models import (
     USStockInfo, USMarketQuote, USIndexData, USSectorPerformance,
     USMarketMovers, USStockScreener, USOptionsChain, USEarningsCalendar,
-    USMarketSentiment, USInsiderTrading, USMarketNews
+    USMarketSentiment, USInsiderTrading, USMarketNews,
+    USTechnicalIndicators, USIntradayLevels, USHistoricalData
 )
+from providers.technical_indicators import TechnicalIndicators
 
 logger = logging.getLogger(__name__)
 
@@ -58,38 +61,63 @@ class USMarketsProvider:
         self.session = httpx.Client(timeout=30.0)
         self._sp500_tickers: Optional[List[str]] = None
         self._nasdaq_tickers: Optional[List[str]] = None
+        self.screener = EnhancedScreener()
+        self.technical_indicators = TechnicalIndicators()
 
-    @lru_cache(maxsize=1)
     def get_sp500_tickers(self) -> List[str]:
-        """Get list of S&P 500 tickers"""
+        """Get list of S&P 500 tickers dynamically from market data"""
         if self._sp500_tickers:
             return self._sp500_tickers
 
         try:
-            # Get S&P 500 list from Wikipedia
-            tables = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
-            df = tables[0]
-            self._sp500_tickers = df['Symbol'].tolist()
-            return self._sp500_tickers
-        except Exception as e:
-            logger.error(f"Error fetching S&P 500 list: {e}")
-            # Return a subset of well-known S&P 500 stocks as fallback
-            return ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "BRK-B",
-                   "JNJ", "V", "UNH", "NVDA", "PG", "HD", "JPM", "MA"]
+            # Use enhanced screener to get active stocks
+            logger.info("Fetching S&P 500 tickers dynamically using enhanced screener")
 
-    @lru_cache(maxsize=1)
-    def get_nasdaq100_tickers(self) -> List[str]:
-        """Get list of NASDAQ-100 tickers"""
-        try:
-            # Get NASDAQ-100 list from Wikipedia
-            tables = pd.read_html('https://en.wikipedia.org/wiki/Nasdaq-100')
-            df = tables[2]  # The table index might vary
-            return df['Ticker'].tolist()
+            # Get high volume stocks as proxy for S&P 500
+            stocks = self.screener.get_high_volume_stocks(limit=500)
+
+            if stocks:
+                self._sp500_tickers = [s['ticker'] for s in stocks]
+                logger.info(f"Discovered {len(self._sp500_tickers)} active stock tickers")
+            else:
+                logger.warning("Could not discover stock tickers dynamically")
+                self._sp500_tickers = []
+
+            return self._sp500_tickers
+
         except Exception as e:
-            logger.error(f"Error fetching NASDAQ-100 list: {e}")
-            # Return subset of well-known NASDAQ stocks
-            return ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA",
-                   "NVDA", "INTC", "CSCO", "ADBE", "NFLX", "CMCSA"]
+            logger.error(f"Error fetching S&P 500 tickers: {e}")
+            return []
+
+    def get_nasdaq100_tickers(self) -> List[str]:
+        """Get list of NASDAQ-100 tickers dynamically from market data"""
+        try:
+            # Use enhanced screener for NASDAQ stocks
+            logger.info("Fetching NASDAQ-100 tickers dynamically using enhanced screener")
+
+            # Get high volume stocks with tech focus
+            stocks = self.screener.get_high_volume_stocks(limit=100)
+            tickers = [s['ticker'] for s in stocks]
+
+            # Filter for NASDAQ characteristics
+            nasdaq_tickers = []
+            for ticker in tickers:
+                try:
+                    stock = yf.Ticker(ticker)
+                    info = stock.info
+                    # NASDAQ stocks often in tech sector or NASDAQ exchange
+                    if info.get('exchange') in ['NMS', 'NASDAQ', 'NasdaqGS'] or \
+                       info.get('sector') == 'Technology':
+                        nasdaq_tickers.append(ticker)
+                except:
+                    # If we can't verify, include it anyway as it's active
+                    nasdaq_tickers.append(ticker)
+
+            return nasdaq_tickers[:100]  # Limit to 100
+
+        except Exception as e:
+            logger.error(f"Error fetching NASDAQ-100 tickers: {e}")
+            return []
 
     def search_stocks(self, query: str, limit: int = 20) -> List[USStockInfo]:
         """
@@ -320,57 +348,49 @@ class USMarketsProvider:
         movers = {}
 
         try:
-            # Get S&P 500 tickers for analysis
-            tickers = self.get_sp500_tickers()[:100]  # Limit to top 100 for performance
+            # Use enhanced screener to get market movers
+            logger.info("Fetching market movers using enhanced screener")
 
-            stock_data = []
-            for ticker in tickers:
-                try:
-                    stock = yf.Ticker(ticker)
-                    info = stock.info
-                    history = stock.history(period="1d")
+            # Get market movers from enhanced screener
+            screener_results = self.screener.get_market_movers()
 
-                    if not history.empty:
-                        current = history['Close'].iloc[-1]
-                        previous = info.get('previousClose', current)
-                        change_percent = ((current - previous) / previous * 100) if previous else 0
-                        volume = history['Volume'].sum()
+            if screener_results:
+                # Create USMarketMovers objects from results
+                movers['gainers'] = USMarketMovers(
+                    category="gainers",
+                    stocks=screener_results.get('gainers', []),
+                    timestamp=datetime.now()
+                )
 
-                        stock_data.append({
-                            "ticker": ticker,
-                            "price": current,
-                            "change_percent": change_percent,
-                            "volume": int(volume),
-                            "company_name": info.get('longName', ticker)
-                        })
-                except Exception:
-                    continue
+                movers['losers'] = USMarketMovers(
+                    category="losers",
+                    stocks=screener_results.get('losers', []),
+                    timestamp=datetime.now()
+                )
 
-            # Sort for gainers, losers, and most active
-            sorted_by_gain = sorted(stock_data, key=lambda x: x['change_percent'], reverse=True)
-            sorted_by_loss = sorted(stock_data, key=lambda x: x['change_percent'])
-            sorted_by_volume = sorted(stock_data, key=lambda x: x['volume'], reverse=True)
+                movers['most_active'] = USMarketMovers(
+                    category="most_active",
+                    stocks=screener_results.get('most_active', []),
+                    timestamp=datetime.now()
+                )
 
-            movers['gainers'] = USMarketMovers(
-                category="gainers",
-                stocks=sorted_by_gain[:10],
-                timestamp=datetime.now()
-            )
-
-            movers['losers'] = USMarketMovers(
-                category="losers",
-                stocks=sorted_by_loss[:10],
-                timestamp=datetime.now()
-            )
-
-            movers['most_active'] = USMarketMovers(
-                category="most_active",
-                stocks=sorted_by_volume[:10],
-                timestamp=datetime.now()
-            )
+                total_stocks = len(screener_results.get('gainers', [])) + \
+                               len(screener_results.get('losers', [])) + \
+                               len(screener_results.get('most_active', []))
+                logger.info(f"Found {total_stocks} market movers")
+            else:
+                # Return empty movers if no data
+                logger.warning("No market movers found")
+                movers['gainers'] = USMarketMovers(category="gainers", stocks=[], timestamp=datetime.now())
+                movers['losers'] = USMarketMovers(category="losers", stocks=[], timestamp=datetime.now())
+                movers['most_active'] = USMarketMovers(category="most_active", stocks=[], timestamp=datetime.now())
 
         except Exception as e:
             logger.error(f"Error fetching market movers: {e}")
+            # Return empty movers on error
+            movers['gainers'] = USMarketMovers(category="gainers", stocks=[], timestamp=datetime.now())
+            movers['losers'] = USMarketMovers(category="losers", stocks=[], timestamp=datetime.now())
+            movers['most_active'] = USMarketMovers(category="most_active", stocks=[], timestamp=datetime.now())
 
         return movers
 
@@ -635,6 +655,344 @@ class USMarketsProvider:
             count=len(results),
             timestamp=datetime.now()
         )
+
+    def get_historical_data_with_indicators(self,
+                                           ticker: str,
+                                           period: str = "1mo",
+                                           interval: str = "1d",
+                                           extended_hours: bool = False) -> Optional[USHistoricalData]:
+        """
+        Get historical data with technical indicators
+
+        Args:
+            ticker: Stock ticker symbol
+            period: Data period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
+            interval: Data interval (1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo)
+            extended_hours: Include pre/post market data
+
+        Returns:
+            Historical data with technical indicators
+        """
+        try:
+            stock = yf.Ticker(ticker)
+
+            # Fetch historical data
+            df = stock.history(
+                period=period,
+                interval=interval,
+                prepost=extended_hours,
+                auto_adjust=True,
+                back_adjust=False
+            )
+
+            if df.empty:
+                logger.warning(f"No historical data found for {ticker}")
+                return None
+
+            # Calculate all technical indicators
+            df_with_indicators = self.technical_indicators.calculate_all_indicators(df)
+
+            # Get latest indicators
+            latest = df_with_indicators.iloc[-1]
+            indicators = USTechnicalIndicators(
+                ticker=ticker,
+                timeframe=interval,
+                sma_20=latest.get('SMA_20'),
+                sma_50=latest.get('SMA_50'),
+                sma_200=latest.get('SMA_200'),
+                ema_12=latest.get('EMA_12'),
+                ema_26=latest.get('EMA_26'),
+                bb_upper=latest.get('BB_Upper'),
+                bb_middle=latest.get('BB_Middle'),
+                bb_lower=latest.get('BB_Lower'),
+                rsi=latest.get('RSI'),
+                macd=latest.get('MACD'),
+                macd_signal=latest.get('MACD_Signal'),
+                macd_histogram=latest.get('MACD_Histogram'),
+                atr=latest.get('ATR'),
+                stoch_k=latest.get('Stoch_K'),
+                stoch_d=latest.get('Stoch_D'),
+                vwap=latest.get('VWAP'),
+                obv=latest.get('OBV'),
+                relative_volume=latest.get('RVOL'),
+                timestamp=datetime.now()
+            )
+
+            # Get trading signals
+            signals = self.technical_indicators.get_indicator_signals(df_with_indicators)
+
+            # Convert DataFrame to list of dicts
+            data = df_with_indicators.reset_index().to_dict('records')
+
+            # Convert timestamps to strings for JSON serialization
+            for record in data:
+                if 'Date' in record and hasattr(record['Date'], 'strftime'):
+                    record['Date'] = record['Date'].strftime('%Y-%m-%d %H:%M:%S')
+
+            return USHistoricalData(
+                ticker=ticker,
+                timeframe=interval,
+                data=data,
+                indicators=indicators,
+                signals=signals,
+                timestamp=datetime.now()
+            )
+
+        except Exception as e:
+            logger.error(f"Error fetching historical data with indicators for {ticker}: {e}")
+            return None
+
+    def get_intraday_levels(self, ticker: str) -> Optional[USIntradayLevels]:
+        """
+        Calculate intraday pivot points and support/resistance levels
+
+        Args:
+            ticker: Stock ticker symbol
+
+        Returns:
+            Intraday levels data
+        """
+        try:
+            stock = yf.Ticker(ticker)
+
+            # Get previous day's data for pivot calculation
+            history = stock.history(period="5d", interval="1d")
+
+            if history.empty or len(history) < 2:
+                logger.warning(f"Insufficient data for pivot calculation for {ticker}")
+                return None
+
+            # Use previous day's data
+            prev_day = history.iloc[-2]
+            high = prev_day['High']
+            low = prev_day['Low']
+            close = prev_day['Close']
+
+            # Calculate pivot points
+            pivot_levels = self.technical_indicators.calculate_pivot_points(high, low, close)
+
+            # Get recent price data for dynamic levels
+            recent_data = stock.history(period="1mo", interval="1d")
+
+            if not recent_data.empty:
+                # Calculate dynamic support and resistance
+                sr_levels = self.technical_indicators.calculate_support_resistance(
+                    recent_data['Close'],
+                    window=10
+                )
+            else:
+                sr_levels = {'support': [], 'resistance': []}
+
+            return USIntradayLevels(
+                ticker=ticker,
+                pivot=pivot_levels['pivot'],
+                resistance_1=pivot_levels['r1'],
+                resistance_2=pivot_levels['r2'],
+                resistance_3=pivot_levels['r3'],
+                support_1=pivot_levels['s1'],
+                support_2=pivot_levels['s2'],
+                support_3=pivot_levels['s3'],
+                dynamic_resistance=sr_levels['resistance'],
+                dynamic_support=sr_levels['support'],
+                timestamp=datetime.now()
+            )
+
+        except Exception as e:
+            logger.error(f"Error calculating intraday levels for {ticker}: {e}")
+            return None
+
+    def get_multi_timeframe_data(self, ticker: str, timeframes: Optional[List[str]] = None) -> Dict[str, USHistoricalData]:
+        """
+        Get data across multiple timeframes for comprehensive analysis
+
+        Args:
+            ticker: Stock ticker symbol
+            timeframes: List of timeframe specifications or None for default
+
+        Returns:
+            Dictionary mapping timeframe to historical data
+        """
+        if timeframes is None:
+            # Default timeframes for different analysis perspectives
+            timeframes = [
+                ("1d", "1m"),    # Intraday scalping
+                ("5d", "5m"),    # Day trading
+                ("1mo", "30m"),  # Swing trading
+                ("3mo", "1d"),   # Position trading
+                ("1y", "1wk"),   # Long-term investing
+            ]
+        else:
+            # Parse user-provided timeframes
+            parsed_timeframes = []
+            for tf in timeframes:
+                if "," in tf:
+                    period, interval = tf.split(",")
+                    parsed_timeframes.append((period.strip(), interval.strip()))
+                else:
+                    # Default mapping for common timeframes
+                    tf_map = {
+                        "1m": ("1d", "1m"),
+                        "5m": ("5d", "5m"),
+                        "15m": ("5d", "15m"),
+                        "30m": ("1mo", "30m"),
+                        "1h": ("1mo", "60m"),
+                        "4h": ("3mo", "60m"),
+                        "daily": ("6mo", "1d"),
+                        "weekly": ("2y", "1wk"),
+                        "monthly": ("5y", "1mo")
+                    }
+                    if tf in tf_map:
+                        parsed_timeframes.append(tf_map[tf])
+                    else:
+                        parsed_timeframes.append(("1mo", tf))
+            timeframes = parsed_timeframes
+
+        results = {}
+
+        for period, interval in timeframes:
+            try:
+                data = self.get_historical_data_with_indicators(
+                    ticker=ticker,
+                    period=period,
+                    interval=interval,
+                    extended_hours=True
+                )
+                if data:
+                    results[f"{period}_{interval}"] = data
+            except Exception as e:
+                logger.error(f"Error fetching {period}/{interval} data for {ticker}: {e}")
+
+        return results
+
+    def discover_active_stocks_by_volume(self, min_volume: int = 1000000, limit: int = 100) -> List[str]:
+        """
+        Discover actively traded stocks dynamically based on volume
+
+        Args:
+            min_volume: Minimum volume threshold
+            limit: Maximum number of stocks to return
+
+        Returns:
+            List of ticker symbols
+        """
+        active_tickers = []
+
+        try:
+            # Use enhanced screener for volume-based discovery
+            logger.info(f"Discovering active stocks with volume > {min_volume}")
+
+            # Get high volume stocks from screener
+            high_volume = self.screener.get_high_volume_stocks(limit=limit * 2)
+
+            # Filter by minimum volume
+            for stock in high_volume:
+                if stock.get('volume', 0) >= min_volume:
+                    active_tickers.append(stock['ticker'])
+
+                if len(active_tickers) >= limit:
+                    break
+
+            # If we need more, try market movers
+            if len(active_tickers) < limit:
+                movers = self.screener.get_market_movers()
+                for category in ['most_active', 'gainers', 'losers']:
+                    for stock in movers.get(category, []):
+                        ticker = stock.get('ticker')
+                        if ticker and ticker not in active_tickers:
+                            active_tickers.append(ticker)
+
+                        if len(active_tickers) >= limit:
+                            break
+
+            logger.info(f"Discovered {len(active_tickers)} active stocks dynamically")
+
+        except Exception as e:
+            logger.error(f"Error discovering active stocks: {e}")
+
+        return active_tickers[:limit]
+
+    def scan_market_for_opportunities(self,
+                                     rsi_oversold: float = 30,
+                                     rsi_overbought: float = 70,
+                                     volume_surge: float = 2.0) -> Dict[str, List[Dict]]:
+        """
+        Scan market for trading opportunities based on technical conditions
+
+        Args:
+            rsi_oversold: RSI level for oversold condition
+            rsi_overbought: RSI level for overbought condition
+            volume_surge: Volume multiplier for unusual volume
+
+        Returns:
+            Dictionary with categorized opportunities
+        """
+        opportunities = {
+            'oversold': [],
+            'overbought': [],
+            'breakout': [],
+            'volume_surge': [],
+            'momentum': []
+        }
+
+        try:
+            # Get active stocks to scan
+            active_stocks = self.discover_active_stocks_by_volume(limit=50)
+
+            logger.info(f"Scanning {len(active_stocks)} stocks for opportunities")
+
+            for ticker in active_stocks[:30]:  # Limit for performance
+                try:
+                    # Get technical data
+                    data = self.get_historical_data_with_indicators(
+                        ticker=ticker,
+                        period="1mo",
+                        interval="1d"
+                    )
+
+                    if not data or not data.indicators:
+                        continue
+
+                    indicators = data.indicators
+                    stock_info = {
+                        'ticker': ticker,
+                        'rsi': indicators.rsi,
+                        'relative_volume': indicators.relative_volume
+                    }
+
+                    # Check for oversold
+                    if indicators.rsi and indicators.rsi < rsi_oversold:
+                        opportunities['oversold'].append(stock_info)
+
+                    # Check for overbought
+                    if indicators.rsi and indicators.rsi > rsi_overbought:
+                        opportunities['overbought'].append(stock_info)
+
+                    # Check for volume surge
+                    if indicators.relative_volume and indicators.relative_volume > volume_surge:
+                        opportunities['volume_surge'].append(stock_info)
+
+                    # Check for momentum (MACD bullish crossover)
+                    if indicators.macd and indicators.macd_signal:
+                        if indicators.macd > indicators.macd_signal:
+                            opportunities['momentum'].append(stock_info)
+
+                    # Check for breakout (price above upper Bollinger Band)
+                    if data.data:
+                        latest = data.data[-1]
+                        if 'Close' in latest and 'BB_Upper' in latest:
+                            if latest['Close'] > latest['BB_Upper']:
+                                opportunities['breakout'].append(stock_info)
+
+                except Exception as e:
+                    logger.debug(f"Error scanning {ticker}: {e}")
+                    continue
+
+            logger.info(f"Found {sum(len(v) for v in opportunities.values())} total opportunities")
+
+        except Exception as e:
+            logger.error(f"Error scanning market: {e}")
+
+        return opportunities
 
     def __del__(self):
         """Cleanup"""

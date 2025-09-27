@@ -127,6 +127,56 @@ class USMarketNews(BaseModel):
     published_at: datetime = Field(..., description="Publication timestamp")
 
 
+class USTechnicalIndicators(BaseModel):
+    """Technical indicators for a stock"""
+    ticker: str = Field(..., description="Stock ticker symbol")
+    timeframe: str = Field(..., description="Timeframe (1m, 5m, 15m, 30m, 1h, 4h, 1d, etc.)")
+    sma_20: Optional[float] = Field(None, description="20-period Simple Moving Average")
+    sma_50: Optional[float] = Field(None, description="50-period Simple Moving Average")
+    sma_200: Optional[float] = Field(None, description="200-period Simple Moving Average")
+    ema_12: Optional[float] = Field(None, description="12-period Exponential Moving Average")
+    ema_26: Optional[float] = Field(None, description="26-period Exponential Moving Average")
+    bb_upper: Optional[float] = Field(None, description="Bollinger Band Upper")
+    bb_middle: Optional[float] = Field(None, description="Bollinger Band Middle")
+    bb_lower: Optional[float] = Field(None, description="Bollinger Band Lower")
+    rsi: Optional[float] = Field(None, description="Relative Strength Index (14-period)")
+    macd: Optional[float] = Field(None, description="MACD Line")
+    macd_signal: Optional[float] = Field(None, description="MACD Signal Line")
+    macd_histogram: Optional[float] = Field(None, description="MACD Histogram")
+    atr: Optional[float] = Field(None, description="Average True Range (14-period)")
+    stoch_k: Optional[float] = Field(None, description="Stochastic %K")
+    stoch_d: Optional[float] = Field(None, description="Stochastic %D")
+    vwap: Optional[float] = Field(None, description="Volume Weighted Average Price")
+    obv: Optional[float] = Field(None, description="On-Balance Volume")
+    relative_volume: Optional[float] = Field(None, description="Relative Volume")
+    timestamp: datetime = Field(..., description="Indicator calculation timestamp")
+
+
+class USIntradayLevels(BaseModel):
+    """Intraday support, resistance, and pivot levels"""
+    ticker: str = Field(..., description="Stock ticker symbol")
+    pivot: float = Field(..., description="Pivot point")
+    resistance_1: float = Field(..., description="First resistance level")
+    resistance_2: float = Field(..., description="Second resistance level")
+    resistance_3: float = Field(..., description="Third resistance level")
+    support_1: float = Field(..., description="First support level")
+    support_2: float = Field(..., description="Second support level")
+    support_3: float = Field(..., description="Third support level")
+    dynamic_resistance: List[float] = Field(default_factory=list, description="Dynamic resistance levels")
+    dynamic_support: List[float] = Field(default_factory=list, description="Dynamic support levels")
+    timestamp: datetime = Field(..., description="Calculation timestamp")
+
+
+class USHistoricalData(BaseModel):
+    """Historical price data with technical indicators"""
+    ticker: str = Field(..., description="Stock ticker symbol")
+    timeframe: str = Field(..., description="Data timeframe")
+    data: List[Dict[str, Any]] = Field(..., description="Historical OHLCV data with indicators")
+    indicators: Optional[USTechnicalIndicators] = Field(None, description="Latest technical indicators")
+    signals: Dict[str, str] = Field(default_factory=dict, description="Trading signals from indicators")
+    timestamp: datetime = Field(..., description="Data retrieval timestamp")
+
+
 # Response models for API endpoints
 class USStockSearchResponse(BaseModel):
     """Response for US stock search"""
@@ -170,4 +220,18 @@ class USScreenerResponse(BaseModel):
     """Response for stock screener"""
     success: bool = Field(..., description="Operation success status")
     data: USStockScreener = Field(..., description="Screener results")
+    timestamp: datetime = Field(..., description="Response timestamp")
+
+
+class USTechnicalAnalysisResponse(BaseModel):
+    """Response for technical analysis data"""
+    success: bool = Field(..., description="Operation success status")
+    data: USHistoricalData = Field(..., description="Historical data with technical indicators")
+    timestamp: datetime = Field(..., description="Response timestamp")
+
+
+class USIntradayLevelsResponse(BaseModel):
+    """Response for intraday levels"""
+    success: bool = Field(..., description="Operation success status")
+    data: USIntradayLevels = Field(..., description="Intraday support/resistance levels")
     timestamp: datetime = Field(..., description="Response timestamp")

@@ -1,13 +1,42 @@
-fastmcp
-pydantic
-httpx
-pdfplumber
-beautifulsoup4
-lxml
-yfinance
-pandas
-openpyxl
-markitdown
-requests
+# Core MCP Framework
+fastmcp>=2.6.0
+
+# Data Validation & Models
+pydantic>=2.7.0
+
+# HTTP Clients
+httpx>=0.27.0
+requests>=2.31.0
+urllib3>=2.4.0
+
+# Web Scraping & Parsing
+beautifulsoup4>=4.12.3
+lxml>=5.2.0
+
+# Financial Data
+yfinance>=0.2.37
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+openpyxl>=3.1.5
+
+# PDF & Document Processing
+pdfplumber>=0.11.0
+markitdown>=0.1.1
+
+# Database (optional, for future features)
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.0
+
+# Date & Time
+python-dateutil>=2.8.2
+pytz>=2024.1
+
+# SSL & Security (for API calls)
+certifi>=2024.0.0
+
+# Additional dependencies for yfinance
+multitasking>=0.0.11
+peewee>=3.17.0
+frozendict>=2.3.0

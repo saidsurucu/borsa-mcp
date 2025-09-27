@@ -20,8 +20,8 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
 
 🎯 **Temel Özellikler**
 
-* Borsa İstanbul (BIST), Türk yatırım fonları, global kripto para verileri, döviz/emtia verileri ve **YENİ: S&P 500 & NASDAQ** verilerine programatik erişim için kapsamlı bir MCP arayüzü.
-* **52 Araç** ile tam finansal analiz desteği:
+* Borsa İstanbul (BIST), Türk yatırım fonları, global kripto para verileri, döviz/emtia verileri ve **YENİ: S&P 500 & NASDAQ + Gelişmiş Teknik Analiz** verilerine programatik erişim için kapsamlı bir MCP arayüzü.
+* **60+ Araç** ile tam finansal analiz desteği:
     * **Şirket Arama:** 758 BIST şirketi arasında ticker kodu ve şirket adına göre arama (çoklu ticker desteği ile).
     * **Finansal Veriler:** Bilanço, kar-zarar, nakit akışı tabloları ve geçmiş OHLCV verileri.
     * **Teknik Analiz:** RSI, MACD, Bollinger Bantları gibi teknik göstergeler ve al-sat sinyalleri.
@@ -40,6 +40,9 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
     * **TCMB Enflasyon Verileri:** Resmi Merkez Bankası TÜFE/ÜFE verileri - TÜFE (2005-2025, 245+ kayıt), ÜFE (2014-2025, 137+ kayıt) - yıllık/aylık enflasyon oranları, tarih aralığı filtreleme.
     * **S&P 500 & NASDAQ:** Amerikan borsalarından hisse senedi verileri - gerçek zamanlı kotasyonlar, endeks verileri (S&P 500, NASDAQ, DOW), sektör performansı, piyasa hareketleri, opsiyon zincirleri.
     * **US Piyasa Analizi:** Piyasa duyarlılığı (VIX, Fear & Greed), hisse taraması, kazanç takvimi, 52 haftalık yüksek/düşük takibi.
+    * **US Gelişmiş Teknik Analiz (YENİ!):** 15+ teknik indikatör (RSI, MACD, Bollinger, ATR, Stochastic, SMA/EMA, VWAP, OBV), çoklu zaman dilimi (1m-aylık), pivot/destek/direnç seviyeleri.
+    * **US Trading Sinyalleri (YENİ!):** Oversold/overbought tarama, MACD crossover, Bollinger breakout, Golden/Death Cross, volume surge tespiti, momentum tarayıcı.
+    * **US Dinamik Hisse Keşfi (YENİ!):** Hacim bazlı dinamik keşif, NO hardcoded lists, gerçek zamanlı piyasa aktivitesi, unusual activity tespiti.
     * **Dinamik Token Yönetimi:** Otomatik token çıkarma ve yenileme sistemi ile kesintisiz API erişimi.
     * **Hibrit Veri:** Yahoo Finance + Mynet Finans'tan birleştirilmiş şirket bilgileri.
 * Türk hisse senetleri, endeksler, yatırım fonları ve kripto para için optimize edilmiş veri işleme.
@@ -230,11 +233,19 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_us_stock_quote`**: Amerikan hisse senetleri için gerçek zamanlı fiyat kotasyonları.
 * **`get_us_indices`**: Büyük ABD endekslerinin verileri (S&P 500, NASDAQ, DOW, Russell 2000, VIX).
 * **`get_us_sector_performance`**: S&P 500 sektör performans verileri (11 ana sektör).
-* **`get_us_market_movers`**: Günün en çok kazananları, kaybedenleri ve en aktif hisse senetleri.
+* **`get_us_market_movers`**: Günün en çok kazananları, kaybedenleri ve en aktif hisse senetleri (dinamik keşif).
 * **`screen_us_stocks`**: Piyasa değeri, P/E oranı, temettü verimi gibi kriterlere göre hisse taraması.
 * **`get_us_options_chain`**: Amerikan hisse senetleri için opsiyon zinciri verileri.
 * **`get_us_earnings_calendar`**: S&P 500 şirketleri için yaklaşan kazanç takvimi.
 * **`get_us_market_sentiment`**: Piyasa duyarlılığı göstergeleri (VIX, Fear & Greed, yeni yüksek/düşükler).
+
+### US Markets - Gelişmiş Teknik Analiz Araçları (YENİ!)
+* **`get_us_technical_indicators`**: 15+ teknik indikatör hesaplama - RSI, MACD, Bollinger Bantları, ATR, Stochastic, SMA/EMA, VWAP, OBV, Relative Volume.
+* **`get_us_intraday_levels`**: Günlük pivot noktaları (P, R1-R3, S1-S3) ve dinamik destek/direnç seviyeleri.
+* **`get_us_multi_timeframe`**: Çoklu zaman dilimi analizi - 1m, 5m, 15m, 30m, 1h, 4h, günlük, haftalık, aylık + extended hours.
+* **`get_us_trading_signals`**: Al-sat sinyalleri - RSI oversold/overbought, MACD crossover, Bollinger breakout, Golden/Death Cross.
+* **`scan_us_opportunities`**: Piyasa fırsat tarayıcı - oversold, overbought, breakout, volume surge, momentum taraması.
+* **`discover_active_stocks`**: Dinamik hisse keşfi - hacim bazlı, NO hardcoded lists, gerçek zamanlı piyasa aktivitesi.
 
 </details>
 
@@ -480,7 +491,7 @@ Son 6 aylık enflasyon etkisini hesapla ve yıllık bazda projeksiyon yap
 # Kontrat endeksleme hesaplaması
 Kira sözleşmelerinin enflasyon ayarlaması için gerekli artış oranını hesapla
 
-# US Markets - S&P 500 & NASDAQ örnekleri
+# US Markets - S&P 500 & NASDAQ Temel Örnekler
 Apple hissesinin güncel fiyatını ve analizini göster
 S&P 500 ve NASDAQ endekslerinin günlük performansını karşılaştır
 Amerikan teknoloji sektörünün bugünkü performansını analiz et
@@ -489,6 +500,103 @@ Günün en çok kazanan ve kaybeden S&P 500 hisselerini listele
 AAPL için opsiyon zincirini göster
 VIX endeksi ve piyasa duyarlılığını analiz et
 Önümüzdeki 7 günün kazanç takvimini göster
+
+# US Markets - Teknik Analiz Örnekleri (15+ İndikatör)
+AAPL için RSI, MACD ve Bollinger Bantları hesapla ve yorumla
+MSFT hissesinin 14 günlük RSI değerini göster ve aşırı alım/satım durumunu değerlendir
+GOOGL için MACD crossover sinyallerini tespit et ve trend yönünü belirle
+NVDA'nın Bollinger Bantları pozisyonunu analiz et (üst/orta/alt bant)
+TSLA için ATR hesapla ve volatilite seviyesini değerlendir
+META için Stochastic osilatör değerlerini göster (%K ve %D)
+AMZN'un 20, 50 ve 200 günlük hareketli ortalamalarını karşılaştır (SMA)
+SPY için VWAP hesapla ve fiyat pozisyonunu değerlendir
+QQQ'nun EMA 12 ve EMA 26 değerlerini göster ve trend analizi yap
+Microsoft için OBV (On Balance Volume) hesapla ve hacim trendini analiz et
+Apple için Relative Volume (RVOL) göster ve normal hacimle karşılaştır
+
+# US Markets - Çoklu Zaman Dilimi Analizi
+AAPL'ı 1 dakika, 5 dakika, 1 saat ve günlük grafiklerde analiz et
+NVDA'nın intraday (1m, 5m, 15m) ve swing trading (30m, 1h, 4h) perspektiflerini karşılaştır
+SPY endeksini scalping (1m), day trading (5m, 15m) ve position trading (günlük, haftalık) için analiz et
+TSLA'yı haftalık ve aylık zaman dilimlerinde uzun vadeli trend analizi için incele
+QQQ için extended hours (pre-market ve after-hours) verilerini dahil ederek analiz yap
+META'nın farklı zaman dilimlerindeki RSI değerlerini karşılaştır (1m vs 1h vs günlük)
+
+# US Markets - Pivot ve Destek/Direnç Seviyeleri
+AAPL için günlük pivot noktalarını hesapla (P, R1, R2, R3, S1, S2, S3)
+MSFT'nin dinamik destek ve direnç seviyelerini belirle
+NVDA için Fibonacci retracement seviyelerini hesapla
+SPY için önceki günün high/low/close değerlerine göre pivot analizi yap
+GOOGL'ın son 10 günlük fiyat hareketlerine göre dinamik S/R seviyelerini tespit et
+TSLA için intraday trading seviyeleri ve entry/exit noktalarını belirle
+
+# US Markets - Trading Sinyalleri ve Fırsat Tarayıcı
+RSI < 30 olan oversold S&P 500 hisselerini bul ve listele
+RSI > 70 olan overbought NASDAQ hisselerini tespit et
+MACD bullish crossover veren teknoloji hisselerini tara
+Bollinger üst bandını kıran (breakout) hisseleri bul
+Volume surge (hacim patlaması > 2x ortalama) yaşayan hisseleri listele
+Golden Cross (50 SMA > 200 SMA) oluşturan hisseleri tespit et
+Death Cross (50 SMA < 200 SMA) riski olan hisseleri belirle
+Momentum göstergeleri pozitif olan en iyi 10 hisseyi listele
+ATR bazlı stop-loss seviyeleri hesapla (risk yönetimi için)
+
+# US Markets - Sektör ve Endeks Karşılaştırmaları
+11 S&P 500 sektörünün günlük performansını karşılaştır (XLK, XLF, XLV, XLE vb.)
+Teknoloji sektörü (XLK) vs Finansal sektör (XLF) performans analizi yap
+Enerji sektörünün (XLE) son 1 aylık trend analizini yap
+Healthcare (XLV) ve Consumer Discretionary (XLY) sektörlerini teknik olarak karşılaştır
+S&P 500, NASDAQ-100, DOW 30 ve Russell 2000 endekslerini karşılaştır
+VIX (korku endeksi) ile S&P 500 korelasyonunu analiz et
+
+# US Markets - Opsiyon ve Türev Analizi
+AAPL için call ve put opsiyonlarının implied volatility değerlerini göster
+NVDA'nın opsiyon zincirini analiz et ve en likit strike fiyatlarını belirle
+SPY için put/call ratio hesapla ve piyasa sentimentini değerlendir
+TSLA opsiyonlarının açık pozisyon (open interest) dağılımını analiz et
+META için haftalık vs aylık opsiyon primlerini karşılaştır
+
+# US Markets - Kazanç ve Fundamentals
+Bu hafta kazanç açıklayacak S&P 500 şirketlerini listele
+AAPL'ın son çeyrek kazanç sonuçlarını ve analist beklentilerini karşılaştır
+Teknoloji sektöründe P/E oranı en düşük 10 hisseyi bul
+Dividend yield > %3 olan S&P 500 hisselerini listele
+Market cap > $500B olan mega-cap hisseleri analiz et
+
+# US Markets - Piyasa Genişliği ve Sentiment
+S&P 500'de yeni 52 hafta yüksek/düşük yapan hisseleri say
+Advance/Decline ratio hesapla ve piyasa genişliğini değerlendir
+Fear & Greed Index değerini göster ve yorumla
+Put/Call ratio ile piyasa sentimentini analiz et
+NYSE'de advancing vs declining hisse sayılarını karşılaştır
+
+# US Markets - Dinamik Keşif (Hardcoded Değer Yok!)
+En yüksek hacimli hisseleri dinamik olarak keşfet (min 5M hacim)
+Piyasa aktivitesine göre en aktif 20 hisseyi otomatik bul
+Volume-based discovery ile gerçek zamanlı hisse keşfi yap
+Unusual activity (olağandışı aktivite) gösteren hisseleri tespit et
+Market scanner ile breakout ve momentum fırsatlarını tara
+
+# US Markets - Çapraz Piyasa Analizi
+AAPL'ı hem US borsasında hem de Frankfurt borsasında karşılaştır
+Dolar endeksi (DXY) ile S&P 500 korelasyonunu analiz et
+Altın (GLD) ve hisse senedi piyasası ilişkisini değerlendir
+Bond yields (10Y Treasury) ile teknoloji hisselerinin ilişkisini incele
+Kripto (BTC) ve NASDAQ korelasyonunu araştır
+
+# US Markets - Risk Yönetimi ve Position Sizing
+NVDA için ATR bazlı position sizing hesapla
+Portfolio için Value at Risk (VaR) hesapla
+Apple için risk/reward oranı hesapla (R:R ratio)
+Stop-loss ve take-profit seviyeleri belirle (ATR multiplier ile)
+Maximum drawdown hesapla ve risk analizi yap
+
+# US Markets - Algoritmik Trading Sinyalleri
+Mean reversion stratejisi için RSI < 20 veya RSI > 80 hisseleri bul
+Momentum stratejisi için MACD histogram > 0 ve artan hisseleri listele
+Breakout stratejisi için Bollinger squeeze sonrası genişleme tara
+Volume breakout (hacim kırılımı) stratejisi için tarama yap
+Pairs trading için korelasyon analizi yap (GOOGL vs META gibi)
 ```
 
 </details>
