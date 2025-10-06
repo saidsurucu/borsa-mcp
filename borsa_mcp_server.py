@@ -67,15 +67,10 @@ os.environ['CURL_CAINFO'] = ''
 os.environ['REQUESTS_CA_BUNDLE'] = ''
 
 # --- Logging Configuration ---
-LOG_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
-if not os.path.exists(LOG_DIRECTORY):
-    os.makedirs(LOG_DIRECTORY)
-LOG_FILE_PATH = os.path.join(LOG_DIRECTORY, "borsa_mcp_server.log")
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(LOG_FILE_PATH, mode='a', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
