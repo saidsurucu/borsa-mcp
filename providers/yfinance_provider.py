@@ -143,7 +143,7 @@ class YahooFinanceProvider:
         """
         try:
             from token_optimizer import TokenOptimizer
-            from datetime import datetime, timedelta
+            from datetime import datetime
 
             ticker = self._get_ticker(ticker_kodu)
 
@@ -1429,3 +1429,100 @@ class YahooFinanceProvider:
             min_market_cap=10_000_000_000
         )
         return await self.hisse_tarama(kriterler, sirket_listesi)
+
+    async def get_pivot_points(self, ticker_kodu: str) -> Dict[str, Any]:
+        """
+        Calculate pivot points support and resistance levels.
+
+        Uses classic pivot point formula:
+        PP = (H + L + C) / 3
+        R1 = (2 * PP) - L
+        R2 = PP + (H - L)
+        R3 = H + 2 * (PP - L)
+        S1 = (2 * PP) - H
+        S2 = PP - (H - L)
+        S3 = L - 2 * (H - PP)
+
+        Returns 7 levels (PP, R1-R3, S1-S3) with current price context.
+        """
+        try:
+            ticker = self._get_ticker(ticker_kodu)
+
+            # Get last 5 days of data (for safety, in case of holidays)
+            hist = ticker.history(period="5d")
+
+            if hist.empty or len(hist) < 2:
+                return {"error": "Insufficient historical data for pivot point calculation"}
+
+            # Use previous day's data (last completed trading day)
+            previous_day = hist.iloc[-2]
+            current_day = hist.iloc[-1]
+
+            H = float(previous_day['High'])
+            L = float(previous_day['Low'])
+            C = float(previous_day['Close'])
+            current_price = float(current_day['Close'])
+
+            # Calculate pivot point and levels
+            PP = (H + L + C) / 3
+
+            # Resistance levels
+            R1 = (2 * PP) - L
+            R2 = PP + (H - L)
+            R3 = H + 2 * (PP - L)
+
+            # Support levels
+            S1 = (2 * PP) - H
+            S2 = PP - (H - L)
+            S3 = L - 2 * (H - PP)
+
+            # Determine current position
+            if abs(current_price - PP) / PP < 0.002:  # within 0.2%
+                pozisyon = "pivot_uzerinde"
+            elif current_price > PP:
+                pozisyon = "pivot_ustunde"
+            else:
+                pozisyon = "pivot_altinda"
+
+            # Find nearest resistance and support
+            resistances = [("R1", R1), ("R2", R2), ("R3", R3)]
+            supports = [("S1", S1), ("S2", S2), ("S3", S3)]
+
+            # Nearest resistance (above current price)
+            above = [(name, price) for name, price in resistances if price > current_price]
+            if above:
+                en_yakin_direnc_name, en_yakin_direnc_price = min(above, key=lambda x: x[1])
+                direnc_uzaklik = ((en_yakin_direnc_price - current_price) / current_price) * 100
+            else:
+                en_yakin_direnc_name = None
+                direnc_uzaklik = None
+
+            # Nearest support (below current price)
+            below = [(name, price) for name, price in supports if price < current_price]
+            if below:
+                en_yakin_destek_name, en_yakin_destek_price = max(below, key=lambda x: x[1])
+                destek_uzaklik = ((current_price - en_yakin_destek_price) / current_price) * 100
+            else:
+                en_yakin_destek_name = None
+                destek_uzaklik = None
+
+            return {
+                "pivot_point": round(PP, 2),
+                "r1": round(R1, 2),
+                "r2": round(R2, 2),
+                "r3": round(R3, 2),
+                "s1": round(S1, 2),
+                "s2": round(S2, 2),
+                "s3": round(S3, 2),
+                "guncel_fiyat": round(current_price, 2),
+                "referans_tarihi": previous_day.name.to_pydatetime(),
+                "pozisyon": pozisyon,
+                "en_yakin_direnc": en_yakin_direnc_name,
+                "en_yakin_destek": en_yakin_destek_name,
+                "direnc_uzaklik_yuzde": round(direnc_uzaklik, 2) if direnc_uzaklik else None,
+                "destek_uzaklik_yuzde": round(destek_uzaklik, 2) if destek_uzaklik else None
+            }
+
+        except Exception as e:
+            logger.exception(f"Error calculating pivot points for {ticker_kodu}")
+            return {"error": str(e)}

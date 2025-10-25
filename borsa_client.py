@@ -378,7 +378,11 @@ class BorsaApiClient:
     async def get_teknik_analiz_yfinance(self, ticker_kodu: str) -> Dict[str, Any]:
         """Delegates technical analysis to YahooFinanceProvider."""
         return self.yfinance_provider.get_teknik_analiz(ticker_kodu)
-    
+
+    async def get_pivot_points(self, ticker_kodu: str) -> Dict[str, Any]:
+        """Delegates pivot points calculation to YahooFinanceProvider."""
+        return await self.yfinance_provider.get_pivot_points(ticker_kodu)
+
     async def get_sektor_karsilastirmasi_yfinance(self, ticker_listesi: List[str]) -> Dict[str, Any]:
         """Delegates sector analysis to YahooFinanceProvider."""
         return self.yfinance_provider.get_sektor_karsilastirmasi(ticker_listesi)

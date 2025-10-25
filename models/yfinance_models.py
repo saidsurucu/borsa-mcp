@@ -530,3 +530,29 @@ class MuhafazakarYatirimiKriterleri(BaseModel):
     min_dividend_yield: float = Field(0.02, description="Minimum dividend yield (2%).")
     min_current_ratio: float = Field(1.5, description="Minimum current ratio.")
     min_market_cap: float = Field(10_000_000_000, description="Minimum market cap (10B TL).")
+
+# --- Pivot Points Support/Resistance Models ---
+class PivotPointsSonucu(BaseModel):
+    """Pivot points support and resistance levels calculated from previous day's data."""
+    ticker_kodu: str = Field(description="Stock ticker code.")
+    analiz_tarihi: Optional[datetime.datetime] = Field(None, description="Analysis timestamp (current time).")
+    referans_tarihi: Optional[datetime.datetime] = Field(None, description="Reference date (previous day used for calculation).")
+
+    # Pivot point and levels
+    pivot_point: Optional[float] = Field(None, description="Central pivot point (PP).")
+    r1: Optional[float] = Field(None, description="Resistance 1 (weak resistance level).")
+    r2: Optional[float] = Field(None, description="Resistance 2 (medium resistance level).")
+    r3: Optional[float] = Field(None, description="Resistance 3 (strong resistance level).")
+    s1: Optional[float] = Field(None, description="Support 1 (weak support level).")
+    s2: Optional[float] = Field(None, description="Support 2 (medium support level).")
+    s3: Optional[float] = Field(None, description="Support 3 (strong support level).")
+
+    # Current price context
+    guncel_fiyat: Optional[float] = Field(None, description="Current stock price.")
+    pozisyon: Optional[str] = Field(None, description="Position relative to pivot: 'pivot_ustunde', 'pivot_altinda', 'pivot_uzerinde'.")
+    en_yakin_direnc: Optional[str] = Field(None, description="Nearest resistance level: 'R1', 'R2', or 'R3'.")
+    en_yakin_destek: Optional[str] = Field(None, description="Nearest support level: 'S1', 'S2', or 'S3'.")
+    direnc_uzaklik_yuzde: Optional[float] = Field(None, description="Distance to nearest resistance in percentage.")
+    destek_uzaklik_yuzde: Optional[float] = Field(None, description="Distance to nearest support in percentage.")
+
+    error_message: Optional[str] = Field(None, description="Error message if the operation failed.")

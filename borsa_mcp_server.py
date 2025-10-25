@@ -53,6 +53,7 @@ from models import (
     SirketProfiliSonucu,
     TemettuVeAksiyonlarSonucu,
     TeknikAnalizSonucu,
+    PivotPointsSonucu,
     YFinancePeriodEnum,
 )
 from models.tcmb_models import EnflasyonHesaplamaSonucu, TcmbEnflasyonSonucu
@@ -530,7 +531,64 @@ async def get_teknik_analiz(
         logger.exception(f"Error in tool 'get_teknik_analiz' for ticker {ticker_kodu}.")
         from datetime import datetime
         return TeknikAnalizSonucu(
-            ticker_kodu=ticker_kodu, 
+            ticker_kodu=ticker_kodu,
+            analiz_tarihi=datetime.now().replace(microsecond=0),
+            error_message=f"An unexpected error occurred: {str(e)}"
+        )
+
+@app.tool(description="BIST STOCKS: Calculate daily pivot points with 3 resistance and 3 support levels. STOCKS ONLY.")
+async def get_pivot_points(
+    ticker_kodu: Annotated[str, Field(
+        description="BIST ticker: stock (GARAN, ASELS) or index (XU100, XBANK). No .IS suffix.",
+        pattern=r"^[A-Z]{2,6}$",
+        examples=["GARAN", "ASELS", "TUPRS", "XU100"]
+    )]
+) -> PivotPointsSonucu:
+    """
+    Calculate pivot points support and resistance levels using classic formula.
+
+    Pivot Point (PP) = (High + Low + Close) / 3
+    Returns 7 levels: PP (pivot), R1-R3 (resistance), S1-S3 (support).
+
+    Based on previous day's high, low, close.
+    Use for intraday trading, setting stop-loss/take-profit levels.
+    Shows current price position relative to levels.
+    """
+    logger.info(f"Tool 'get_pivot_points' called for ticker: '{ticker_kodu}'")
+    try:
+        from datetime import datetime
+        data = await borsa_client.get_pivot_points(ticker_kodu)
+
+        if data.get("error"):
+            return PivotPointsSonucu(
+                ticker_kodu=ticker_kodu,
+                analiz_tarihi=datetime.now().replace(microsecond=0),
+                error_message=data["error"]
+            )
+
+        return PivotPointsSonucu(
+            ticker_kodu=ticker_kodu,
+            analiz_tarihi=datetime.now().replace(microsecond=0),
+            referans_tarihi=data.get("referans_tarihi"),
+            pivot_point=data.get("pivot_point"),
+            r1=data.get("r1"),
+            r2=data.get("r2"),
+            r3=data.get("r3"),
+            s1=data.get("s1"),
+            s2=data.get("s2"),
+            s3=data.get("s3"),
+            guncel_fiyat=data.get("guncel_fiyat"),
+            pozisyon=data.get("pozisyon"),
+            en_yakin_direnc=data.get("en_yakin_direnc"),
+            en_yakin_destek=data.get("en_yakin_destek"),
+            direnc_uzaklik_yuzde=data.get("direnc_uzaklik_yuzde"),
+            destek_uzaklik_yuzde=data.get("destek_uzaklik_yuzde")
+        )
+    except Exception as e:
+        logger.exception(f"Error in tool 'get_pivot_points' for ticker {ticker_kodu}.")
+        from datetime import datetime
+        return PivotPointsSonucu(
+            ticker_kodu=ticker_kodu,
             analiz_tarihi=datetime.now().replace(microsecond=0),
             error_message=f"An unexpected error occurred: {str(e)}"
         )

@@ -32,6 +32,8 @@ from .yfinance_models import (
     # Technical analysis models
     HareketliOrtalama, TeknikIndiktorler, HacimAnalizi, FiyatAnalizi,
     TrendAnalizi, AnalistTavsiyeOzeti, TeknikAnalizSonucu,
+    # Pivot points support/resistance models
+    PivotPointsSonucu,
     # Sector analysis models
     SektorBilgisi, SirketSektorBilgisi, SektorPerformansOzeti, SektorKarsilastirmaSonucu,
     # Stock screening models
@@ -129,6 +131,7 @@ __all__ = [
     "KazancTarihi", "KazancTakvimi", "KazancBuyumeVerileri", "KazancTakvimSonucu",
     "HareketliOrtalama", "TeknikIndiktorler", "HacimAnalizi", "FiyatAnalizi",
     "TrendAnalizi", "AnalistTavsiyeOzeti", "TeknikAnalizSonucu",
+    "PivotPointsSonucu",
     "SektorBilgisi", "SirketSektorBilgisi", "SektorPerformansOzeti", "SektorKarsilastirmaSonucu",
     "TaramaKriterleri", "TaranmisHisse", "TaramaSonucu",
     "DegerYatirimiKriterleri", "TemettuYatirimiKriterleri", 

@@ -2,7 +2,7 @@
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
-Borsa İstanbul (BIST) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 43 araçla kapsamlı finansal analiz.
+Borsa İstanbul (BIST) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 41 araçla kapsamlı finansal analiz.
 
 ![ornek](./ornek.jpeg)
 
@@ -45,10 +45,11 @@ Bitcoin'in TRY fiyatını kontrol et
 
 ## 🎯 Temel Özellikler
 
-**43 Araç ile Kapsamlı Finansal Analiz:**
+**41 Araç ile Kapsamlı Finansal Analiz:**
 
 * 📈 **BIST Hisseleri:** 758 şirket, finansal tablolar, teknik analiz, analist raporları, KAP haberleri
 * 🆕 **Tarih Aralığı:** Belirli tarihler arası geçmiş veri sorgulaması (örn: "2024-01-01" - "2024-12-31")
+* 🎯 **Pivot Points:** 3 direnç & 3 destek seviyesi hesaplama (klasik pivot formülü)
 * 📊 **BIST Endeksleri:** XU100, XBANK, XK100 ve tüm endeksler için tam destek
 * 💰 **TEFAS Fonları:** 800+ fon, performans analizi, portföy dağılımı, karşılaştırma
 * ₿ **Kripto Paralar:** BtcTurk (TRY) ve Coinbase (USD/EUR) ile Türk ve global piyasalar
@@ -191,6 +192,7 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_hizli_bilgi`**: Hızlı finansal metrikler (P/E, P/B, ROE vb.).
 * **`get_kazanc_takvimi`**: Kazanç takvimi ve büyüme verileri.
 * **`get_teknik_analiz`**: Kapsamlı teknik analiz ve göstergeler.
+* **`get_pivot_points`**: Günlük pivot noktaları ile 3 direnç ve 3 destek seviyesi hesaplama.
 * **`get_sektor_karsilastirmasi`**: Sektör analizi ve karşılaştırması.
 
 ### KAP & Haberler
