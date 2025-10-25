@@ -1,58 +1,73 @@
-# Borsa MCP: Borsa İstanbul (BIST), TEFAS Fonları ve Türk/Global Kripto Piyasaları için MCP Sunucusu
+# Borsa MCP: Türk Finans Piyasaları için MCP Sunucusu
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
-Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine, global kripto para verilerine ve döviz/emtia verilerine erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, KAP (Kamuyu Aydınlatma Platformu), TEFAS (Türkiye Elektronik Fon Alım Satım Platformu), BtcTurk, Coinbase, Doviz.com, Mynet Finans ve Yahoo Finance'dan hisse senedi bilgileri, fon verileri, hem Türk hem de global kripto para piyasa verileri, döviz kurları ve emtia fiyatları, finansal veriler, teknik analiz ve sektör karşılaştırmaları, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
+Borsa İstanbul (BIST) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 43 araçla kapsamlı finansal analiz.
 
 ![ornek](./ornek.jpeg)
 
 ![fon ornek](./fon-ornek.png)
 
-⚠️ **ÖNEMLİ UYARI**
+---
 
-**Borsa MCP**, sadece açık kaynaklardan derlediği verileri büyük dil modellerine (LLM) ileten bir sistemdir. Alacağınız cevaplar kullandığınız LLM'in kabiliyetine göre değişir. 
+## ⚠️ Önemli Uyarılar
 
-**LLM'ler yeni bir teknolojidir ve bazen yanlış veya var olmayan bilgiler üretebilirler (halüsinasyon).** Her zaman verilen bilgileri doğrulayın ve kritik kararlar için birden fazla kaynak kullanın.
+- **LLM'ler halüsinasyon yapabilir** - Verileri mutlaka doğrulayın
+- **Yatırım tavsiyesi değildir** - Profesyonel danışmanlık alın
+- **Eğitim amaçlıdır** - Sorumluluk size aittir
 
-**Borsa MCP size HİÇBİR YATIRIM TAVSİYESİ VERMEZ.** Sadece finansal verileri derler ve sunar. Yatırım kararlarınızı vermeden önce mutlaka lisanslı finansal danışmanlardan profesyonel destek alın.
+---
 
-**Bu araç eğitim ve araştırma amaçlıdır.** Finansal işlemleriniz için sorumluluk tamamen size aittir.
+## 🚀 5 Dakikada Başla (Remote MCP)
 
-🎯 **Temel Özellikler**
+**✅ Kurulum Gerektirmez! Hemen Kullan!**
 
-* Borsa İstanbul (BIST), Türk yatırım fonları, global kripto para verileri ve döviz/emtia verilerine programatik erişim için kapsamlı bir MCP arayüzü.
-* **43 Araç** ile tam finansal analiz desteği:
-    * **Şirket Arama:** 758 BIST şirketi arasında ticker kodu ve şirket adına göre arama (çoklu ticker desteği ile).
-    * **Finansal Veriler:** Bilanço, kar-zarar, nakit akışı tabloları ve geçmiş OHLCV verileri.
-    * **Teknik Analiz:** RSI, MACD, Bollinger Bantları gibi teknik göstergeler ve al-sat sinyalleri.
-    * **Analist Verileri:** Analist tavsiyeleri, fiyat hedefleri ve kazanç takvimi.
-    * **KAP Haberleri:** Resmi şirket duyuruları ve düzenleyici başvurular.
-    * **Endeks Desteği:** BIST endeksleri (XU100, XBANK, XK100 vb.) için tam destek.
-    * **Katılım Finans:** Katılım finans uygunluk verileri.
-    * **TEFAS Fonları:** 800+ Türk yatırım fonu arama, performans, portföy analizi.
-    * **Fon Mevzuatı:** Yatırım fonları düzenlemeleri ve hukuki uyumluluk rehberi.
-    * **BtcTurk Kripto:** 295+ Türk kripto para çifti (TRY/USDT), gerçek zamanlı fiyatlar, emir defteri, işlem geçmişi, teknik analiz.
-    * **Coinbase Global:** 500+ global kripto para çifti (USD/EUR), uluslararası piyasa verileri, çapraz piyasa analizi, teknik analiz.
-    * **Kripto Teknik Analiz:** RSI, MACD, Bollinger Bantları ve al-sat sinyalleri ile hem Türk hem global kripto piyasalar için kapsamlı teknik analiz.
-    * **Doviz.com Döviz & Emtia:** 28+ varlık ile döviz kurları (USD, EUR, GBP), kıymetli madenler (altın, gümüş), enerji emtiaları (petrol), yakıt fiyatları (dizel, benzin, LPG).
-    * **Gerçek Zamanlı Döviz:** Dakikalık fiyat güncellemeleri ve tarihsel OHLC analizi ile kapsamlı döviz takibi.
-    * **Dovizcom Ekonomik Takvim:** Çoklu ülke desteği ile ekonomik takvim (TR,US varsayılan) - GDP, enflasyon, istihdam verileri ve makroekonomik olaylar.
-    * **TCMB Enflasyon Verileri:** Resmi Merkez Bankası TÜFE/ÜFE verileri - TÜFE (2005-2025, 245+ kayıt), ÜFE (2014-2025, 137+ kayıt) - yıllık/aylık enflasyon oranları, tarih aralığı filtreleme.
-    * **Dinamik Token Yönetimi:** Otomatik token çıkarma ve yenileme sistemi ile kesintisiz API erişimi.
-    * **Hibrit Veri:** Yahoo Finance + Mynet Finans'tan birleştirilmiş şirket bilgileri.
-* Türk hisse senetleri, endeksler, yatırım fonları ve kripto para için optimize edilmiş veri işleme.
-* **LLM Optimizasyonu:** Domain-özel araç ön ekleri ("BIST STOCKS:", "CRYPTO BtcTurk:", "CRYPTO Coinbase:") ile gelişmiş araç seçimi.
-* **Hızlı İşleme:** Kısa araç açıklamaları ve LLM-dostu dokümantasyon ile optimize edilmiş performans.
-* Claude Desktop uygulaması ile kolay entegrasyon.
-* Borsa MCP, [5ire](https://5ire.app) gibi Claude Desktop haricindeki MCP istemcilerini de destekler.
+🔗 **Remote MCP Adresi:** https://borsamcp.fastmcp.app/mcp
+
+### Claude Desktop ile Kullanım
+
+1. **Claude Desktop**'ı açın
+2. **Settings** → **Connectors** → **Add Custom Connector**
+3. Bilgileri girin:
+   - **Name:** `Borsa MCP`
+   - **URL:** `https://borsamcp.fastmcp.app/mcp`
+4. **Add** butonuna tıklayın
+5. Hemen kullanmaya başlayın! 🎉
+
+**Örnek Sorular:**
+```
+GARAN hissesinin son 1 aylık performansını analiz et
+XU100 endeksinin bugünkü durumunu göster
+Bitcoin'in TRY fiyatını kontrol et
+```
+
+---
+
+## 🎯 Temel Özellikler
+
+**43 Araç ile Kapsamlı Finansal Analiz:**
+
+* 📈 **BIST Hisseleri:** 758 şirket, finansal tablolar, teknik analiz, analist raporları, KAP haberleri
+* 🆕 **Tarih Aralığı:** Belirli tarihler arası geçmiş veri sorgulaması (örn: "2024-01-01" - "2024-12-31")
+* 📊 **BIST Endeksleri:** XU100, XBANK, XK100 ve tüm endeksler için tam destek
+* 💰 **TEFAS Fonları:** 800+ fon, performans analizi, portföy dağılımı, karşılaştırma
+* ₿ **Kripto Paralar:** BtcTurk (TRY) ve Coinbase (USD/EUR) ile Türk ve global piyasalar
+* 💱 **Döviz & Emtia:** USD, EUR, altın, petrol ve 28+ varlık takibi (Doviz.com)
+* 📅 **Ekonomik Takvim:** TR, US, EU ve 30+ ülke için makroekonomik veriler
+* 📉 **TCMB Enflasyon:** TÜFE/ÜFE resmi enflasyon verileri ve hesaplama araçları
+* ☪️ **Katılım Finans:** İslami finans uygunluk verileri
+* ⚡ **LLM Optimizasyonu:** Hızlı işleme ve domain-spesifik araç seçimi
 
 ## 📑 **İçindekiler**
 
-<details>
-<summary><b>🚀 Kurulum</b></summary>
+- [🚀 5 Dakikada Başla (Remote MCP)](#-5-dakikada-başla-remote-mcp) - **Kurulum gerektirmez!**
+- [🎯 Temel Özellikler](#-temel-özellikler)
 
-- [Claude Desktop Dışı Kullanım (5ire vb.)](#-claude-haricindeki-modellerle-kullanmak-için-çok-kolay-kurulum-örnek-5ire-için)
-- [Claude Desktop Manuel Kurulumu](#️-claude-desktop-manuel-kurulumu)
+<details>
+<summary><b>💻 Gelişmiş Kurulum (İsteğe Bağlı)</b></summary>
+
+- [5ire ve Diğer MCP İstemcileri](#-claude-haricindeki-modellerle-kullanmak-için-çok-kolay-kurulum-örnek-5ire-için)
+- [Claude Desktop Manuel/Local Kurulum](#️-claude-desktop-manuel-kurulumu)
 
 </details>
 
@@ -100,10 +115,14 @@ Bu proje, Borsa İstanbul (BIST) verilerine, Türk yatırım fonları verilerine
 
 ---
 
-<details>
-<summary><b>🚀 Claude Haricindeki Modellerle Kullanmak İçin Çok Kolay Kurulum (Örnek: 5ire için)</b></summary>
+## 💻 Gelişmiş Kurulum (İsteğe Bağlı)
 
-Bu bölüm, Borsa MCP aracını 5ire gibi Claude Desktop dışındaki MCP istemcileriyle kullanmak isteyenler içindir.
+**Not:** Remote MCP kullanıyorsanız bu adımları atlayabilirsiniz!
+
+<details>
+<summary><b>5ire ve Diğer MCP İstemcileri için Local Kurulum</b></summary>
+
+Bu bölüm, Borsa MCP'yi 5ire gibi diğer MCP istemcileriyle local olarak kullanmak isteyenler içindir.
 
 * **Python Kurulumu:** Sisteminizde Python 3.11 veya üzeri kurulu olmalıdır. Kurulum sırasında "**Add Python to PATH**" (Python'ı PATH'e ekle) seçeneğini işaretlemeyi unutmayın. [Buradan](https://www.python.org/downloads/) indirebilirsiniz.
 * **Git Kurulumu (Windows):** Bilgisayarınıza [git](https://git-scm.com/downloads/win) yazılımını indirip kurun. "Git for Windows/x64 Setup" seçeneğini indirmelisiniz.
@@ -127,7 +146,9 @@ Bu bölüm, Borsa MCP aracını 5ire gibi Claude Desktop dışındaki MCP istemc
 </details>
 
 <details>
-<summary><b>⚙️ Claude Desktop Manuel Kurulumu</b></summary>
+<summary><b>Claude Desktop için Local Kurulum</b></summary>
+
+**Not:** Remote MCP daha kolay bir seçenektir. Sadece local kurulum yapmak istiyorsanız bu adımları izleyin.
 
 1.  **Ön Gereksinimler:** Python, `uv`, (Windows için) Microsoft Visual C++ Redistributable'ın sisteminizde kurulu olduğundan emin olun. Detaylı bilgi için yukarıdaki "5ire için Kurulum" bölümündeki ilgili adımlara bakabilirsiniz.
 2.  Claude Desktop **Settings -> Developer -> Edit Config**.
@@ -162,7 +183,7 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_bilanco`**: Bilanço verileri (yıllık/çeyreklik).
 * **`get_kar_zarar_tablosu`**: Kar-zarar tablosu (yıllık/çeyreklik).
 * **`get_nakit_akisi_tablosu`**: Nakit akışı tablosu (yıllık/çeyreklik).
-* **`get_finansal_veri`**: Geçmiş OHLCV verileri (hisse senetleri ve endeksler için).
+* **`get_finansal_veri`**: Geçmiş OHLCV verileri (hisse senetleri ve endeksler için). **YENİ:** Belirli tarih aralığı desteği (örn: start_date="2024-01-01", end_date="2024-12-31") veya dönem modu (1mo, 1y vb.).
 
 ### Gelişmiş Analiz Araçları
 * **`get_analist_tahminleri`**: Analist tavsiyeleri, fiyat hedefleri ve trendler.
@@ -237,6 +258,10 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Endeks Desteği**: Tüm BIST endeksleri (XU100, XBANK, XK100 vb.) için tam destek
 - **Zaman Dilimi**: Tüm zaman damgaları Avrupa/İstanbul'a çevrilir
 - **Veri Kalitesi**: Büyük bankalar ve teknoloji şirketleri en iyi kapsama sahiptir
+- **Tarih Aralığı Desteği**: Belirli tarihler arası sorgulama (YYYY-MM-DD formatında, örn: "2024-01-01" - "2024-12-31")
+- **İki Sorgu Modu**:
+  - **Dönem Modu:** Period parametresi ile (1d, 1mo, 1y, vb.) - varsayılan
+  - **Tarih Modu:** start_date ve end_date parametreleri ile belirli tarih aralığı
 
 ### Mynet Finans (Hibrit Mod)
 - **Türk Özel Verileri**: Kurumsal yönetim, ortaklık yapısı, bağlı şirketler
@@ -328,8 +353,14 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 # Şirket arama
 GARAN hissesi için detaylı analiz yap
 
-# Endeks analizi  
+# Endeks analizi
 XU100 endeksinin son 1 aylık performansını analiz et
+
+# Tarih aralığı ile hisse analizi (YENİ!)
+GARAN hissesinin 2024 yıl başından bugüne performansını analiz et
+
+# Belirli dönem karşılaştırması (YENİ!)
+THYAO'nun 2023 ve 2024 yıllarının ilk çeyreklerini karşılaştır
 
 # Teknik analiz
 ASELS için kapsamlı teknik analiz ve al-sat sinyalleri ver

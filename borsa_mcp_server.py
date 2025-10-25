@@ -286,9 +286,19 @@ async def get_finansal_veri(
         examples=["GARAN", "TUPRS", "XU100", "XBANK"]
     )],
     zaman_araligi: Annotated[YFinancePeriodLiteral, Field(
-        description="Time period: 1d/5d/1mo/3mo/6mo/1y/2y/5y/ytd/max. Trading=1d-1mo, analysis=3mo-1y, trends=2y-max.",
+        description="Time period: 1d/5d/1mo/3mo/6mo/1y/2y/5y/ytd/max. Ignored if start_date/end_date provided.",
         default="1mo"
     )] = "1mo",
+    start_date: Annotated[str, Field(
+        description="Start date in YYYY-MM-DD format (e.g., '2024-01-01'). Optional.",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2024-01-01", "2024-06-15"]
+    )] = None,
+    end_date: Annotated[str, Field(
+        description="End date in YYYY-MM-DD format (e.g., '2024-12-31'). Optional.",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2024-12-31", "2024-06-30"]
+    )] = None,
     format: Annotated[ResponseFormatLiteral, Field(
         description="Response format: 'full' for complete data, 'compact' for shortened field names and reduced size.",
         default="full"
@@ -300,20 +310,29 @@ async def get_finansal_veri(
 ) -> FinansalVeriSonucu:
     """
     Get historical OHLCV price data for BIST stocks and indices. For charts and returns.
-    
-    Returns open, high, low, close, volume data over time period.
+
+    Returns open, high, low, close, volume data over time period or specific date range.
     Use for technical analysis, performance tracking, volatility assessment.
+
+    **Two modes:**
+    - **Period mode** (default): Use zaman_araligi (1mo, 1y, etc.)
+    - **Date range mode**: Specify start_date and/or end_date (overrides zaman_araligi)
     """
-    logger.info(f"Tool 'get_finansal_veri' called for ticker: '{ticker_kodu}', period: {zaman_araligi}")
+    logger.info(f"Tool 'get_finansal_veri' called for ticker: '{ticker_kodu}', period: {zaman_araligi}, start_date: {start_date}, end_date: {end_date}")
     try:
-        zaman_araligi_enum = YFinancePeriodEnum(zaman_araligi)
-        data = await borsa_client.get_finansal_veri(ticker_kodu, zaman_araligi_enum)
+        # Convert period to enum if not using date range mode
+        zaman_araligi_enum = YFinancePeriodEnum(zaman_araligi) if not (start_date or end_date) else None
+
+        # Call client with new parameters
+        data = await borsa_client.get_finansal_veri(
+            ticker_kodu, zaman_araligi_enum, start_date, end_date
+        )
         if data.get("error"):
-            return FinansalVeriSonucu(ticker_kodu=ticker_kodu, zaman_araligi=zaman_araligi_enum, veri_noktalari=[], error_message=data["error"])
+            return FinansalVeriSonucu(ticker_kodu=ticker_kodu, zaman_araligi=zaman_araligi_enum or YFinancePeriodEnum.P1MO, veri_noktalari=[], error_message=data["error"])
         
         result = FinansalVeriSonucu(
             ticker_kodu=ticker_kodu,
-            zaman_araligi=zaman_araligi_enum,
+            zaman_araligi=zaman_araligi_enum or YFinancePeriodEnum.P1MO,
             veri_noktalari=data.get("veri_noktalari", [])
         )
         
@@ -365,7 +384,12 @@ async def get_finansal_veri(
         return result
     except Exception as e:
         logger.exception(f"Error in tool 'get_finansal_veri' for ticker {ticker_kodu}.")
-        return FinansalVeriSonucu(ticker_kodu=ticker_kodu, zaman_araligi=YFinancePeriodEnum(zaman_araligi), veri_noktalari=[], error_message=f"An unexpected error occurred: {str(e)}")
+        return FinansalVeriSonucu(
+            ticker_kodu=ticker_kodu,
+            zaman_araligi=zaman_araligi_enum or YFinancePeriodEnum.P1MO,
+            veri_noktalari=[],
+            error_message=f"An unexpected error occurred: {str(e)}"
+        )
 
 @app.tool(description="BIST STOCKS: Get analyst recommendations with buy/sell ratings and price targets. STOCKS ONLY.")
 async def get_analist_tahminleri(

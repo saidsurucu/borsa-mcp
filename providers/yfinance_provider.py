@@ -124,18 +124,65 @@ class YahooFinanceProvider:
             logger.exception(f"Error fetching cash flow statement from yfinance for {ticker_kodu}")
             return {"error": str(e)}
 
-    async def get_finansal_veri(self, ticker_kodu: str, period: YFinancePeriodEnum) -> Dict[str, Any]:
-        """Fetches historical OHLCV data with token optimization for long time frames."""
+    async def get_finansal_veri(
+        self,
+        ticker_kodu: str,
+        period: YFinancePeriodEnum = None,
+        start_date: str = None,
+        end_date: str = None
+    ) -> Dict[str, Any]:
+        """Fetches historical OHLCV data with token optimization for long time frames.
+
+        Args:
+            ticker_kodu: Stock ticker symbol
+            period: Time period (1d, 5d, 1mo, etc.) - used if start_date/end_date not provided
+            start_date: Start date in YYYY-MM-DD format (optional)
+            end_date: End date in YYYY-MM-DD format (optional)
+
+        Note: If start_date or end_date is provided, period is ignored.
+        """
         try:
             from token_optimizer import TokenOptimizer
-            
+            from datetime import datetime, timedelta
+
             ticker = self._get_ticker(ticker_kodu)
-            # Handle both enum and string periods
-            period_value = period.value if hasattr(period, 'value') else period
-            hist_df = ticker.history(period=period_value)
+
+            # Determine which mode to use: date range or period
+            if start_date or end_date:
+                # Date range mode
+                hist_df = ticker.history(start=start_date, end=end_date)
+
+                # Calculate time frame for optimization based on actual date range
+                if start_date and end_date:
+                    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                    time_frame_days = (end_dt - start_dt).days
+                elif start_date:
+                    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                    time_frame_days = (datetime.now() - start_dt).days
+                elif end_date:
+                    # If only end_date, assume 1 year back
+                    time_frame_days = 365
+                else:
+                    time_frame_days = 365
+            else:
+                # Period mode (default behavior)
+                if period is None:
+                    period = YFinancePeriodEnum.P1MO  # Default to 1 month
+                # Handle both enum and string periods
+                period_value = period.value if hasattr(period, 'value') else period
+                hist_df = ticker.history(period=period_value)
+
+                # Calculate time frame for optimization
+                period_days_mapping = {
+                    '1d': 1, '5d': 5, '1mo': 30, '3mo': 90, '6mo': 180,
+                    '1y': 365, '2y': 730, '5y': 1825, 'ytd': 365, 'max': 3650
+                }
+                time_frame_days = period_days_mapping.get(period_value, 365)
+
             if hist_df.empty:
                 return {"veri_noktalari": []}
-            
+
             # Convert to list of dictionaries for optimization
             veri_noktalari = []
             for index, row in hist_df.iterrows():
@@ -147,19 +194,10 @@ class YahooFinanceProvider:
                     'kapanis': row['Close'],
                     'hacim': row['Volume']
                 })
-            
-            # Calculate time frame for optimization
-            period_days_mapping = {
-                '1d': 1, '5d': 5, '1mo': 30, '3mo': 90, '6mo': 180,
-                '1y': 365, '2y': 730, '5y': 1825, 'ytd': 365, 'max': 3650
-            }
-            # Handle both enum and string values for period
-            period_value = period.value if hasattr(period, 'value') else period
-            time_frame_days = period_days_mapping.get(period_value, 365)
-            
+
             # Apply token optimization
             optimized_data = TokenOptimizer.optimize_ohlc_data(veri_noktalari, time_frame_days)
-            
+
             # Convert optimized data back to Pydantic models
             optimized_noktalari = [
                 FinansalVeriNoktasi(
@@ -171,9 +209,9 @@ class YahooFinanceProvider:
                     hacim=point['hacim']
                 ) for point in optimized_data
             ]
-            
+
             return {"veri_noktalari": optimized_noktalari}
-            
+
         except Exception as e:
             logger.exception(f"Error fetching historical data from yfinance for {ticker_kodu}")
             return {"error": str(e)}

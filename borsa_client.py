@@ -268,9 +268,24 @@ class BorsaApiClient:
             return []
 
     # --- YFinance Provider Methods ---
-    async def get_finansal_veri(self, ticker_kodu: str, zaman_araligi: YFinancePeriodEnum) -> Dict[str, Any]:
-        """Delegates historical data fetching to YahooFinanceProvider."""
-        return await self.yfinance_provider.get_finansal_veri(ticker_kodu, zaman_araligi)
+    async def get_finansal_veri(
+        self,
+        ticker_kodu: str,
+        zaman_araligi: YFinancePeriodEnum = None,
+        start_date: str = None,
+        end_date: str = None
+    ) -> Dict[str, Any]:
+        """Delegates historical data fetching to YahooFinanceProvider.
+
+        Args:
+            ticker_kodu: Stock ticker symbol
+            zaman_araligi: Time period (optional if start_date/end_date provided)
+            start_date: Start date in YYYY-MM-DD format (optional)
+            end_date: End date in YYYY-MM-DD format (optional)
+        """
+        return await self.yfinance_provider.get_finansal_veri(
+            ticker_kodu, zaman_araligi, start_date, end_date
+        )
         
     async def get_sirket_bilgileri_yfinance(self, ticker_kodu: str) -> Dict[str, Any]:
         """Delegates company info fetching to YahooFinanceProvider."""
