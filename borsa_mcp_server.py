@@ -291,14 +291,14 @@ async def get_finansal_veri(
         default="1mo"
     )] = "1mo",
     start_date: Annotated[str, Field(
-        description="Start date in YYYY-MM-DD format (e.g., '2024-01-01'). Optional.",
+        description="Start date in YYYY-MM-DD format. For single day data, use same date for both start and end. Optional.",
         pattern=r"^\d{4}-\d{2}-\d{2}$",
-        examples=["2024-01-01", "2024-06-15"]
+        examples=["2024-01-01", "2024-06-15", "2024-10-25"]
     )] = None,
     end_date: Annotated[str, Field(
-        description="End date in YYYY-MM-DD format (e.g., '2024-12-31'). Optional.",
+        description="End date in YYYY-MM-DD format. For single day data, use same date for both start and end. Optional.",
         pattern=r"^\d{4}-\d{2}-\d{2}$",
-        examples=["2024-12-31", "2024-06-30"]
+        examples=["2024-12-31", "2024-06-30", "2024-10-25"]
     )] = None,
     format: Annotated[ResponseFormatLiteral, Field(
         description="Response format: 'full' for complete data, 'compact' for shortened field names and reduced size.",
@@ -318,6 +318,12 @@ async def get_finansal_veri(
     **Two modes:**
     - **Period mode** (default): Use zaman_araligi (1mo, 1y, etc.)
     - **Date range mode**: Specify start_date and/or end_date (overrides zaman_araligi)
+
+    **Examples:**
+    - Single day: start_date="2024-10-25", end_date="2024-10-25"
+    - From date to now: start_date="2024-10-01"
+    - Up to date: end_date="2024-10-25"
+    - Date range: start_date="2024-01-01", end_date="2024-12-31"
     """
     logger.info(f"Tool 'get_finansal_veri' called for ticker: '{ticker_kodu}', period: {zaman_araligi}, start_date: {start_date}, end_date: {end_date}")
     try:
