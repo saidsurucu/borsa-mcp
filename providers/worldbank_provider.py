@@ -5,7 +5,7 @@ Fetches economic indicators from World Bank API.
 Primary use: GDP growth data for terminal growth rate in DCF calculations.
 """
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 import httpx
 
 logger = logging.getLogger(__name__)

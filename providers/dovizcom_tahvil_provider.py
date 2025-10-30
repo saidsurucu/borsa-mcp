@@ -5,7 +5,7 @@ Fetches Turkish government bond yields from doviz.com.
 Provides real-time interest rates for 2Y, 5Y, and 10Y bonds.
 """
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from bs4 import BeautifulSoup
 import httpx
 

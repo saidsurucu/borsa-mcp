@@ -1460,7 +1460,6 @@ class FinancialRatiosProvider:
             bilgiler = info_result.get('bilgiler')
 
             # Extract data for Piotroski F-Score (simplified snapshot)
-            total_assets = self._extract_field(balance_tablo, 'Total Assets')
             net_income = self._extract_field(income_tablo, 'Net Income')
             operating_cf = self._extract_field(cashflow_tablo, 'Operating Cash Flow')
 
@@ -1648,9 +1647,6 @@ class FinancialRatiosProvider:
         """
         try:
             logger.info(f"Calculating Core Financial Health for {ticker_kodu}")
-
-            # Get latest period from one of the statements
-            ticker = self.yfinance_provider._get_ticker(ticker_kodu)
 
             # Calculate all 5 metrics using existing methods
             # These methods handle their own data fetching efficiently

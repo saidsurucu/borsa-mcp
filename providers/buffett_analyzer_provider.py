@@ -15,7 +15,6 @@ All calculations use dynamic parameters from:
 """
 import logging
 from typing import Dict, Any, List, Optional
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +224,7 @@ class BuffettAnalyzerProvider:
                     except Exception as e:
                         logger.error(f"TCMB error: {e}")
                         expected_inflation = 0.38
-                        data_sources['expected_inflation'] = f'Default 38% (TCMB hatası)'
+                        data_sources['expected_inflation'] = 'Default 38% (TCMB hatası)'
                 else:
                     expected_inflation = 0.38
                     data_sources['expected_inflation'] = 'Default 38% (provider yok)'
@@ -616,7 +615,7 @@ class BuffettAnalyzerProvider:
             # Get previous period values for working capital calculation
             # For now, use 0 as a conservative estimate (could be enhanced to get historical data)
             working_capital_change = 0
-            logger.warning(f"Working capital change set to 0 (historical comparison not implemented yet)")
+            logger.warning("Working capital change set to 0 (historical comparison not implemented yet)")
 
             # Extract market cap (in millions), current price, shares outstanding
             market_cap = company_info.get('marketCap', 0) / 1_000_000
@@ -636,7 +635,7 @@ class BuffettAnalyzerProvider:
             # STEP 3: Calculate 4 Buffett metrics using existing methods
 
             # 1. Owner Earnings
-            logger.info(f"Calculating Owner Earnings")
+            logger.info("Calculating Owner Earnings")
             oe_result = self.calculate_owner_earnings(
                 net_income=net_income,
                 depreciation=depreciation,
@@ -665,13 +664,13 @@ class BuffettAnalyzerProvider:
                     'warnings': [
                         f'❌ Negatif Owner Earnings: {owner_earnings:,.2f}M TL',
                         f'❌ Net Income: {net_income:,.2f}M TL ({"zarar" if net_income < 0 else "kar"})',
-                        f'⚠️ Şirket sürdürülebilir nakit akışı üretmiyor'
+                        '⚠️ Şirket sürdürülebilir nakit akışı üretmiyor'
                     ],
                     'data_quality_notes': f'Finansal veri mevcut ama şirket zarar ediyor (Period: {latest_period})'
                 }
 
             # 2. OE Yield (uses owner earnings)
-            logger.info(f"Calculating OE Yield")
+            logger.info("Calculating OE Yield")
             oe_yield_result = self.calculate_oe_yield(
                 owner_earnings=owner_earnings,
                 market_cap=market_cap,
@@ -679,7 +678,7 @@ class BuffettAnalyzerProvider:
             )
 
             # 3. DCF Fisher (async, takes ticker_kodu and owner_earnings_quarterly)
-            logger.info(f"Calculating DCF Fisher")
+            logger.info("Calculating DCF Fisher")
             dcf_result = await self.calculate_dcf_fisher(
                 ticker_kodu=ticker_kodu,
                 owner_earnings_quarterly=owner_earnings
@@ -716,7 +715,7 @@ class BuffettAnalyzerProvider:
                 params['terminal_growth_real_decimal'] = params.get('terminal_growth_real', 0)
 
             # 4. Safety Margin (uses DCF intrinsic value)
-            logger.info(f"Calculating Safety Margin")
+            logger.info("Calculating Safety Margin")
             intrinsic_value_total = dcf_result.get('intrinsic_value_total', 0)
             safety_margin_result = self.calculate_safety_margin(
                 intrinsic_value_total=intrinsic_value_total,

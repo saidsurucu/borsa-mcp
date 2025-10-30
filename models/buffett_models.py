@@ -5,7 +5,7 @@ Pydantic models for Warren Buffett style value investing calculations
 and Turkish government bond yields.
 """
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict
 
 # --- Bond Yields Models ---
 class TahvilBilgisi(BaseModel):

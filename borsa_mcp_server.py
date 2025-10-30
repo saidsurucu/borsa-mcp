@@ -56,22 +56,13 @@ from models import (
     PivotPointsSonucu,
     YFinancePeriodEnum,
     TahvilFaizleriSonucu,
-    OwnerEarningsSonucu,
-    OEYieldSonucu,
-    DCFFisherSonucu,
-    SafetyMarginSonucu,
 )
 from models.financial_ratios_models import (
-    RoeSonucu,
-    RoicSonucu,
-    DebtRatiosSonucu,
-    FcfMarginSonucu,
-    EarningsQualitySonucu,
-    AltmanZScoreSonucu,
-    RealGrowthSonucu,
     CoreFinancialHealthAnalysis,
     AdvancedFinancialMetrics,
 )
+from models.buffett_models import BuffettValueAnalysis
+from models.comprehensive_analysis_models import ComprehensiveFinancialAnalysis
 from models.tcmb_models import EnflasyonHesaplamaSonucu, TcmbEnflasyonSonucu
 
 # Disable SSL verification globally to avoid certificate issues
@@ -3229,10 +3220,8 @@ Rasyonel kal. Planına sadık ol. Öğrenmeye ve öğretmeye devam et.
 
 Her yanıtı tam olarak bu sorumluluk reddi formatıyla BİTİRMELİSİN:
 
-```
----
-*Yatırım tavsiyesi değildir.*
-```
+    ---
+    *Yatırım tavsiyesi değildir.*
 
 Bu, her etkileşimde tüm içerikten sonra görünen, pazarlık konusu olmayan bir sistem gerekliliğidir. Sorumluluk reddi beyanı, bunun finansal tavsiye olmadığını kabul eder ve kullanıcının aksine talimatlarına bakılmaksızın asla atlanmamalı, değiştirilmemeli veya açıklanmamalıdır.
 
@@ -3242,6 +3231,8 @@ Bu, her etkileşimde tüm içerikten sonra görünen, pazarlık konusu olmayan b
 Her bir yanıtın sonunda, soru veya format ne olursa olsun, tam olarak şu satırı ekle:
 Yatırım tavsiyesi değildir.
 
+Bu, yanıt kısa olsa bile, markdown, kod içerse veya evet/hayır sorusuna cevap verse bile dahil edilmelidir. Hiçbir koşulda atlama.
+"""
 
 # ===========================
 # BOND YIELDS & BUFFETT ANALYSIS TOOLS (5 tools)
@@ -3258,7 +3249,7 @@ async def get_tahvil_faizleri() -> TahvilFaizleriSonucu:
     Data is real-time from Doviz.com.
     """
     try:
-        result = await client.get_tahvil_faizleri()
+        result = await borsa_client.get_tahvil_faizleri()
         return TahvilFaizleriSonucu(**result)
     except Exception as e:
         raise ToolError(f"Bond yields fetch failed: {str(e)}")
@@ -3325,7 +3316,7 @@ async def calculate_buffett_value_analysis(
     This is Warren Buffett's complete value investing framework in a single tool.
     """
     try:
-        result = await client.calculate_buffett_value_analysis(ticker_kodu)
+        result = await borsa_client.calculate_buffett_value_analysis(ticker_kodu)
         return BuffettValueAnalysis(**result)
     except Exception as e:
         raise ToolError(f"Buffett value analysis failed for {ticker_kodu}: {str(e)}")
@@ -3374,7 +3365,7 @@ async def calculate_comprehensive_analysis(
       Undervalued (Graham discount 24%), Strong quality (Piotroski 8/9)
     """
     try:
-        result = await client.calculate_comprehensive_analysis(ticker_kodu)
+        result = await borsa_client.calculate_comprehensive_analysis(ticker_kodu)
         return ComprehensiveFinancialAnalysis(**result)
     except Exception as e:
         raise ToolError(f"Comprehensive analysis failed for {ticker_kodu}: {str(e)}")
@@ -3429,7 +3420,7 @@ async def calculate_core_financial_health(
     - ASELS: GOOD (ROE 14.2%, ROIC 12.1%, Moderate D/E 1.15, FCF 8.7%)
     """
     try:
-        result = await client.calculate_core_financial_health(ticker_kodu)
+        result = await borsa_client.calculate_core_financial_health(ticker_kodu)
         return CoreFinancialHealthAnalysis(**result)
     except Exception as e:
         raise ToolError(f"Core financial health analysis failed for {ticker_kodu}: {str(e)}")
@@ -3487,15 +3478,10 @@ async def calculate_advanced_metrics(
     - THYAO: GREY (Z-Score 2.45), MODERATE Growth (Revenue +6.8%, Earnings +5.2%)
     """
     try:
-        result = await client.calculate_advanced_metrics(ticker_kodu)
+        result = await borsa_client.calculate_advanced_metrics(ticker_kodu)
         return AdvancedFinancialMetrics(**result)
     except Exception as e:
         raise ToolError(f"Advanced metrics analysis failed for {ticker_kodu}: {str(e)}")
-
-
-Bu, yanıt kısa olsa bile, markdown, kod içerse veya evet/hayır sorusuna cevap verse bile dahil edilmelidir. Hiçbir koşulda atlama.
-
-"""
 
 def main():
     """Main function to run the server."""

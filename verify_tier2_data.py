@@ -40,12 +40,12 @@ async def verify_shares_outstanding_history():
 
         if shares_outstanding:
             print(f"✅ Current shares outstanding: {shares_outstanding:,.0f}")
-            print(f"   Note: Yahoo Finance provides current value only, not historical trend")
-            print(f"   Decision: ⚠️ PARTIAL - Can calculate current metrics, but historical trend unavailable")
-            print(f"   Recommendation: Implement simplified version without historical comparison")
+            print("   Note: Yahoo Finance provides current value only, not historical trend")
+            print("   Decision: ⚠️ PARTIAL - Can calculate current metrics, but historical trend unavailable")
+            print("   Recommendation: Implement simplified version without historical comparison")
             return "partial"
         else:
-            print(f"❌ Shares outstanding not available")
+            print("❌ Shares outstanding not available")
             return False
 
     except Exception as e:
@@ -80,7 +80,7 @@ async def verify_retained_earnings():
         # Check all available field names
         tablo = balance_result.get('tablo', [])
         if not tablo:
-            print(f"❌ No balance sheet data available")
+            print("❌ No balance sheet data available")
             return False
 
         # Extract all field names
@@ -102,12 +102,12 @@ async def verify_retained_earnings():
                 break
 
         if found:
-            print(f"   Decision: ✅ AVAILABLE - Can implement Altman Z-Score")
+            print("   Decision: ✅ AVAILABLE - Can implement Altman Z-Score")
             return True
         else:
-            print(f"❌ Retained Earnings field not found")
+            print("❌ Retained Earnings field not found")
             print(f"   Available fields include: {', '.join(field_names[:10])}...")
-            print(f"   Decision: ❌ NOT AVAILABLE - Cannot implement Altman Z-Score")
+            print("   Decision: ❌ NOT AVAILABLE - Cannot implement Altman Z-Score")
             return False
 
     except Exception as e:
@@ -146,12 +146,12 @@ async def verify_dividend_data():
             print(f"✅ Dividend history available: {len(dividends)} records")
             print(f"   Latest dividend: {dividends[0] if dividends else 'N/A'}")
             print(f"   Stock splits: {len(splits)} records")
-            print(f"   Note: Share buyback data not directly available from Yahoo Finance")
-            print(f"   Decision: ⚠️ PARTIAL - Can calculate dividend yield, but buybacks unavailable")
-            print(f"   Recommendation: Implement dividend yield only (no buybacks)")
+            print("   Note: Share buyback data not directly available from Yahoo Finance")
+            print("   Decision: ⚠️ PARTIAL - Can calculate dividend yield, but buybacks unavailable")
+            print("   Recommendation: Implement dividend yield only (no buybacks)")
             return "partial"
         else:
-            print(f"❌ Dividend data not available")
+            print("❌ Dividend data not available")
             return False
 
     except Exception as e:
@@ -174,7 +174,7 @@ async def verify_inflation_data():
 
     client = BorsaApiClient()
     try:
-        print(f"\nChecking TCMB inflation data availability...")
+        print("\nChecking TCMB inflation data availability...")
 
         # Get inflation data
         inflation_result = await client.get_turkiye_enflasyon(
@@ -184,13 +184,13 @@ async def verify_inflation_data():
 
         if inflation_result.data:
             latest = inflation_result.data[0]
-            print(f"✅ Inflation data available")
+            print("✅ Inflation data available")
             print(f"   Latest: {latest.ay_yil} - Annual: {latest.yillik_enflasyon}%, Monthly: {latest.aylik_enflasyon}%")
             print(f"   Total records: {inflation_result.total_records}")
-            print(f"   Decision: ✅ AVAILABLE - Can implement Real Growth Rate")
+            print("   Decision: ✅ AVAILABLE - Can implement Real Growth Rate")
             return True
         else:
-            print(f"❌ Inflation data not available")
+            print("❌ Inflation data not available")
             return False
 
     except Exception as e:
@@ -220,7 +220,7 @@ async def run_all_verifications():
     print("VERIFICATION SUMMARY")
     print("=" * 80)
 
-    print(f"\n1. Piotroski F-Score: ", end="")
+    print("\n1. Piotroski F-Score: ", end="")
     if results['shares_outstanding'] == "partial":
         print("⚠️ PARTIAL (current data only)")
     elif results['shares_outstanding']:
@@ -228,13 +228,13 @@ async def run_all_verifications():
     else:
         print("❌ NOT AVAILABLE")
 
-    print(f"2. Altman Z-Score: ", end="")
+    print("2. Altman Z-Score: ", end="")
     if results['retained_earnings']:
         print("✅ AVAILABLE")
     else:
         print("❌ NOT AVAILABLE")
 
-    print(f"3. Shareholder Yield: ", end="")
+    print("3. Shareholder Yield: ", end="")
     if results['dividend_data'] == "partial":
         print("⚠️ PARTIAL (dividends only)")
     elif results['dividend_data']:
@@ -242,7 +242,7 @@ async def run_all_verifications():
     else:
         print("❌ NOT AVAILABLE")
 
-    print(f"4. Real Growth Rate: ", end="")
+    print("4. Real Growth Rate: ", end="")
     if results['inflation_data']:
         print("✅ AVAILABLE")
     else:
