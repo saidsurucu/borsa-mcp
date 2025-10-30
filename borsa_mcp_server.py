@@ -55,6 +55,22 @@ from models import (
     TeknikAnalizSonucu,
     PivotPointsSonucu,
     YFinancePeriodEnum,
+    TahvilFaizleriSonucu,
+    OwnerEarningsSonucu,
+    OEYieldSonucu,
+    DCFFisherSonucu,
+    SafetyMarginSonucu,
+)
+from models.financial_ratios_models import (
+    RoeSonucu,
+    RoicSonucu,
+    DebtRatiosSonucu,
+    FcfMarginSonucu,
+    EarningsQualitySonucu,
+    AltmanZScoreSonucu,
+    RealGrowthSonucu,
+    CoreFinancialHealthAnalysis,
+    AdvancedFinancialMetrics,
 )
 from models.tcmb_models import EnflasyonHesaplamaSonucu, TcmbEnflasyonSonucu
 
@@ -3225,6 +3241,257 @@ Bu, her etkileşimde tüm içerikten sonra görünen, pazarlık konusu olmayan b
 **Her bir yanıtın** sonunda, soru ve
 Her bir yanıtın sonunda, soru veya format ne olursa olsun, tam olarak şu satırı ekle:
 Yatırım tavsiyesi değildir.
+
+
+# ===========================
+# BOND YIELDS & BUFFETT ANALYSIS TOOLS (5 tools)
+# ===========================
+
+@app.tool(
+    description="BONDS: Get current Turkish government bond yields (2Y, 5Y, 10Y) from Doviz.com"
+)
+async def get_tahvil_faizleri() -> TahvilFaizleriSonucu:
+    """
+    Fetch current Turkish government bond yields.
+    
+    Returns 2-year, 5-year, and 10-year bond interest rates.
+    Data is real-time from Doviz.com.
+    """
+    try:
+        result = await client.get_tahvil_faizleri()
+        return TahvilFaizleriSonucu(**result)
+    except Exception as e:
+        raise ToolError(f"Bond yields fetch failed: {str(e)}")
+
+@app.tool(
+    description="VALUE INVESTING: Complete Buffett value analysis (4 metrics in 1)"
+)
+async def calculate_buffett_value_analysis(
+    ticker_kodu: Annotated[str, Field(
+        description="BIST ticker code (e.g., GARAN, THYAO, ASELS)",
+        pattern=r"^[A-Z]{3,6}$",
+        examples=["GARAN", "THYAO", "ASELS"]
+    )]
+) -> BuffettValueAnalysis:
+    """
+    Warren Buffett's complete value investing analysis.
+
+    Consolidates 4 key Buffett metrics in sequential order:
+
+    1. OWNER EARNINGS (Real Cash Flow)
+       - Formula: Net Income + Depreciation - CapEx - ΔWorking Capital
+       - Buffett's preferred cash flow metric
+       - Shows real cash available to shareholders
+
+    2. OE YIELD (Cash Return %)
+       - Formula: (Owner Earnings × 4) / Market Cap × 100
+       - Buffett criterion: >10% = Good investment
+       - Compares cash return to market price
+
+    3. DCF FISHER (Intrinsic Value)
+       - Inflation-adjusted DCF using Fisher Effect
+       - Real discount rate: (1 + nominal) / (1 + inflation) - 1
+       - Auto-fetches: 10Y bond yield, TCMB inflation, analyst growth, GDP
+       - Conservative terminal growth cap: 3% (Buffett's rule)
+
+    4. SAFETY MARGIN (Buy Signal)
+       - Formula: (Intrinsic - Current) / Intrinsic × 100
+       - Moat-adjusted thresholds:
+         * Strong moat: >50% margin required
+         * Medium moat: >60% margin required
+         * Weak moat: >70% margin required
+
+    RETURNS:
+    - All 4 metrics with full details
+    - Overall Buffett Score: STRONG_BUY | BUY | HOLD | AVOID
+    - Key Insights: 3-5 positive signals
+    - Warnings: 0-3 concern areas
+    - Data Quality Notes
+
+    WHY USE THIS TOOL:
+    - Single call instead of 4 separate calls
+    - Consistent data across all calculations
+    - Overall Buffett assessment
+    - Auto-generated insights and warnings
+
+    EXAMPLE USAGE:
+    Analysis for ASELS:
+    - Owner Earnings: 8,400M TL (positive cash generation)
+    - OE Yield: 12.5% (>10% Buffett target) ✅
+    - Intrinsic Value: 568 TL per share
+    - Safety Margin: 84% (>50% for strong moat) ✅
+    - Buffett Score: STRONG_BUY
+
+    This is Warren Buffett's complete value investing framework in a single tool.
+    """
+    try:
+        result = await client.calculate_buffett_value_analysis(ticker_kodu)
+        return BuffettValueAnalysis(**result)
+    except Exception as e:
+        raise ToolError(f"Buffett value analysis failed for {ticker_kodu}: {str(e)}")
+
+@app.tool(
+    description="VALUE INVESTING: Calculate comprehensive financial analysis (11 metrics in 4 categories)"
+)
+async def calculate_comprehensive_analysis(
+    ticker_kodu: Annotated[str, Field(
+        description="BIST ticker code (e.g., GARAN, THYAO, ASELS)",
+        pattern=r"^[A-Z]{3,6}$",
+        examples=["GARAN", "THYAO", "ASELS"]
+    )]
+) -> ComprehensiveFinancialAnalysis:
+    """
+    Calculate comprehensive financial analysis with 11 metrics in 4 categories.
+
+    LIQUIDITY METRICS (5 metrics):
+    1. Current Ratio = Current Assets / Current Liabilities (>2.0 Excellent)
+    2. Quick Ratio = (Current Assets - Inventory) / Current Liabilities (>1.5 Excellent)
+    3. OCF Ratio = Operating Cash Flow / Current Liabilities (>1.5 Excellent)
+    4. Cash Conversion Cycle = DIO + DSO - DPO (Lower is better, <30 days Excellent)
+    5. Debt-to-EBITDA = Total Debt / EBITDA (<2.0 Excellent)
+
+    PROFITABILITY MARGINS (3 metrics):
+    1. Gross Margin = (Revenue - COGS) / Revenue × 100 (>40% Excellent)
+    2. Operating Margin = Operating Income / Revenue × 100 (>15% Excellent)
+    3. Net Profit Margin = Net Income / Revenue × 100 (>15% Excellent)
+
+    VALUATION METRICS (2 metrics):
+    1. EV/EBITDA = Enterprise Value / EBITDA (<8 Undervalued, 8-12 Fair)
+    2. Graham Number = √(22.5 × EPS × Book Value per Share) (Ben Graham intrinsic value)
+
+    COMPOSITE SCORES (2 metrics):
+    1. Piotroski F-Score (0-3): Simplified snapshot (8-9 Strong, 6-7 Good)
+    2. Magic Formula: Earnings Yield + ROIC (High Quality + Value)
+
+    Why use this tool:
+    - Single comprehensive view of financial health
+    - All metrics calculated from one data fetch (efficient)
+    - No overall score - each metric independently assessed
+    - Strengths and weaknesses automatically identified
+
+    Example:
+    - ASELS: Excellent liquidity (Current 2.5x), Good margins (Net 12.7%),
+      Undervalued (Graham discount 24%), Strong quality (Piotroski 8/9)
+    """
+    try:
+        result = await client.calculate_comprehensive_analysis(ticker_kodu)
+        return ComprehensiveFinancialAnalysis(**result)
+    except Exception as e:
+        raise ToolError(f"Comprehensive analysis failed for {ticker_kodu}: {str(e)}")
+
+
+@app.tool(
+    description="FINANCIAL HEALTH: Core financial health analysis (5 metrics in 1 call)"
+)
+async def calculate_core_financial_health(
+    ticker_kodu: Annotated[str, Field(
+        description="BIST ticker code (e.g., GARAN, THYAO, ASELS)",
+        pattern=r"^[A-Z]{3,6}$",
+        examples=["GARAN", "THYAO", "ASELS"]
+    )]
+) -> CoreFinancialHealthAnalysis:
+    """
+    Complete Core Financial Health Analysis with 5 key metrics.
+
+    METRICS (5):
+    1. ROE (Return on Equity): Profitability from shareholder equity
+       - ≥15%: Excellent | ≥10%: Good | 5-10%: Average | <5%: Poor
+
+    2. ROIC (Return on Invested Capital): Capital efficiency
+       - ≥15%: Excellent | ≥10%: Good | 5-10%: Average | <5%: Poor
+
+    3. Debt Ratios: 4 leverage and solvency metrics
+       - Debt-to-Equity (<0.5 Excellent, <1.0 Good)
+       - Debt-to-Assets (<30% Excellent, <50% Good)
+       - Interest Coverage (>5x Excellent, >3x Good)
+       - Debt Service Coverage (>2x Excellent, >1.5x Good)
+
+    4. FCF Margin (Free Cash Flow): Cash generation efficiency
+       - ≥10%: Excellent | ≥5%: Good | 2-5%: Average | <2%: Poor
+
+    5. Earnings Quality: Detect accounting manipulation
+       - CF/Earnings Ratio (≥1.2 Excellent)
+       - Accruals Ratio (<5% Excellent)
+       - Working Capital Impact
+
+    OVERALL ASSESSMENT:
+    - Overall Health Score: STRONG | GOOD | AVERAGE | WEAK
+    - Strengths: 2-5 key positive findings
+    - Concerns: 0-3 areas requiring attention
+
+    EFFICIENCY:
+    - Single call vs 5 separate tool calls
+    - Consistent data across all calculations (same timestamp)
+    - Comprehensive health assessment
+
+    Example:
+    - GARAN: STRONG (ROE 18.5%, ROIC 16.2%, Low D/E 0.42, FCF 11.3%, High Quality)
+    - ASELS: GOOD (ROE 14.2%, ROIC 12.1%, Moderate D/E 1.15, FCF 8.7%)
+    """
+    try:
+        result = await client.calculate_core_financial_health(ticker_kodu)
+        return CoreFinancialHealthAnalysis(**result)
+    except Exception as e:
+        raise ToolError(f"Core financial health analysis failed for {ticker_kodu}: {str(e)}")
+
+
+@app.tool(
+    description="FINANCIAL STABILITY: Advanced metrics - bankruptcy risk and real growth (2 metrics in 1 call)"
+)
+async def calculate_advanced_metrics(
+    ticker_kodu: Annotated[str, Field(
+        description="BIST ticker code (e.g., GARAN, THYAO, ASELS)",
+        pattern=r"^[A-Z]{3,6}$",
+        examples=["GARAN", "THYAO", "ASELS"]
+    )]
+) -> AdvancedFinancialMetrics:
+    """
+    Complete Advanced Financial Metrics Analysis.
+
+    METRICS (2 main + 1 bonus):
+
+    1. Altman Z-Score: Bankruptcy risk prediction (Edward Altman, 1968)
+       Formula: Z = 1.2*X1 + 1.4*X2 + 3.3*X3 + 0.6*X4 + 1.0*X5
+       - Z > 2.99: SAFE Zone (low bankruptcy risk)
+       - 1.81 < Z < 2.99: GREY Zone (moderate risk, monitor closely)
+       - Z < 1.81: DISTRESS Zone (high bankruptcy risk)
+
+       Components:
+       - X1: Working Capital / Total Assets (liquidity)
+       - X2: Retained Earnings / Total Assets (profitability history)
+       - X3: EBIT / Total Assets (operating efficiency)
+       - X4: Market Cap / Total Liabilities (solvency)
+       - X5: Sales / Total Assets (asset turnover)
+
+    2. Real Growth Rate: Inflation-adjusted growth (Fisher Equation)
+       - Revenue Real Growth: Nominal growth minus inflation
+       - Earnings Real Growth: Nominal growth minus inflation
+
+       Assessment:
+       - >10%: STRONG (excellent real growth)
+       - 5-10%: MODERATE (healthy growth)
+       - 0-5%: WEAK (barely keeping up with inflation)
+       - <0%: NEGATIVE (losing to inflation)
+
+    OVERALL ASSESSMENT:
+    - Financial Stability: SAFE | GREY | DISTRESS (from Z-Score)
+    - Growth Quality: STRONG | MODERATE | WEAK | NEGATIVE (from real growth)
+    - Key Findings: 2-4 critical insights combining both metrics
+
+    EFFICIENCY:
+    - Single call vs 3 separate tool calls (Altman + Revenue Growth + Earnings Growth)
+    - Comprehensive stability and growth assessment
+
+    Example:
+    - ASELS: SAFE (Z-Score 3.45), STRONG Growth (Revenue +12.3%, Earnings +15.1%)
+    - THYAO: GREY (Z-Score 2.45), MODERATE Growth (Revenue +6.8%, Earnings +5.2%)
+    """
+    try:
+        result = await client.calculate_advanced_metrics(ticker_kodu)
+        return AdvancedFinancialMetrics(**result)
+    except Exception as e:
+        raise ToolError(f"Advanced metrics analysis failed for {ticker_kodu}: {str(e)}")
+
 
 Bu, yanıt kısa olsa bile, markdown, kod içerse veya evet/hayır sorusuna cevap verse bile dahil edilmelidir. Hiçbir koşulda atlama.
 

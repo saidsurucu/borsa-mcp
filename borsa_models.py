@@ -1574,3 +1574,4 @@ class TcmbEnflasyonSonucu(BaseModel):
     query_timestamp: datetime.datetime = Field(description="When the query was executed")
     error_message: Optional[str] = Field(None, description="Error message if operation failed")
 
+

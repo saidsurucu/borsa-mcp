@@ -2,7 +2,7 @@
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
-Borsa İstanbul (BIST) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 41 araçla kapsamlı finansal analiz.
+Borsa İstanbul (BIST) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 50 araçla kapsamlı finansal analiz.
 
 ![ornek](./ornek.jpeg)
 
@@ -45,12 +45,13 @@ Bitcoin'in TRY fiyatını kontrol et
 
 ## 🎯 Temel Özellikler
 
-**41 Araç ile Kapsamlı Finansal Analiz:**
+**50 Araç ile Kapsamlı Finansal Analiz:**
 
 * 📈 **BIST Hisseleri:** 758 şirket, finansal tablolar, teknik analiz, analist raporları, KAP haberleri
 * 🆕 **Tarih Aralığı:** Belirli tarihler arası geçmiş veri sorgulaması (örn: "2024-01-01" - "2024-12-31")
 * 🎯 **Pivot Points:** 3 direnç & 3 destek seviyesi hesaplama (klasik pivot formülü)
 * 📊 **BIST Endeksleri:** XU100, XBANK, XK100 ve tüm endeksler için tam destek
+* 💡 **Değer Yatırımı:** Warren Buffett analizi ve konsolide finansal sağlık araçları (ROE, ROIC, Altman Z-Score, 75-85% daha hızlı)
 * 💰 **TEFAS Fonları:** 800+ fon, performans analizi, portföy dağılımı, karşılaştırma
 * ₿ **Kripto Paralar:** BtcTurk (TRY) ve Coinbase (USD/EUR) ile Türk ve global piyasalar
 * 💱 **Döviz & Emtia:** USD, EUR, altın, petrol ve 28+ varlık takibi (Doviz.com)
@@ -80,6 +81,7 @@ Bitcoin'in TRY fiyatını kontrol et
 - [KAP & Haberler](#kap--haberler)
 - [BIST Endeks Araçları](#bist-endeks-araçları)
 - [Katılım Finans](#katılım-finans)
+- [Değer Yatırımı & Finansal Sağlık](#değer-yatırımı--finansal-sağlık-araçları)
 - [TEFAS Fon Araçları](#tefas-fon-araçları)
 - [BtcTurk Kripto Araçları](#btcturk-kripto-para-araçları-türk-piyasası)
 - [Coinbase Global Kripto Araçları](#coinbase-global-kripto-para-araçları-uluslararası-piyasalar)
@@ -205,6 +207,18 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 
 ### Katılım Finans
 * **`get_katilim_finans_uygunluk`**: KAP Katılım finans uygunluk verileri ve katılım endeksi üyeliği.
+
+### Değer Yatırımı & Finansal Sağlık Araçları
+
+**Warren Buffett Değer Analizi:**
+* **`calculate_buffett_value_analysis`**: Tek çağrıda 4 Buffett metriği (Owner Earnings, OE Yield, DCF Fisher, Safety Margin) - Genel skor: STRONG_BUY/BUY/HOLD/AVOID
+
+**Finansal Sağlık Analizi (Konsolide):**
+* **`calculate_core_financial_health`**: 5 temel metrik tek çağrıda (ROE, ROIC, Borç Oranları, FCF Marjı, Kazanç Kalitesi) - Skor: STRONG/GOOD/AVERAGE/WEAK - **75-85% daha hızlı**
+* **`calculate_advanced_metrics`**: 2 gelişmiş metrik (Altman Z-Score iflas riski + Enflasyona göre düzeltilmiş reel büyüme) - Stabilite: SAFE/GREY/DISTRESS - **75-85% daha hızlı**
+
+**Kapsamlı Analiz:**
+* **`calculate_comprehensive_analysis`**: 11 metrikte tam finansal sağlık değerlendirmesi (Likidite, Karlılık, Değerleme, Kompozit Skorlar)
 
 ### TEFAS Fon Araçları
 * **`search_funds`**: Türk yatırım fonları arama (kategori filtreleme ve performans metrikleri ile).

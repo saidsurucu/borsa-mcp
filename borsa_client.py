@@ -80,6 +80,25 @@ class BorsaApiClient:
         # Import TcmbProvider for Turkish inflation data
         from providers.tcmb_provider import TcmbProvider
         self.tcmb_provider = TcmbProvider(self._http_client)
+        # Import DovizcomTahvilProvider for bond yields
+        from providers.dovizcom_tahvil_provider import DovizcomTahvilProvider
+        self.tahvil_provider = DovizcomTahvilProvider(self._http_client)
+        # Import WorldBankProvider for GDP growth data
+        from providers.worldbank_provider import WorldBankProvider
+        self.worldbank_provider = WorldBankProvider(self._http_client)
+        # Import BuffettAnalyzerProvider for value investing calculations
+        from providers.buffett_analyzer_provider import BuffettAnalyzerProvider
+        self.buffett_provider = BuffettAnalyzerProvider(
+            tahvil_provider=self.tahvil_provider,
+            tcmb_provider=self.tcmb_provider,
+            worldbank_provider=self.worldbank_provider,
+            yfinance_provider=self.yfinance_provider
+        )
+        # Import FinancialRatiosProvider for financial ratio calculations
+        from providers.financial_ratios_provider import FinancialRatiosProvider
+        self.financial_ratios_provider = FinancialRatiosProvider(
+            yfinance_provider=self.yfinance_provider
+        )
 
     async def close(self):
         await self._http_client.aclose()
@@ -817,3 +836,109 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
         return await self.tcmb_provider.calculate_inflation(
             start_year, start_month, end_year, end_month, basket_value
         )
+
+    # --- Bond Yields Methods ---
+    async def get_tahvil_faizleri(self) -> Dict[str, Any]:
+        """Get Turkish government bond yields from Doviz.com."""
+        return await self.tahvil_provider.get_tahvil_faizleri()
+    
+    # --- Buffett Analysis Methods ---
+    async def calculate_owner_earnings(
+        self,
+        net_income: float,
+        depreciation: float,
+        capex: float,
+        working_capital_change: float
+    ) -> Dict[str, Any]:
+        """Calculate Owner Earnings using Buffett's formula."""
+        return self.buffett_provider.calculate_owner_earnings(
+            net_income, depreciation, capex, working_capital_change
+        )
+    
+    async def calculate_oe_yield(
+        self,
+        owner_earnings: float,
+        market_cap: float,
+        is_quarterly: bool = True
+    ) -> Dict[str, Any]:
+        """Calculate OE Yield (Owner Earnings Yield)."""
+        return self.buffett_provider.calculate_oe_yield(
+            owner_earnings, market_cap, is_quarterly
+        )
+    
+    async def calculate_dcf_fisher(
+        self,
+        ticker_kodu: str,
+        owner_earnings_quarterly: float,
+        nominal_rate: Optional[float] = None,
+        expected_inflation: Optional[float] = None,
+        growth_rate_real: Optional[float] = None,
+        terminal_growth_real: Optional[float] = None,
+        risk_premium: float = 0.10,
+        forecast_years: int = 5
+    ) -> Dict[str, Any]:
+        """Calculate DCF with Fisher Effect using dynamic parameters."""
+        return await self.buffett_provider.calculate_dcf_fisher(
+            ticker_kodu, owner_earnings_quarterly,
+            nominal_rate, expected_inflation,
+            growth_rate_real, terminal_growth_real,
+            risk_premium, forecast_years
+        )
+    
+    async def calculate_safety_margin(
+        self,
+        intrinsic_value_total: float,
+        current_price: float,
+        shares_outstanding: float,
+        moat_strength: str = "GÜÇLÜ"
+    ) -> Dict[str, Any]:
+        """Calculate Safety Margin (Margin of Safety)."""
+        return self.buffett_provider.calculate_safety_margin(
+            intrinsic_value_total, current_price,
+            shares_outstanding, moat_strength
+        )
+
+    async def calculate_buffett_value_analysis(self, ticker_kodu: str) -> Dict[str, Any]:
+        """Calculate complete Buffett value analysis (4 metrics: OE, OE Yield, DCF, Safety Margin)."""
+        return await self.buffett_provider.calculate_buffett_value_analysis(ticker_kodu)
+
+    # --- Financial Ratios Methods ---
+    async def calculate_roe(self, ticker_kodu: str) -> Dict[str, Any]:
+        """Calculate Return on Equity (ROE)."""
+        return await self.financial_ratios_provider.calculate_roe(ticker_kodu)
+
+    async def calculate_roic(self, ticker_kodu: str) -> Dict[str, Any]:
+        """Calculate Return on Invested Capital (ROIC)."""
+        return await self.financial_ratios_provider.calculate_roic(ticker_kodu)
+
+    async def calculate_debt_ratios(self, ticker_kodu: str) -> Dict[str, Any]:
+        """Calculate debt and leverage ratios."""
+        return await self.financial_ratios_provider.calculate_debt_ratios(ticker_kodu)
+
+    async def calculate_fcf_margin(self, ticker_kodu: str) -> Dict[str, Any]:
+        """Calculate Free Cash Flow Margin."""
+        return await self.financial_ratios_provider.calculate_fcf_margin(ticker_kodu)
+
+    async def calculate_earnings_quality(self, ticker_kodu: str) -> Dict[str, Any]:
+        """Calculate earnings quality metrics."""
+        return await self.financial_ratios_provider.calculate_earnings_quality(ticker_kodu)
+
+    async def calculate_altman_z_score(self, ticker_kodu: str) -> Dict[str, Any]:
+        """Calculate Altman Z-Score for bankruptcy prediction."""
+        return await self.financial_ratios_provider.calculate_altman_z_score(ticker_kodu)
+
+    async def calculate_real_growth(self, ticker_kodu: str, growth_metric: str = 'revenue') -> Dict[str, Any]:
+        """Calculate Real Growth Rate (inflation-adjusted)."""
+        return await self.financial_ratios_provider.calculate_real_growth(ticker_kodu, growth_metric)
+
+    async def calculate_comprehensive_analysis(self, ticker_kodu: str) -> Dict[str, Any]:
+        """Calculate comprehensive financial analysis (11 metrics in 4 categories)."""
+        return await self.financial_ratios_provider.calculate_comprehensive_analysis(ticker_kodu)
+
+    async def calculate_core_financial_health(self, ticker_kodu: str) -> Dict[str, Any]:
+        """Calculate Core Financial Health Analysis (5 metrics in 1 call)."""
+        return await self.financial_ratios_provider.calculate_core_financial_health(ticker_kodu)
+
+    async def calculate_advanced_metrics(self, ticker_kodu: str) -> Dict[str, Any]:
+        """Calculate Advanced Financial Metrics (2 metrics in 1 call)."""
+        return await self.financial_ratios_provider.calculate_advanced_metrics(ticker_kodu)

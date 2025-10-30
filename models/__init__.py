@@ -111,6 +111,32 @@ from .regulation_models import (
     FonMevzuatSonucu
 )
 
+# Buffett analysis and bond yields models (10 classes)
+from .buffett_models import (
+    # Bond yields models
+    TahvilBilgisi, TahvilFaizleriSonucu,
+    # Buffett analysis models
+    OwnerEarningsSonucu, OEYieldSonucu,
+    ProjectedCashFlow, DCFParameters, DCFFisherSonucu,
+    BuffettCriteria, SafetyMarginSonucu,
+    # Consolidated Buffett analysis
+    BuffettValueAnalysis
+)
+
+# Financial ratios models (9 classes: 5 Phase 2 + 2 Phase 3 + 2 Consolidated)
+from .financial_ratios_models import (
+    RoeSonucu, RoicSonucu, DebtRatiosSonucu,
+    FcfMarginSonucu, EarningsQualitySonucu,
+    AltmanZScoreSonucu, RealGrowthSonucu,
+    CoreFinancialHealthAnalysis, AdvancedFinancialMetrics
+)
+
+# Comprehensive analysis models (5 classes: Phase 4)
+from .comprehensive_analysis_models import (
+    LiquidityMetrics, ProfitabilityMargins, ValuationMetrics,
+    CompositeScores, ComprehensiveFinancialAnalysis
+)
+
 # Export all models for backward compatibility
 __all__ = [
     # Base enums
@@ -174,5 +200,22 @@ __all__ = [
     "EkonomikOlayDetayi", "EkonomikOlay", "EkonomikTakvimSonucu",
     
     # Fund regulation models
-    "FonMevzuatSonucu"
+    "FonMevzuatSonucu",
+
+    # Buffett analysis and bond yields models
+    "TahvilBilgisi", "TahvilFaizleriSonucu",
+    "OwnerEarningsSonucu", "OEYieldSonucu",
+    "ProjectedCashFlow", "DCFParameters", "DCFFisherSonucu",
+    "BuffettCriteria", "SafetyMarginSonucu",
+    "BuffettValueAnalysis",
+
+    # Financial ratios models
+    "RoeSonucu", "RoicSonucu", "DebtRatiosSonucu",
+    "FcfMarginSonucu", "EarningsQualitySonucu",
+    "AltmanZScoreSonucu", "RealGrowthSonucu",
+    "CoreFinancialHealthAnalysis", "AdvancedFinancialMetrics",
+
+    # Comprehensive analysis models
+    "LiquidityMetrics", "ProfitabilityMargins", "ValuationMetrics",
+    "CompositeScores", "ComprehensiveFinancialAnalysis"
 ]
