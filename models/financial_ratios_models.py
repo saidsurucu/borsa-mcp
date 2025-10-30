@@ -10,24 +10,24 @@ from typing import Optional, List
 class RoeSonucu(BaseModel):
     """Return on Equity (ROE) calculation result."""
     roe_percent: float = Field(description="ROE as percentage")
-    net_income: float = Field(description="Net Income in millions TRY")
-    total_equity: float = Field(description="Total Equity in millions TRY")
-    formula: str = Field(description="Formula used: ROE = Net Income / Total Equity")
-    assessment: str = Field(description="Qualitative assessment (Excellent/Good/Average/Poor)")
-    notes: str = Field(description="Detailed explanation and context")
+    net_income: Optional[float] = Field(None, description="Net Income in millions TRY")
+    total_equity: Optional[float] = Field(None, description="Total Equity in millions TRY")
+    formula: Optional[str] = Field(None, description="Formula used: ROE = Net Income / Total Equity")
+    assessment: Optional[str] = Field(None, description="Qualitative assessment (Excellent/Good/Average/Poor)")
+    notes: Optional[str] = Field(None, description="Detailed explanation and context")
     error: Optional[str] = Field(None, description="Error message if calculation failed")
 
 
 class RoicSonucu(BaseModel):
     """Return on Invested Capital (ROIC) calculation result."""
     roic_percent: float = Field(description="ROIC as percentage")
-    nopat: float = Field(description="Net Operating Profit After Tax in millions TRY")
-    invested_capital: float = Field(description="Invested Capital in millions TRY")
-    operating_income: float = Field(description="Operating Income in millions TRY")
-    tax_rate_percent: float = Field(description="Effective tax rate as percentage")
-    formula: str = Field(description="Formula used: ROIC = NOPAT / Invested Capital")
-    assessment: str = Field(description="Qualitative assessment (Excellent/Good/Average/Poor)")
-    notes: str = Field(description="Detailed explanation including capital breakdown")
+    nopat: Optional[float] = Field(None, description="Net Operating Profit After Tax in millions TRY")
+    invested_capital: Optional[float] = Field(None, description="Invested Capital in millions TRY")
+    operating_income: Optional[float] = Field(None, description="Operating Income in millions TRY")
+    tax_rate_percent: Optional[float] = Field(None, description="Effective tax rate as percentage")
+    formula: Optional[str] = Field(None, description="Formula used: ROIC = NOPAT / Invested Capital")
+    assessment: Optional[str] = Field(None, description="Qualitative assessment (Excellent/Good/Average/Poor)")
+    notes: Optional[str] = Field(None, description="Detailed explanation including capital breakdown")
     error: Optional[str] = Field(None, description="Error message if calculation failed")
 
 
@@ -38,30 +38,30 @@ class DebtRatiosSonucu(BaseModel):
     interest_coverage: float = Field(description="Interest Coverage ratio (EBIT / Interest Expense)")
     debt_service_coverage: float = Field(description="Debt Service Coverage (Operating Income / (Interest + Current Debt))")
 
-    total_debt: float = Field(description="Total Debt in millions TRY")
-    total_equity: float = Field(description="Total Equity in millions TRY")
-    total_assets: float = Field(description="Total Assets in millions TRY")
-    ebit: float = Field(description="EBIT (Operating Income) in millions TRY")
-    interest_expense: float = Field(description="Interest Expense in millions TRY")
-    current_debt: float = Field(description="Current Debt in millions TRY")
+    total_debt: Optional[float] = Field(None, description="Total Debt in millions TRY")
+    total_equity: Optional[float] = Field(None, description="Total Equity in millions TRY")
+    total_assets: Optional[float] = Field(None, description="Total Assets in millions TRY")
+    ebit: Optional[float] = Field(None, description="EBIT (Operating Income) in millions TRY")
+    interest_expense: Optional[float] = Field(None, description="Interest Expense in millions TRY")
+    current_debt: Optional[float] = Field(None, description="Current Debt in millions TRY")
 
-    debt_to_equity_assessment: str = Field(description="D/E assessment")
-    debt_to_assets_assessment: str = Field(description="D/A assessment")
-    interest_coverage_assessment: str = Field(description="Interest coverage assessment")
-    debt_service_assessment: str = Field(description="Debt service assessment")
+    debt_to_equity_assessment: Optional[str] = Field(None, description="D/E assessment")
+    debt_to_assets_assessment: Optional[str] = Field(None, description="D/A assessment")
+    interest_coverage_assessment: Optional[str] = Field(None, description="Interest coverage assessment")
+    debt_service_assessment: Optional[str] = Field(None, description="Debt service assessment")
 
-    notes: str = Field(description="Overall debt profile summary")
+    notes: Optional[str] = Field(None, description="Overall debt profile summary")
     error: Optional[str] = Field(None, description="Error message if calculation failed")
 
 
 class FcfMarginSonucu(BaseModel):
     """Free Cash Flow Margin calculation result."""
     fcf_margin_percent: float = Field(description="FCF Margin as percentage")
-    free_cash_flow: float = Field(description="Free Cash Flow in millions TRY")
-    total_revenue: float = Field(description="Total Revenue in millions TRY")
-    formula: str = Field(description="Formula used: FCF Margin = FCF / Total Revenue")
-    assessment: str = Field(description="Qualitative assessment (Excellent/Good/Average/Poor)")
-    notes: str = Field(description="Detailed explanation and context")
+    free_cash_flow: Optional[float] = Field(None, description="Free Cash Flow in millions TRY")
+    total_revenue: Optional[float] = Field(None, description="Total Revenue in millions TRY")
+    formula: Optional[str] = Field(None, description="Formula used: FCF Margin = FCF / Total Revenue")
+    assessment: Optional[str] = Field(None, description="Qualitative assessment (Excellent/Good/Average/Poor)")
+    notes: Optional[str] = Field(None, description="Detailed explanation and context")
     error: Optional[str] = Field(None, description="Error message if calculation failed")
 
 
@@ -71,17 +71,17 @@ class EarningsQualitySonucu(BaseModel):
     accruals_ratio_percent: float = Field(description="Accruals Ratio as percentage (lower is better, <5% good)")
     wc_impact_percent: float = Field(description="Working Capital Impact as percentage of OCF (negative is good)")
 
-    operating_cash_flow: float = Field(description="Operating Cash Flow in millions TRY")
-    net_income: float = Field(description="Net Income in millions TRY")
-    total_assets: float = Field(description="Total Assets in millions TRY")
-    wc_change: float = Field(description="Change in Working Capital in millions TRY")
+    operating_cash_flow: Optional[float] = Field(None, description="Operating Cash Flow in millions TRY")
+    net_income: Optional[float] = Field(None, description="Net Income in millions TRY")
+    total_assets: Optional[float] = Field(None, description="Total Assets in millions TRY")
+    wc_change: Optional[float] = Field(None, description="Change in Working Capital in millions TRY")
 
-    cf_to_earnings_assessment: str = Field(description="Cash flow quality assessment")
-    accruals_assessment: str = Field(description="Accruals quality assessment")
-    wc_impact_assessment: str = Field(description="Working capital impact assessment")
-    overall_quality: str = Field(description="Overall earnings quality rating (High/Medium/Low)")
+    cf_to_earnings_assessment: Optional[str] = Field(None, description="Cash flow quality assessment")
+    accruals_assessment: Optional[str] = Field(None, description="Accruals quality assessment")
+    wc_impact_assessment: Optional[str] = Field(None, description="Working capital impact assessment")
+    overall_quality: Optional[str] = Field(None, description="Overall earnings quality rating (High/Medium/Low)")
 
-    notes: str = Field(description="Detailed quality analysis")
+    notes: Optional[str] = Field(None, description="Detailed quality analysis")
     error: Optional[str] = Field(None, description="Error message if calculation failed")
 
 
@@ -101,15 +101,15 @@ class PiotroskiFScoreSonucu(BaseModel):
 class AltmanZScoreSonucu(BaseModel):
     """Altman Z-Score calculation result."""
     z_score: float = Field(description="Z-Score value")
-    wc_to_ta: float = Field(description="Working Capital / Total Assets component")
-    re_to_ta: float = Field(description="Retained Earnings / Total Assets component")
-    ebit_to_ta: float = Field(description="EBIT / Total Assets component")
-    mc_to_tl: float = Field(description="Market Cap / Total Liabilities component")
-    sales_to_ta: float = Field(description="Sales / Total Assets component")
+    wc_to_ta: Optional[float] = Field(None, description="Working Capital / Total Assets component")
+    re_to_ta: Optional[float] = Field(None, description="Retained Earnings / Total Assets component")
+    ebit_to_ta: Optional[float] = Field(None, description="EBIT / Total Assets component")
+    mc_to_tl: Optional[float] = Field(None, description="Market Cap / Total Liabilities component")
+    sales_to_ta: Optional[float] = Field(None, description="Sales / Total Assets component")
 
-    formula: str = Field(description="Altman Z-Score formula")
-    assessment: str = Field(description="Bankruptcy risk assessment (Safe >2.99, Grey 1.81-2.99, Distress <1.81)")
-    notes: str = Field(description="Detailed explanation of score and risk level")
+    formula: Optional[str] = Field(None, description="Altman Z-Score formula")
+    assessment: Optional[str] = Field(None, description="Bankruptcy risk assessment (Safe >2.99, Grey 1.81-2.99, Distress <1.81)")
+    notes: Optional[str] = Field(None, description="Detailed explanation of score and risk level")
     error: Optional[str] = Field(None, description="Error message if calculation failed")
 
 
@@ -132,13 +132,13 @@ class ShareholderYieldSonucu(BaseModel):
 class RealGrowthSonucu(BaseModel):
     """Real Growth Rate calculation result (inflation-adjusted)."""
     real_growth_percent: float = Field(description="Real (inflation-adjusted) growth rate as percentage")
-    nominal_growth_percent: float = Field(description="Nominal growth rate as percentage")
-    inflation_percent: float = Field(description="Inflation rate used as percentage")
+    nominal_growth_percent: Optional[float] = Field(None, description="Nominal growth rate as percentage")
+    inflation_percent: Optional[float] = Field(None, description="Inflation rate used as percentage")
 
-    formula: str = Field(description="Fisher Equation: Real Growth ≈ Nominal Growth - Inflation")
-    data_sources: dict = Field(description="Sources for nominal growth and inflation data")
-    assessment: str = Field(description="Growth quality assessment")
-    notes: str = Field(description="Context and explanation of real growth")
+    formula: Optional[str] = Field(None, description="Fisher Equation: Real Growth ≈ Nominal Growth - Inflation")
+    data_sources: Optional[dict] = Field(None, description="Sources for nominal growth and inflation data")
+    assessment: Optional[str] = Field(None, description="Growth quality assessment")
+    notes: Optional[str] = Field(None, description="Context and explanation of real growth")
     error: Optional[str] = Field(None, description="Error message if calculation failed")
 
 

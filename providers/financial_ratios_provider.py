@@ -272,10 +272,27 @@ class FinancialRatiosProvider:
             if balance_result.get('error'):
                 return {'error': f"Balance sheet error: {balance_result['error']}", 'roic_percent': 0}
 
-            # Extract Operating Income
+            # Extract Operating Income (with fallback for banks)
             operating_income = self._extract_field(income_result.get('tablo', []), 'Operating Income')
+
+            # Fallback 1: For banks, calculate from Operating Revenue - Operating Expense
             if operating_income is None:
-                return {'error': 'Operating Income not found', 'roic_percent': 0}
+                operating_revenue = self._extract_field(income_result.get('tablo', []), 'Operating Revenue')
+                operating_expense = self._extract_field(income_result.get('tablo', []), 'Operating Expense')
+
+                if operating_revenue and operating_expense:
+                    operating_income = operating_revenue - operating_expense
+                    logger.info(f"Using Operating Revenue - Operating Expense for {ticker_kodu} (bank): {operating_income:,.0f}")
+
+            # Fallback 2: Use Pretax Income as proxy (less ideal but better than nothing)
+            if operating_income is None:
+                pretax_income = self._extract_field(income_result.get('tablo', []), 'Pretax Income')
+                if pretax_income:
+                    operating_income = pretax_income
+                    logger.info(f"Using Pretax Income as Operating Income proxy for {ticker_kodu}: {operating_income:,.0f}")
+
+            if operating_income is None:
+                return {'error': 'Operating Income not found (tried Operating Income, Operating Revenue-Expense, Pretax Income)', 'roic_percent': 0}
 
             # Extract Tax Provision and calculate tax rate
             tax_provision = self._extract_field(income_result.get('tablo', []), 'Tax Provision')
@@ -291,10 +308,12 @@ class FinancialRatiosProvider:
             # Calculate NOPAT
             nopat = operating_income * (1 - tax_rate)
 
-            # Extract balance sheet items for Invested Capital
-            total_debt = self._extract_field(balance_result.get('tablo', []), 'Total Debt')
-            if total_debt is None:
-                total_debt = 0
+            # Extract Invested Capital (with fallback for banks)
+            # Priority 1: Use Yahoo Finance's pre-calculated Invested Capital (especially for banks)
+            invested_capital = self._extract_field(balance_result.get('tablo', []), 'Invested Capital')
+
+            # Always extract these for reporting purposes
+            total_debt = self._extract_field(balance_result.get('tablo', []), 'Total Debt') or 0
 
             total_equity = None
             for field_name in ['Total Equity Gross Minority Interest', 'Stockholders Equity', 'Total Equity']:
@@ -302,15 +321,21 @@ class FinancialRatiosProvider:
                 if total_equity is not None:
                     break
 
-            if total_equity is None or total_equity <= 0:
-                return {'error': 'Total Equity not found or invalid', 'roic_percent': 0}
+            cash = self._extract_field(balance_result.get('tablo', []), 'Cash And Cash Equivalents') or 0
 
-            cash = self._extract_field(balance_result.get('tablo', []), 'Cash And Cash Equivalents')
-            if cash is None:
-                cash = 0
+            if invested_capital and invested_capital > 0:
+                # Using Yahoo Finance's Invested Capital
+                logger.info(f"Using Yahoo Finance Invested Capital for {ticker_kodu}: {invested_capital:,.0f}")
+                if total_equity is None or total_equity <= 0:
+                    total_equity = invested_capital - total_debt + cash  # Derive it for reporting
+            else:
+                # Priority 2: Manual calculation (for non-banks)
+                if total_equity is None or total_equity <= 0:
+                    return {'error': 'Total Equity not found or invalid', 'roic_percent': 0}
 
-            # Calculate Invested Capital
-            invested_capital = total_debt + total_equity - cash
+                # Calculate Invested Capital manually
+                invested_capital = total_debt + total_equity - cash
+                logger.info(f"Calculated Invested Capital manually for {ticker_kodu}: {invested_capital:,.0f}")
 
             if invested_capital <= 0:
                 return {'error': 'Invested Capital is zero or negative', 'roic_percent': 0}
