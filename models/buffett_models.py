@@ -125,18 +125,21 @@ class BuffettValueAnalysis(BaseModel):
     )
 
     # 2. OE Yield (Cash return percentage)
-    oe_yield: OEYieldSonucu = Field(
-        description="OE Yield calculation - cash return on investment"
+    oe_yield: Optional[OEYieldSonucu] = Field(
+        None,
+        description="OE Yield calculation - cash return on investment (None if negative OE)"
     )
 
     # 3. DCF Fisher (Intrinsic value)
-    dcf_fisher: DCFFisherSonucu = Field(
-        description="DCF Fisher Effect - inflation-adjusted intrinsic value"
+    dcf_fisher: Optional[DCFFisherSonucu] = Field(
+        None,
+        description="DCF Fisher Effect - inflation-adjusted intrinsic value (None if negative OE)"
     )
 
     # 4. Safety Margin (Buy signal)
-    safety_margin: SafetyMarginSonucu = Field(
-        description="Safety Margin - moat-adjusted buy threshold"
+    safety_margin: Optional[SafetyMarginSonucu] = Field(
+        None,
+        description="Safety Margin - moat-adjusted buy threshold (None if DCF unavailable)"
     )
 
     # Overall Assessment
