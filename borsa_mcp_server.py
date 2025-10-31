@@ -213,7 +213,7 @@ async def get_sirket_profili(
         logger.exception(f"Error in tool 'get_sirket_profili' for ticker {ticker_kodu}.")
         return SirketProfiliSonucu(ticker_kodu=ticker_kodu, bilgiler=None, error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool(description="BIST STOCKS: Get company balance sheet with assets, liabilities, equity. STOCKS ONLY - crypto companies don't publish balance sheets.")
+@app.tool(description="BIST STOCKS: Get company balance sheet from İş Yatırım with assets, liabilities, equity. Fallback to Yahoo Finance. STOCKS ONLY.")
 async def get_bilanco(
     ticker_kodu: Annotated[str, Field(
         description="BIST ticker: stock (GARAN, AKBNK) or index (XU100, XBANK). No .IS suffix.",
@@ -226,14 +226,14 @@ async def get_bilanco(
     )] = "annual"
 ) -> FinansalTabloSonucu:
     """
-    Get balance sheet showing assets, liabilities, equity. Financial health snapshot.
-    
+    Get balance sheet showing assets, liabilities, equity from İş Yatırım. Financial health snapshot.
+
     Shows current/non-current assets, liabilities, shareholders' equity.
     Use for liquidity, leverage, financial stability analysis.
     """
     logger.info(f"Tool 'get_bilanco' called for ticker: '{ticker_kodu}', period: {periyot}")
     try:
-        data = await borsa_client.get_bilanco_yfinance(ticker_kodu, periyot)
+        data = await borsa_client.get_bilanco(ticker_kodu, periyot)
         if data.get("error"):
             return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=[], error_message=data["error"])
         return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=data.get("tablo", []))
@@ -241,20 +241,20 @@ async def get_bilanco(
         logger.exception(f"Error in tool 'get_bilanco' for ticker {ticker_kodu}.")
         return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=[], error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool(description="BIST STOCKS: Get company income statement with revenue, profit, margins. STOCKS ONLY - crypto companies don't publish income statements.")
+@app.tool(description="BIST STOCKS: Get company income statement from İş Yatırım with revenue, profit, margins. Fallback to Yahoo Finance. STOCKS ONLY.")
 async def get_kar_zarar_tablosu(
     ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, TUPRS) or index (XU100, XBANK). No .IS suffix."),
     periyot: StatementPeriodLiteral = Field("annual", description="'annual' for yearly statements, 'quarterly' for quarters. Annual=trends, quarterly=recent.")
 ) -> FinansalTabloSonucu:
     """
-    Get income statement showing revenue, expenses, profit over time. Performance analysis.
-    
+    Get income statement from İş Yatırım showing revenue, expenses, profit over time. Performance analysis.
+
     Shows total revenue, operating expenses, net income, EPS.
     Use for profitability, growth, margin analysis.
     """
     logger.info(f"Tool 'get_kar_zarar_tablosu' called for ticker: '{ticker_kodu}', period: {periyot}")
     try:
-        data = await borsa_client.get_kar_zarar_yfinance(ticker_kodu, periyot)
+        data = await borsa_client.get_kar_zarar(ticker_kodu, periyot)
         if data.get("error"):
             return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=[], error_message=data["error"])
         return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=data.get("tablo", []))
@@ -262,20 +262,20 @@ async def get_kar_zarar_tablosu(
         logger.exception(f"Error in tool 'get_kar_zarar_tablosu' for ticker {ticker_kodu}.")
         return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=[], error_message=f"An unexpected error occurred: {str(e)}")
 
-@app.tool(description="BIST STOCKS: Get company cash flow statement with operating/investing/financing flows. STOCKS ONLY.")
+@app.tool(description="BIST STOCKS: Get company cash flow statement from İş Yatırım with operating/investing/financing flows. Fallback to Yahoo Finance. STOCKS ONLY.")
 async def get_nakit_akisi_tablosu(
     ticker_kodu: str = Field(..., description="BIST ticker: stock (GARAN, EREGL) or index (XU100, XBANK). No .IS suffix."),
     periyot: StatementPeriodLiteral = Field("annual", description="'annual' for yearly cash flows, 'quarterly' for quarters. Annual=long-term patterns, quarterly=seasonal.")
 ) -> FinansalTabloSonucu:
     """
-    Get cash flow statement showing operating, investing, financing cash flows.
-    
+    Get cash flow statement from İş Yatırım showing operating, investing, financing cash flows.
+
     Shows operating cash flow, capital expenditures, free cash flow.
     Use for liquidity, cash generation, quality of earnings analysis.
     """
     logger.info(f"Tool 'get_nakit_akisi_tablosu' called for ticker: '{ticker_kodu}', period: {periyot}")
     try:
-        data = await borsa_client.get_nakit_akisi_yfinance(ticker_kodu, periyot)
+        data = await borsa_client.get_nakit_akisi(ticker_kodu, periyot)
         if data.get("error"):
             return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=[], error_message=data["error"])
         return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=data.get("tablo", []))

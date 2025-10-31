@@ -204,14 +204,15 @@ class BuffettAnalyzerProvider:
                         inflation_result = await self.tcmb_provider.get_inflation_data(
                             inflation_type='tufe', limit=1
                         )
-                        if inflation_result and not inflation_result.get('error'):
-                            veri_noktalari = inflation_result.get('veri_noktalari', [])
+                        # inflation_result is a Pydantic model (TcmbEnflasyonSonucu)
+                        if inflation_result and not inflation_result.error_message:
+                            veri_noktalari = inflation_result.data  # List[EnflasyonVerisi]
                             if veri_noktalari:
-                                last_point = veri_noktalari[0]
-                                yillik_degisim = last_point.get('yillik_degisim_yuzde')
+                                last_point = veri_noktalari[0]  # EnflasyonVerisi model
+                                yillik_degisim = last_point.yillik_enflasyon  # float or None
                                 if yillik_degisim:
                                     expected_inflation = yillik_degisim / 100
-                                    data_sources['expected_inflation'] = f"TCMB TÜFE (canlı - {last_point.get('tarih')})"
+                                    data_sources['expected_inflation'] = f"TCMB TÜFE (canlı - {last_point.tarih})"
                                 else:
                                     expected_inflation = 0.38
                                     data_sources['expected_inflation'] = 'Default 38% (TCMB parse hatası)'

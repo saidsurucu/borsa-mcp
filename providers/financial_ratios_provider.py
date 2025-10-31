@@ -11,11 +11,17 @@ logger = logging.getLogger(__name__)
 
 
 class FinancialRatiosProvider:
-    """Provider for financial ratio calculations using Yahoo Finance data."""
+    """Provider for financial ratio calculations using financial statement data."""
 
-    def __init__(self, yfinance_provider):
-        """Initialize with YFinanceProvider dependency."""
-        self.yfinance_provider = yfinance_provider
+    def __init__(self, data_provider):
+        """
+        Initialize with data provider dependency.
+
+        Args:
+            data_provider: Provider with get_bilanco(), get_kar_zarar(), get_nakit_akisi() methods.
+                          Typically BorsaClient (which uses İş Yatırım + Yahoo Finance fallback).
+        """
+        self.data_provider = data_provider
 
     def _extract_field(self, tablo: list, kalem_name: str) -> Optional[float]:
         """Extract a field value from financial statement table."""
@@ -176,7 +182,7 @@ class FinancialRatiosProvider:
             logger.info(f"Calculating ROE for {ticker_kodu}")
 
             # Fetch income statement for Net Income
-            income_result = await self.yfinance_provider.get_kar_zarar(
+            income_result = await self.data_provider.get_kar_zarar(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -184,7 +190,7 @@ class FinancialRatiosProvider:
                 return {'error': f"Income statement error: {income_result['error']}", 'roe_percent': 0}
 
             # Fetch balance sheet for Total Equity
-            balance_result = await self.yfinance_provider.get_bilanco(
+            balance_result = await self.data_provider.get_bilanco(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -257,7 +263,7 @@ class FinancialRatiosProvider:
             logger.info(f"Calculating ROIC for {ticker_kodu}")
 
             # Fetch income statement
-            income_result = await self.yfinance_provider.get_kar_zarar(
+            income_result = await self.data_provider.get_kar_zarar(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -265,7 +271,7 @@ class FinancialRatiosProvider:
                 return {'error': f"Income statement error: {income_result['error']}", 'roic_percent': 0}
 
             # Fetch balance sheet
-            balance_result = await self.yfinance_provider.get_bilanco(
+            balance_result = await self.data_provider.get_bilanco(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -392,7 +398,7 @@ class FinancialRatiosProvider:
             logger.info(f"Calculating debt ratios for {ticker_kodu}")
 
             # Fetch balance sheet
-            balance_result = await self.yfinance_provider.get_bilanco(
+            balance_result = await self.data_provider.get_bilanco(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -400,7 +406,7 @@ class FinancialRatiosProvider:
                 return {'error': f"Balance sheet error: {balance_result['error']}"}
 
             # Fetch income statement
-            income_result = await self.yfinance_provider.get_kar_zarar(
+            income_result = await self.data_provider.get_kar_zarar(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -510,7 +516,7 @@ class FinancialRatiosProvider:
             logger.info(f"Calculating FCF margin for {ticker_kodu}")
 
             # Fetch cash flow statement
-            cashflow_result = await self.yfinance_provider.get_nakit_akisi(
+            cashflow_result = await self.data_provider.get_nakit_akisi(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -518,7 +524,7 @@ class FinancialRatiosProvider:
                 return {'error': f"Cash flow error: {cashflow_result['error']}", 'fcf_margin_percent': 0}
 
             # Fetch income statement for revenue
-            income_result = await self.yfinance_provider.get_kar_zarar(
+            income_result = await self.data_provider.get_kar_zarar(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -591,7 +597,7 @@ class FinancialRatiosProvider:
             logger.info(f"Calculating earnings quality for {ticker_kodu}")
 
             # Fetch income statement
-            income_result = await self.yfinance_provider.get_kar_zarar(
+            income_result = await self.data_provider.get_kar_zarar(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -599,7 +605,7 @@ class FinancialRatiosProvider:
                 return {'error': f"Income statement error: {income_result['error']}"}
 
             # Fetch cash flow statement
-            cashflow_result = await self.yfinance_provider.get_nakit_akisi(
+            cashflow_result = await self.data_provider.get_nakit_akisi(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -607,7 +613,7 @@ class FinancialRatiosProvider:
                 return {'error': f"Cash flow error: {cashflow_result['error']}"}
 
             # Fetch balance sheet
-            balance_result = await self.yfinance_provider.get_bilanco(
+            balance_result = await self.data_provider.get_bilanco(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -724,7 +730,7 @@ class FinancialRatiosProvider:
             logger.info(f"Calculating Altman Z-Score for {ticker_kodu}")
 
             # Fetch balance sheet
-            balance_result = await self.yfinance_provider.get_bilanco(
+            balance_result = await self.data_provider.get_bilanco(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -732,7 +738,7 @@ class FinancialRatiosProvider:
                 return {'error': f"Balance sheet error: {balance_result['error']}", 'z_score': 0}
 
             # Fetch income statement
-            income_result = await self.yfinance_provider.get_kar_zarar(
+            income_result = await self.data_provider.get_kar_zarar(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
@@ -740,7 +746,7 @@ class FinancialRatiosProvider:
                 return {'error': f"Income statement error: {income_result['error']}", 'z_score': 0}
 
             # Fetch company info for market cap
-            info_result = await self.yfinance_provider.get_hizli_bilgi(ticker_kodu)
+            info_result = await self.data_provider.get_hizli_bilgi(ticker_kodu)
             if info_result.get('error'):
                 return {'error': f"Company info error: {info_result['error']}", 'z_score': 0}
 
@@ -882,7 +888,7 @@ class FinancialRatiosProvider:
             logger.info(f"Calculating Real Growth for {ticker_kodu}, metric={growth_metric}")
 
             # Fetch company info for growth rates
-            info_result = await self.yfinance_provider.get_hizli_bilgi(ticker_kodu)
+            info_result = await self.data_provider.get_hizli_bilgi(ticker_kodu)
             if info_result.get('error'):
                 return {'error': f"Company info error: {info_result['error']}", 'real_growth_percent': 0}
 
@@ -1132,19 +1138,19 @@ class FinancialRatiosProvider:
             logger.info(f"Calculating comprehensive analysis for {ticker_kodu}")
 
             # Fetch all data sources once
-            balance_result = await self.yfinance_provider.get_bilanco(
+            balance_result = await self.data_provider.get_bilanco(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
-            income_result = await self.yfinance_provider.get_kar_zarar(
+            income_result = await self.data_provider.get_kar_zarar(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
-            cashflow_result = await self.yfinance_provider.get_nakit_akisi(
+            cashflow_result = await self.data_provider.get_nakit_akisi(
                 ticker_kodu=ticker_kodu,
                 period_type='quarterly'
             )
-            info_result = await self.yfinance_provider.get_hizli_bilgi(ticker_kodu)
+            info_result = await self.data_provider.get_hizli_bilgi(ticker_kodu)
 
             # Check for errors
             errors = []

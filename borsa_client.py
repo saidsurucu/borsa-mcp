@@ -94,10 +94,16 @@ class BorsaApiClient:
             worldbank_provider=self.worldbank_provider,
             yfinance_provider=self.yfinance_provider
         )
+
+        # Import İş Yatırım Provider for financial statements
+        from providers.isyatirim_provider import IsYatirimProvider
+        self.isyatirim_provider = IsYatirimProvider()
+
         # Import FinancialRatiosProvider for financial ratio calculations
+        # Pass self (BorsaClient) so it uses İş Yatırım integration
         from providers.financial_ratios_provider import FinancialRatiosProvider
         self.financial_ratios_provider = FinancialRatiosProvider(
-            yfinance_provider=self.yfinance_provider
+            data_provider=self  # Use BorsaClient which has İş Yatırım integration
         )
 
     async def close(self):
@@ -366,6 +372,50 @@ class BorsaApiClient:
             return {"error": f"Hibrit veri alma sırasında hata: {str(e)}"}
         
         
+    # ========== FINANCIAL STATEMENTS (İş Yatırım) ==========
+
+    async def get_bilanco(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
+        """
+        Fetches balance sheet from İş Yatırım (primary source).
+        Falls back to Yahoo Finance if İş Yatırım fails.
+        """
+        result = await self.isyatirim_provider.get_bilanco(ticker_kodu, period_type)
+
+        # If İş Yatırım fails or returns no data, fallback to Yahoo Finance
+        if result.get("error") or len(result.get("tablo", [])) == 0:
+            logger.warning(f"İş Yatırım bilanco failed for {ticker_kodu}, using Yahoo Finance fallback")
+            return await self.yfinance_provider.get_bilanco(ticker_kodu, period_type)
+
+        return result
+
+    async def get_kar_zarar(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
+        """
+        Fetches income statement from İş Yatırım (primary source).
+        Falls back to Yahoo Finance if İş Yatırım fails.
+        """
+        result = await self.isyatirim_provider.get_kar_zarar(ticker_kodu, period_type)
+
+        if result.get("error") or len(result.get("tablo", [])) == 0:
+            logger.warning(f"İş Yatırım kar/zarar failed for {ticker_kodu}, using Yahoo Finance fallback")
+            return await self.yfinance_provider.get_kar_zarar(ticker_kodu, period_type)
+
+        return result
+
+    async def get_nakit_akisi(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
+        """
+        Fetches cash flow statement from İş Yatırım (primary source).
+        Falls back to Yahoo Finance if İş Yatırım fails.
+        """
+        result = await self.isyatirim_provider.get_nakit_akisi(ticker_kodu, period_type)
+
+        if result.get("error") or len(result.get("tablo", [])) == 0:
+            logger.warning(f"İş Yatırım nakit akışı failed for {ticker_kodu}, using Yahoo Finance fallback")
+            return await self.yfinance_provider.get_nakit_akisi(ticker_kodu, period_type)
+
+        return result
+
+    # ========== YAHOO FINANCE (Backup) ==========
+
     async def get_bilanco_yfinance(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
         """Delegates balance sheet fetching to YahooFinanceProvider."""
         return await self.yfinance_provider.get_bilanco(ticker_kodu, period_type)
@@ -373,7 +423,7 @@ class BorsaApiClient:
     async def get_kar_zarar_yfinance(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
         """Delegates income statement fetching to YahooFinanceProvider."""
         return await self.yfinance_provider.get_kar_zarar(ticker_kodu, period_type)
-    
+
     async def get_nakit_akisi_yfinance(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
         """Delegates cash flow statement fetching to YahooFinanceProvider."""
         return await self.yfinance_provider.get_nakit_akisi(ticker_kodu, period_type)
@@ -386,10 +436,14 @@ class BorsaApiClient:
         """Delegates dividend and corporate actions fetching to YahooFinanceProvider."""
         return await self.yfinance_provider.get_temettu_ve_aksiyonlar(ticker_kodu)
     
-    async def get_hizli_bilgi_yfinance(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def get_hizli_bilgi(self, ticker_kodu: str) -> Dict[str, Any]:
         """Delegates fast info fetching to YahooFinanceProvider."""
         return await self.yfinance_provider.get_hizli_bilgi(ticker_kodu)
-    
+
+    async def get_hizli_bilgi_yfinance(self, ticker_kodu: str) -> Dict[str, Any]:
+        """Delegates fast info fetching to YahooFinanceProvider (explicit)."""
+        return await self.yfinance_provider.get_hizli_bilgi(ticker_kodu)
+
     async def get_kazanc_takvimi_yfinance(self, ticker_kodu: str) -> Dict[str, Any]:
         """Delegates earnings calendar fetching to YahooFinanceProvider."""
         return await self.yfinance_provider.get_kazanc_takvimi(ticker_kodu)
