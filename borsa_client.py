@@ -996,3 +996,39 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
     async def calculate_advanced_metrics(self, ticker_kodu: str) -> Dict[str, Any]:
         """Calculate Advanced Financial Metrics (2 metrics in 1 call)."""
         return await self.financial_ratios_provider.calculate_advanced_metrics(ticker_kodu)
+
+    # ============================================================================
+    # MULTI-TICKER DELEGATION METHODS (Phase 1: Yahoo Finance Tools)
+    # ============================================================================
+
+    async def get_hizli_bilgi_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+        """Delegates multi-ticker fast info fetching to YahooFinanceProvider."""
+        return await self.yfinance_provider.get_hizli_bilgi_multi(ticker_kodlari)
+
+    async def get_temettu_ve_aksiyonlar_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+        """Delegates multi-ticker dividends fetching to YahooFinanceProvider."""
+        return await self.yfinance_provider.get_temettu_ve_aksiyonlar_multi(ticker_kodlari)
+
+    async def get_analist_verileri_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+        """Delegates multi-ticker analyst data fetching to YahooFinanceProvider."""
+        return await self.yfinance_provider.get_analist_verileri_multi(ticker_kodlari)
+
+    async def get_kazanc_takvimi_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+        """Delegates multi-ticker earnings calendar fetching to YahooFinanceProvider."""
+        return await self.yfinance_provider.get_kazanc_takvimi_multi(ticker_kodlari)
+
+    # ============================================================================
+    # MULTI-TICKER DELEGATION METHODS (Phase 2: İş Yatırım Financial Statements)
+    # ============================================================================
+
+    async def get_bilanco_multi(self, ticker_kodlari: List[str], period_type: str) -> Dict[str, Any]:
+        """Delegates multi-ticker balance sheet fetching to IsYatirimProvider."""
+        return await self.isyatirim_provider.get_bilanco_multi(ticker_kodlari, period_type)
+
+    async def get_kar_zarar_multi(self, ticker_kodlari: List[str], period_type: str) -> Dict[str, Any]:
+        """Delegates multi-ticker income statement fetching to IsYatirimProvider."""
+        return await self.isyatirim_provider.get_kar_zarar_multi(ticker_kodlari, period_type)
+
+    async def get_nakit_akisi_multi(self, ticker_kodlari: List[str], period_type: str) -> Dict[str, Any]:
+        """Delegates multi-ticker cash flow statement fetching to IsYatirimProvider."""
+        return await self.isyatirim_provider.get_nakit_akisi_multi(ticker_kodlari, period_type)

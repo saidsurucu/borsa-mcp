@@ -8,6 +8,7 @@ import logging
 from typing import Dict, Any, List
 import pandas as pd
 import datetime
+import asyncio
 
 from models import (
     FinansalVeriNoktasi, YFinancePeriodEnum, SirketProfiliYFinance,
@@ -1525,4 +1526,205 @@ class YahooFinanceProvider:
 
         except Exception as e:
             logger.exception(f"Error calculating pivot points for {ticker_kodu}")
+            return {"error": str(e)}
+
+    # ============================================================================
+    # MULTI-TICKER SUPPORT METHODS (Phase 1: Parallel Yahoo Finance Fetching)
+    # ============================================================================
+
+    async def get_hizli_bilgi_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+        """
+        Fetch fast info for multiple tickers in parallel.
+
+        Args:
+            ticker_kodlari: List of ticker codes (max 5 recommended)
+
+        Returns:
+            Dict with 'successful', 'failed', 'data', 'warnings' keys
+        """
+        try:
+            # Validate input
+            if not ticker_kodlari:
+                return {"error": "No tickers provided"}
+
+            if len(ticker_kodlari) > 10:
+                return {"error": "Maximum 10 tickers allowed per request"}
+
+            # Create tasks for parallel execution
+            tasks = [self.get_hizli_bilgi(ticker) for ticker in ticker_kodlari]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results
+            successful = []
+            failed = []
+            warnings = []
+            data = []
+
+            for ticker, result in zip(ticker_kodlari, results):
+                if isinstance(result, Exception):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {str(result)}")
+                    logger.warning(f"Failed to fetch hizli_bilgi for {ticker}: {result}")
+                elif result.get("error_message"):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {result['error_message']}")
+                else:
+                    successful.append(ticker)
+                    data.append(result)
+
+            return {
+                "tickers": ticker_kodlari,
+                "data": data,
+                "successful_count": len(successful),
+                "failed_count": len(failed),
+                "warnings": warnings,
+                "query_timestamp": datetime.datetime.now()
+            }
+
+        except Exception as e:
+            logger.exception(f"Error in get_hizli_bilgi_multi")
+            return {"error": str(e)}
+
+    async def get_temettu_ve_aksiyonlar_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+        """
+        Fetch dividends and corporate actions for multiple tickers in parallel.
+
+        Args:
+            ticker_kodlari: List of ticker codes (max 5 recommended)
+
+        Returns:
+            Dict with 'successful', 'failed', 'data', 'warnings' keys
+        """
+        try:
+            if not ticker_kodlari:
+                return {"error": "No tickers provided"}
+
+            if len(ticker_kodlari) > 10:
+                return {"error": "Maximum 10 tickers allowed per request"}
+
+            tasks = [self.get_temettu_ve_aksiyonlar(ticker) for ticker in ticker_kodlari]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            successful = []
+            failed = []
+            warnings = []
+
+            for ticker, result in zip(ticker_kodlari, results):
+                if isinstance(result, Exception):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {str(result)}")
+                    logger.warning(f"Failed to fetch temettu for {ticker}: {result}")
+                elif result.get("error_message"):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {result['error_message']}")
+                else:
+                    successful.append(ticker)
+
+            return {
+                "tickers": ticker_kodlari,
+                "data": [r for r in results if not isinstance(r, Exception) and not r.get("error_message")],
+                "successful_count": len(successful),
+                "failed_count": len(failed),
+                "warnings": warnings,
+                "query_timestamp": datetime.datetime.now()
+            }
+
+        except Exception as e:
+            logger.exception(f"Error in get_temettu_ve_aksiyonlar_multi")
+            return {"error": str(e)}
+
+    async def get_analist_verileri_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+        """
+        Fetch analyst data for multiple tickers in parallel.
+
+        Args:
+            ticker_kodlari: List of ticker codes (max 5 recommended)
+
+        Returns:
+            Dict with 'successful', 'failed', 'data', 'warnings' keys
+        """
+        try:
+            if not ticker_kodlari:
+                return {"error": "No tickers provided"}
+
+            if len(ticker_kodlari) > 10:
+                return {"error": "Maximum 10 tickers allowed per request"}
+
+            tasks = [self.get_analist_verileri(ticker) for ticker in ticker_kodlari]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            successful = []
+            failed = []
+            warnings = []
+
+            for ticker, result in zip(ticker_kodlari, results):
+                if isinstance(result, Exception):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {str(result)}")
+                    logger.warning(f"Failed to fetch analist for {ticker}: {result}")
+                elif result.get("error_message"):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {result['error_message']}")
+                else:
+                    successful.append(ticker)
+
+            return {
+                "tickers": ticker_kodlari,
+                "data": [r for r in results if not isinstance(r, Exception) and not r.get("error_message")],
+                "successful_count": len(successful),
+                "failed_count": len(failed),
+                "warnings": warnings,
+                "query_timestamp": datetime.datetime.now()
+            }
+
+        except Exception as e:
+            logger.exception(f"Error in get_analist_verileri_multi")
+            return {"error": str(e)}
+
+    async def get_kazanc_takvimi_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+        """
+        Fetch earnings calendar for multiple tickers in parallel.
+
+        Args:
+            ticker_kodlari: List of ticker codes (max 5 recommended)
+
+        Returns:
+            Dict with 'successful', 'failed', 'data', 'warnings' keys
+        """
+        try:
+            if not ticker_kodlari:
+                return {"error": "No tickers provided"}
+
+            if len(ticker_kodlari) > 10:
+                return {"error": "Maximum 10 tickers allowed per request"}
+
+            tasks = [self.get_kazanc_takvimi(ticker) for ticker in ticker_kodlari]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            successful = []
+            failed = []
+            warnings = []
+
+            for ticker, result in zip(ticker_kodlari, results):
+                if isinstance(result, Exception):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {str(result)}")
+                    logger.warning(f"Failed to fetch kazanc_takvimi for {ticker}: {result}")
+                elif result.get("error_message"):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {result['error_message']}")
+                else:
+                    successful.append(ticker)
+
+            return {
+                "tickers": ticker_kodlari,
+                "data": [r for r in results if not isinstance(r, Exception) and not r.get("error_message")],
+                "successful_count": len(successful),
+                "failed_count": len(failed),
+                "warnings": warnings,
+                "query_timestamp": datetime.datetime.now()
+            }
+
+        except Exception as e:
+            logger.exception(f"Error in get_kazanc_takvimi_multi")
             return {"error": str(e)}

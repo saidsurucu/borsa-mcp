@@ -137,6 +137,18 @@ from .comprehensive_analysis_models import (
     CompositeScores, ComprehensiveFinancialAnalysis
 )
 
+# Multi-ticker models from borsa_models (Phase 1: Yahoo Finance)
+from borsa_models import (
+    MultiHizliBilgiSonucu, MultiTemettuVeAksiyonlarSonucu,
+    MultiAnalistVerileriSonucu, MultiKazancTakvimSonucu
+)
+
+# Multi-ticker models from borsa_models (Phase 2: İş Yatırım Financial Statements)
+from borsa_models import (
+    MultiFinansalTabloSonucu, MultiKarZararTablosuSonucu,
+    MultiNakitAkisiTablosuSonucu
+)
+
 # Export all models for backward compatibility
 __all__ = [
     # Base enums
@@ -217,5 +229,13 @@ __all__ = [
 
     # Comprehensive analysis models
     "LiquidityMetrics", "ProfitabilityMargins", "ValuationMetrics",
-    "CompositeScores", "ComprehensiveFinancialAnalysis"
+    "CompositeScores", "ComprehensiveFinancialAnalysis",
+
+    # Multi-ticker models (Phase 1: Yahoo Finance)
+    "MultiHizliBilgiSonucu", "MultiTemettuVeAksiyonlarSonucu",
+    "MultiAnalistVerileriSonucu", "MultiKazancTakvimSonucu",
+
+    # Multi-ticker models (Phase 2: İş Yatırım Financial Statements)
+    "MultiFinansalTabloSonucu", "MultiKarZararTablosuSonucu",
+    "MultiNakitAkisiTablosuSonucu"
 ]

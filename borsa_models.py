@@ -1574,4 +1574,76 @@ class TcmbEnflasyonSonucu(BaseModel):
     query_timestamp: datetime.datetime = Field(description="When the query was executed")
     error_message: Optional[str] = Field(None, description="Error message if operation failed")
 
+# ============================================================================
+# MULTI-TICKER SUPPORT MODELS (Phase 1: Yahoo Finance Tools)
+# ============================================================================
+
+class MultiHizliBilgiSonucu(BaseModel):
+    """Multi-ticker result for fast info query."""
+    tickers: List[str] = Field(description="List of ticker codes queried.")
+    data: List[Dict[str, Any]] = Field(description="List of fast info results for each ticker.")
+    successful_count: int = Field(description="Number of successful ticker queries.")
+    failed_count: int = Field(description="Number of failed ticker queries.")
+    warnings: List[str] = Field(default_factory=list, description="List of warnings/errors for failed tickers.")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp of the query.")
+
+class MultiTemettuVeAksiyonlarSonucu(BaseModel):
+    """Multi-ticker result for dividends and corporate actions query."""
+    tickers: List[str] = Field(description="List of ticker codes queried.")
+    data: List[Dict[str, Any]] = Field(description="List of dividend results for each ticker.")
+    successful_count: int = Field(description="Number of successful ticker queries.")
+    failed_count: int = Field(description="Number of failed ticker queries.")
+    warnings: List[str] = Field(default_factory=list, description="List of warnings/errors for failed tickers.")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp of the query.")
+
+class MultiAnalistVerileriSonucu(BaseModel):
+    """Multi-ticker result for analyst data query."""
+    tickers: List[str] = Field(description="List of ticker codes queried.")
+    data: List[Dict[str, Any]] = Field(description="List of analyst results for each ticker.")
+    successful_count: int = Field(description="Number of successful ticker queries.")
+    failed_count: int = Field(description="Number of failed ticker queries.")
+    warnings: List[str] = Field(default_factory=list, description="List of warnings/errors for failed tickers.")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp of the query.")
+
+class MultiKazancTakvimSonucu(BaseModel):
+    """Multi-ticker result for earnings calendar query."""
+    tickers: List[str] = Field(description="List of ticker codes queried.")
+    data: List[Dict[str, Any]] = Field(description="List of earnings calendar results for each ticker.")
+    successful_count: int = Field(description="Number of successful ticker queries.")
+    failed_count: int = Field(description="Number of failed ticker queries.")
+    warnings: List[str] = Field(default_factory=list, description="List of warnings/errors for failed tickers.")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp of the query.")
+
+
+# ========== MULTI-TICKER MODELS (Phase 2: İş Yatırım Financial Statements) ==========
+
+class MultiFinansalTabloSonucu(BaseModel):
+    """Multi-ticker result for balance sheet query."""
+    tickers: List[str] = Field(description="List of ticker codes queried.")
+    data: List[Dict[str, Any]] = Field(description="List of balance sheet results for each ticker.")
+    successful_count: int = Field(description="Number of successful ticker queries.")
+    failed_count: int = Field(description="Number of failed ticker queries.")
+    warnings: List[str] = Field(default_factory=list, description="List of warnings/errors for failed tickers.")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp of the query.")
+
+
+class MultiKarZararTablosuSonucu(BaseModel):
+    """Multi-ticker result for income statement query."""
+    tickers: List[str] = Field(description="List of ticker codes queried.")
+    data: List[Dict[str, Any]] = Field(description="List of income statement results for each ticker.")
+    successful_count: int = Field(description="Number of successful ticker queries.")
+    failed_count: int = Field(description="Number of failed ticker queries.")
+    warnings: List[str] = Field(default_factory=list, description="List of warnings/errors for failed tickers.")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp of the query.")
+
+
+class MultiNakitAkisiTablosuSonucu(BaseModel):
+    """Multi-ticker result for cash flow statement query."""
+    tickers: List[str] = Field(description="List of ticker codes queried.")
+    data: List[Dict[str, Any]] = Field(description="List of cash flow statement results for each ticker.")
+    successful_count: int = Field(description="Number of successful ticker queries.")
+    failed_count: int = Field(description="Number of failed ticker queries.")
+    warnings: List[str] = Field(default_factory=list, description="List of warnings/errors for failed tickers.")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp of the query.")
+
 
