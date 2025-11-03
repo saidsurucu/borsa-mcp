@@ -1582,7 +1582,7 @@ class YahooFinanceProvider:
             }
 
         except Exception as e:
-            logger.exception(f"Error in get_hizli_bilgi_multi")
+            logger.exception("Error in get_hizli_bilgi_multi")
             return {"error": str(e)}
 
     async def get_temettu_ve_aksiyonlar_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
@@ -1630,7 +1630,7 @@ class YahooFinanceProvider:
             }
 
         except Exception as e:
-            logger.exception(f"Error in get_temettu_ve_aksiyonlar_multi")
+            logger.exception("Error in get_temettu_ve_aksiyonlar_multi")
             return {"error": str(e)}
 
     async def get_analist_verileri_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
@@ -1678,7 +1678,7 @@ class YahooFinanceProvider:
             }
 
         except Exception as e:
-            logger.exception(f"Error in get_analist_verileri_multi")
+            logger.exception("Error in get_analist_verileri_multi")
             return {"error": str(e)}
 
     async def get_kazanc_takvimi_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
@@ -1726,5 +1726,5 @@ class YahooFinanceProvider:
             }
 
         except Exception as e:
-            logger.exception(f"Error in get_kazanc_takvimi_multi")
+            logger.exception("Error in get_kazanc_takvimi_multi")
             return {"error": str(e)}

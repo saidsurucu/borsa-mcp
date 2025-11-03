@@ -679,7 +679,7 @@ class IsYatirimProvider:
             }
 
         except Exception as e:
-            logger.exception(f"Error in get_bilanco_multi")
+            logger.exception("Error in get_bilanco_multi")
             return {"error": str(e)}
 
     async def get_kar_zarar_multi(
@@ -733,7 +733,7 @@ class IsYatirimProvider:
             }
 
         except Exception as e:
-            logger.exception(f"Error in get_kar_zarar_multi")
+            logger.exception("Error in get_kar_zarar_multi")
             return {"error": str(e)}
 
     async def get_nakit_akisi_multi(
@@ -787,5 +787,5 @@ class IsYatirimProvider:
             }
 
         except Exception as e:
-            logger.exception(f"Error in get_nakit_akisi_multi")
+            logger.exception("Error in get_nakit_akisi_multi")
             return {"error": str(e)}

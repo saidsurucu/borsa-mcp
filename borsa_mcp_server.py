@@ -246,7 +246,7 @@ async def get_bilanco(
                 raise ToolError(result["error"])
             return MultiFinansalTabloSonucu(**result)
         except Exception as e:
-            logger.exception(f"Error in multi-ticker get_bilanco")
+            logger.exception("Error in multi-ticker get_bilanco")
             raise ToolError(f"Multi-ticker query failed: {str(e)}")
 
     # Handle single ticker request (backward compatible)
@@ -281,7 +281,7 @@ async def get_kar_zarar_tablosu(
                 raise ToolError(result["error"])
             return MultiKarZararTablosuSonucu(**result)
         except Exception as e:
-            logger.exception(f"Error in multi-ticker get_kar_zarar_tablosu")
+            logger.exception("Error in multi-ticker get_kar_zarar_tablosu")
             raise ToolError(f"Multi-ticker query failed: {str(e)}")
 
     # Handle single ticker request (backward compatible)
@@ -316,7 +316,7 @@ async def get_nakit_akisi_tablosu(
                 raise ToolError(result["error"])
             return MultiNakitAkisiTablosuSonucu(**result)
         except Exception as e:
-            logger.exception(f"Error in multi-ticker get_nakit_akisi_tablosu")
+            logger.exception("Error in multi-ticker get_nakit_akisi_tablosu")
             raise ToolError(f"Multi-ticker query failed: {str(e)}")
 
     # Handle single ticker request (backward compatible)
@@ -473,7 +473,7 @@ async def get_analist_tahminleri(
                 raise ToolError(result["error"])
             return MultiAnalistVerileriSonucu(**result)
         except Exception as e:
-            logger.exception(f"Error in multi-ticker get_analist_tahminleri")
+            logger.exception("Error in multi-ticker get_analist_tahminleri")
             raise ToolError(f"Multi-ticker query failed: {str(e)}")
 
     # Handle single ticker request (backward compatible)
@@ -515,7 +515,7 @@ async def get_temettu_ve_aksiyonlar(
                 raise ToolError(result["error"])
             return MultiTemettuVeAksiyonlarSonucu(**result)
         except Exception as e:
-            logger.exception(f"Error in multi-ticker get_temettu_ve_aksiyonlar")
+            logger.exception("Error in multi-ticker get_temettu_ve_aksiyonlar")
             raise ToolError(f"Multi-ticker query failed: {str(e)}")
 
     # Handle single ticker request (backward compatible)
@@ -558,7 +558,7 @@ async def get_hizli_bilgi(
                 raise ToolError(result["error"])
             return MultiHizliBilgiSonucu(**result)
         except Exception as e:
-            logger.exception(f"Error in multi-ticker get_hizli_bilgi")
+            logger.exception("Error in multi-ticker get_hizli_bilgi")
             raise ToolError(f"Multi-ticker query failed: {str(e)}")
 
     # Handle single ticker request (backward compatible)
@@ -597,7 +597,7 @@ async def get_kazanc_takvimi(
                 raise ToolError(result["error"])
             return MultiKazancTakvimSonucu(**result)
         except Exception as e:
-            logger.exception(f"Error in multi-ticker get_kazanc_takvimi")
+            logger.exception("Error in multi-ticker get_kazanc_takvimi")
             raise ToolError(f"Multi-ticker query failed: {str(e)}")
 
     # Handle single ticker request (backward compatible)
