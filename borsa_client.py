@@ -4,6 +4,7 @@ This class acts as an orchestrator or service layer. It initializes
 all data providers (KAP, yfinance) and delegates calls to the 
 appropriate provider.
 """
+import asyncio
 import httpx
 import logging
 from typing import List, Dict, Any, Optional
@@ -1032,3 +1033,651 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
     async def get_nakit_akisi_multi(self, ticker_kodlari: List[str], period_type: str) -> Dict[str, Any]:
         """Delegates multi-ticker cash flow statement fetching to IsYatirimProvider."""
         return await self.isyatirim_provider.get_nakit_akisi_multi(ticker_kodlari, period_type)
+
+    # ============================================================================
+    # US STOCK MARKET METHODS
+    # ============================================================================
+
+    async def search_us_stock(self, query: str) -> Dict[str, Any]:
+        """
+        Search/validate a US stock ticker using Yahoo Finance.
+
+        Args:
+            query: Ticker symbol to validate (e.g., 'AAPL', 'MSFT')
+
+        Returns:
+            Company info if ticker is valid, error otherwise
+        """
+        import datetime
+        try:
+            result = await self.yfinance_provider.get_sirket_bilgileri(query, market="US")
+            if "error" in result:
+                return {
+                    "query": query,
+                    "ticker": None,
+                    "name": None,
+                    "sector": None,
+                    "industry": None,
+                    "market_cap": None,
+                    "is_valid": False,
+                    "query_timestamp": datetime.datetime.now(),
+                    "error_message": result.get("error")
+                }
+
+            bilgiler = result.get("bilgiler")
+            if bilgiler:
+                return {
+                    "query": query,
+                    "ticker": bilgiler.symbol,
+                    "name": bilgiler.longName,
+                    "sector": bilgiler.sector,
+                    "industry": bilgiler.industry,
+                    "market_cap": bilgiler.marketCap,
+                    "is_valid": True,
+                    "query_timestamp": datetime.datetime.now(),
+                    "error_message": None
+                }
+            return {
+                "query": query,
+                "ticker": None,
+                "is_valid": False,
+                "query_timestamp": datetime.datetime.now(),
+                "error_message": "No data returned"
+            }
+        except Exception as e:
+            logger.exception(f"Error searching US stock: {query}")
+            return {
+                "query": query,
+                "ticker": None,
+                "is_valid": False,
+                "query_timestamp": datetime.datetime.now(),
+                "error_message": str(e)
+            }
+
+    async def get_us_company_profile(self, ticker: str) -> Dict[str, Any]:
+        """Get US company profile information."""
+        result = await self.yfinance_provider.get_sirket_bilgileri(ticker, market="US")
+        if "error" in result:
+            return {"error_message": result.get("error")}
+        return result
+
+    async def get_us_quick_info(self, ticker: str) -> Dict[str, Any]:
+        """Get US stock quick info with key metrics."""
+        result = await self.yfinance_provider.get_hizli_bilgi(ticker, market="US")
+        if "error" in result:
+            return {"error_message": result.get("error")}
+        return result
+
+    async def get_us_stock_data(
+        self,
+        ticker: str,
+        period: str = "1mo",
+        start_date: str = None,
+        end_date: str = None
+    ) -> Dict[str, Any]:
+        """Get US stock historical OHLCV data."""
+        from models import YFinancePeriodEnum
+
+        # Convert string period to enum if needed
+        period_enum = None
+        if period and not start_date and not end_date:
+            try:
+                period_enum = YFinancePeriodEnum(period)
+            except ValueError:
+                period_enum = YFinancePeriodEnum.P1MO
+
+        result = await self.yfinance_provider.get_finansal_veri(
+            ticker,
+            period=period_enum,
+            start_date=start_date,
+            end_date=end_date,
+            market="US"
+        )
+        if "error" in result:
+            return {"error_message": result.get("error")}
+        return result
+
+    async def get_us_analyst_ratings(self, ticker: str) -> Dict[str, Any]:
+        """Get US stock analyst recommendations and price targets."""
+        result = await self.yfinance_provider.get_analist_verileri(ticker, market="US")
+        if "error" in result:
+            return {"error_message": result.get("error")}
+        return result
+
+    async def get_us_dividends(self, ticker: str) -> Dict[str, Any]:
+        """Get US stock dividends and corporate actions."""
+        result = await self.yfinance_provider.get_temettu_ve_aksiyonlar(ticker, market="US")
+        if "error" in result:
+            return {"error_message": result.get("error")}
+        return result
+
+    async def get_us_earnings(self, ticker: str) -> Dict[str, Any]:
+        """Get US stock earnings calendar."""
+        result = await self.yfinance_provider.get_kazanc_takvimi(ticker, market="US")
+        if "error" in result:
+            return {"error_message": result.get("error")}
+        return result
+
+    async def get_us_technical_analysis(self, ticker: str) -> Dict[str, Any]:
+        """Get US stock technical analysis with indicators."""
+        result = self.yfinance_provider.get_teknik_analiz(ticker, market="US")
+        if "error" in result:
+            return {"error_message": result.get("error")}
+        return result
+
+    async def get_us_pivot_points(self, ticker: str) -> Dict[str, Any]:
+        """Get US stock pivot points (support/resistance levels)."""
+        result = await self.yfinance_provider.get_pivot_points(ticker, market="US")
+        if "error" in result:
+            return {"error_message": result.get("error")}
+        return result
+
+    # ============================================================================
+    # US STOCK MULTI-TICKER METHODS
+    # ============================================================================
+
+    async def get_us_quick_info_multi(self, tickers: List[str]) -> Dict[str, Any]:
+        """Get quick info for multiple US stocks in parallel."""
+        import asyncio
+        import datetime
+
+        if not tickers:
+            return {"error": "No tickers provided"}
+        if len(tickers) > 10:
+            return {"error": "Maximum 10 tickers allowed per request"}
+
+        tasks = [self.get_us_quick_info(t) for t in tickers]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        successful = []
+        failed = []
+        warnings = []
+        data = []
+
+        for ticker, result in zip(tickers, results):
+            if isinstance(result, Exception):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {str(result)}")
+            elif result.get("error_message"):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {result['error_message']}")
+            else:
+                successful.append(ticker)
+                data.append(result)
+
+        return {
+            "tickers": tickers,
+            "data": data,
+            "successful_count": len(successful),
+            "failed_count": len(failed),
+            "warnings": warnings,
+            "query_timestamp": datetime.datetime.now()
+        }
+
+    async def get_us_analyst_ratings_multi(self, tickers: List[str]) -> Dict[str, Any]:
+        """Get analyst ratings for multiple US stocks in parallel."""
+        import asyncio
+        import datetime
+
+        if not tickers:
+            return {"error": "No tickers provided"}
+        if len(tickers) > 10:
+            return {"error": "Maximum 10 tickers allowed per request"}
+
+        tasks = [self.get_us_analyst_ratings(t) for t in tickers]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        successful = []
+        failed = []
+        warnings = []
+        data = []
+
+        for ticker, result in zip(tickers, results):
+            if isinstance(result, Exception):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {str(result)}")
+            elif result.get("error_message"):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {result['error_message']}")
+            else:
+                successful.append(ticker)
+                data.append(result)
+
+        return {
+            "tickers": tickers,
+            "data": data,
+            "successful_count": len(successful),
+            "failed_count": len(failed),
+            "warnings": warnings,
+            "query_timestamp": datetime.datetime.now()
+        }
+
+    async def get_us_dividends_multi(self, tickers: List[str]) -> Dict[str, Any]:
+        """Get dividends for multiple US stocks in parallel."""
+        import asyncio
+        import datetime
+
+        if not tickers:
+            return {"error": "No tickers provided"}
+        if len(tickers) > 10:
+            return {"error": "Maximum 10 tickers allowed per request"}
+
+        tasks = [self.get_us_dividends(t) for t in tickers]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        successful = []
+        failed = []
+        warnings = []
+        data = []
+
+        for ticker, result in zip(tickers, results):
+            if isinstance(result, Exception):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {str(result)}")
+            elif result.get("error_message"):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {result['error_message']}")
+            else:
+                successful.append(ticker)
+                data.append(result)
+
+        return {
+            "tickers": tickers,
+            "data": data,
+            "successful_count": len(successful),
+            "failed_count": len(failed),
+            "warnings": warnings,
+            "query_timestamp": datetime.datetime.now()
+        }
+
+    async def get_us_earnings_multi(self, tickers: List[str]) -> Dict[str, Any]:
+        """Get earnings calendar for multiple US stocks in parallel."""
+        import asyncio
+        import datetime
+
+        if not tickers:
+            return {"error": "No tickers provided"}
+        if len(tickers) > 10:
+            return {"error": "Maximum 10 tickers allowed per request"}
+
+        tasks = [self.get_us_earnings(t) for t in tickers]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        successful = []
+        failed = []
+        warnings = []
+        data = []
+
+        for ticker, result in zip(tickers, results):
+            if isinstance(result, Exception):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {str(result)}")
+            elif result.get("error_message"):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {result['error_message']}")
+            else:
+                successful.append(ticker)
+                data.append(result)
+
+        return {
+            "tickers": tickers,
+            "data": data,
+            "successful_count": len(successful),
+            "failed_count": len(failed),
+            "warnings": warnings,
+            "query_timestamp": datetime.datetime.now()
+        }
+
+    # ============================================================================
+    # US STOCK FINANCIAL STATEMENT METHODS
+    # ============================================================================
+
+    async def get_us_balance_sheet(self, ticker: str, period_type: str = "annual") -> Dict[str, Any]:
+        """Get US stock balance sheet from Yahoo Finance."""
+        result = await self.yfinance_provider.get_bilanco(ticker, period_type, market="US")
+        if result.get("error"):
+            return {"error_message": result.get("error")}
+        return result
+
+    async def get_us_income_statement(self, ticker: str, period_type: str = "annual") -> Dict[str, Any]:
+        """Get US stock income statement from Yahoo Finance."""
+        result = await self.yfinance_provider.get_kar_zarar(ticker, period_type, market="US")
+        if result.get("error"):
+            return {"error_message": result.get("error")}
+        return result
+
+    async def get_us_cash_flow(self, ticker: str, period_type: str = "annual") -> Dict[str, Any]:
+        """Get US stock cash flow statement from Yahoo Finance."""
+        result = await self.yfinance_provider.get_nakit_akisi(ticker, period_type, market="US")
+        if result.get("error"):
+            return {"error_message": result.get("error")}
+        return result
+
+    # ============================================================================
+    # US STOCK FINANCIAL STATEMENT MULTI-TICKER METHODS
+    # ============================================================================
+
+    async def get_us_balance_sheet_multi(self, tickers: List[str], period_type: str = "annual") -> Dict[str, Any]:
+        """Get balance sheet for multiple US stocks in parallel."""
+        import asyncio
+        import datetime
+
+        if not tickers:
+            return {"error": "No tickers provided"}
+        if len(tickers) > 10:
+            return {"error": "Maximum 10 tickers allowed per request"}
+
+        tasks = [self.get_us_balance_sheet(t, period_type) for t in tickers]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        successful = []
+        failed = []
+        warnings = []
+        data = []
+
+        for ticker, result in zip(tickers, results):
+            if isinstance(result, Exception):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {str(result)}")
+            elif result.get("error_message"):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {result['error_message']}")
+            else:
+                successful.append(ticker)
+                data.append({"ticker": ticker, **result})
+
+        return {
+            "tickers": tickers,
+            "data": data,
+            "successful_count": len(successful),
+            "failed_count": len(failed),
+            "warnings": warnings,
+            "query_timestamp": datetime.datetime.now()
+        }
+
+    async def get_us_income_statement_multi(self, tickers: List[str], period_type: str = "annual") -> Dict[str, Any]:
+        """Get income statement for multiple US stocks in parallel."""
+        import asyncio
+        import datetime
+
+        if not tickers:
+            return {"error": "No tickers provided"}
+        if len(tickers) > 10:
+            return {"error": "Maximum 10 tickers allowed per request"}
+
+        tasks = [self.get_us_income_statement(t, period_type) for t in tickers]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        successful = []
+        failed = []
+        warnings = []
+        data = []
+
+        for ticker, result in zip(tickers, results):
+            if isinstance(result, Exception):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {str(result)}")
+            elif result.get("error_message"):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {result['error_message']}")
+            else:
+                successful.append(ticker)
+                data.append({"ticker": ticker, **result})
+
+        return {
+            "tickers": tickers,
+            "data": data,
+            "successful_count": len(successful),
+            "failed_count": len(failed),
+            "warnings": warnings,
+            "query_timestamp": datetime.datetime.now()
+        }
+
+    async def get_us_cash_flow_multi(self, tickers: List[str], period_type: str = "annual") -> Dict[str, Any]:
+        """Get cash flow statement for multiple US stocks in parallel."""
+        import asyncio
+        import datetime
+
+        if not tickers:
+            return {"error": "No tickers provided"}
+        if len(tickers) > 10:
+            return {"error": "Maximum 10 tickers allowed per request"}
+
+        tasks = [self.get_us_cash_flow(t, period_type) for t in tickers]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        successful = []
+        failed = []
+        warnings = []
+        data = []
+
+        for ticker, result in zip(tickers, results):
+            if isinstance(result, Exception):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {str(result)}")
+            elif result.get("error_message"):
+                failed.append(ticker)
+                warnings.append(f"{ticker}: {result['error_message']}")
+            else:
+                successful.append(ticker)
+                data.append({"ticker": ticker, **result})
+
+        return {
+            "tickers": tickers,
+            "data": data,
+            "successful_count": len(successful),
+            "failed_count": len(failed),
+            "warnings": warnings,
+            "query_timestamp": datetime.datetime.now()
+        }
+
+    # ======================= US STOCK FINANCIAL ANALYSIS METHODS =======================
+
+    async def calculate_us_buffett_analysis(self, ticker: str) -> Dict[str, Any]:
+        """
+        Calculate complete Warren Buffett value investing analysis for US stocks.
+
+        Includes 4 key metrics:
+        1. Owner Earnings - Real cash flow available to owners
+        2. OE Yield - Cash return percentage (>10% target)
+        3. DCF Fisher - Inflation-adjusted intrinsic value
+        4. Safety Margin - Moat-adjusted buy threshold
+
+        Uses US-specific macro data:
+        - Nominal Rate: Yahoo Finance ^TNX (US 10Y Treasury)
+        - Inflation: US Fed target (2.5%)
+        - Growth: Yahoo Finance analyst data + World Bank US GDP
+
+        Args:
+            ticker: US stock ticker (e.g., 'AAPL', 'MSFT', 'GOOGL')
+
+        Returns:
+            Dict with BuffettValueAnalysis structure including buffett_score and insights
+        """
+        result = await self.buffett_provider.calculate_buffett_value_analysis(
+            ticker_kodu=ticker,
+            market="US"
+        )
+
+        if result.get('error'):
+            return {"error_message": result.get('error'), **result}
+
+        return result
+
+    async def calculate_us_advanced_metrics(self, ticker: str) -> Dict[str, Any]:
+        """
+        Calculate Advanced Financial Metrics for US stocks.
+
+        Consolidates 2 key metrics in 1 call:
+        1. Altman Z-Score - Bankruptcy risk prediction
+           - Z > 2.99: Safe Zone (low risk)
+           - 1.81 < Z < 2.99: Grey Zone (moderate risk)
+           - Z < 1.81: Distress Zone (high risk)
+        2. Real Growth - Inflation-adjusted growth (Fisher equation)
+           - Revenue real growth
+           - Earnings real growth
+
+        Args:
+            ticker: US stock ticker (e.g., 'AAPL', 'MSFT', 'GOOGL')
+
+        Returns:
+            Dict with Altman Z-Score, Real Growth metrics, and assessments
+        """
+        result = await self.financial_ratios_provider.calculate_advanced_metrics(
+            ticker_kodu=ticker,
+            market="US"
+        )
+
+        if result.get('error'):
+            return {"error_message": result.get('error'), **result}
+
+        return result
+
+    async def calculate_us_core_health(self, ticker: str) -> Dict[str, Any]:
+        """
+        Calculate Core Financial Health Analysis for US stocks.
+
+        Consolidates 5 key metrics in 1 call:
+        1. ROE - Return on Equity (profitability metric, >15% excellent)
+        2. ROIC - Return on Invested Capital (capital efficiency, >15% excellent)
+        3. Debt Ratios - 4 debt metrics (D/E, D/A, Interest Coverage, Debt Service)
+        4. FCF Margin - Free Cash Flow margin (cash generation, >10% excellent)
+        5. Earnings Quality - CF/NI ratio, accruals, working capital impact
+
+        Returns overall health score: STRONG | GOOD | AVERAGE | WEAK
+
+        Args:
+            ticker: US stock ticker (e.g., 'AAPL', 'MSFT', 'GOOGL')
+
+        Returns:
+            Dict with CoreFinancialHealthAnalysis structure including health_score and insights
+        """
+        result = await self.financial_ratios_provider.calculate_core_financial_health(
+            ticker_kodu=ticker,
+            market="US"
+        )
+
+        if result.get('error'):
+            return {"error_message": result.get('error'), **result}
+
+        return result
+
+    async def calculate_us_comprehensive(self, ticker: str) -> Dict[str, Any]:
+        """
+        Calculate Comprehensive Financial Analysis for US stocks.
+
+        Includes 11 metrics in 4 categories:
+
+        1. LIQUIDITY METRICS (5):
+           - Current Ratio: Current Assets / Current Liabilities
+           - Quick Ratio: (Current Assets - Inventory) / Current Liabilities
+           - OCF Ratio: Operating Cash Flow / Current Liabilities
+           - Cash Conversion Cycle: DSO + DIO - DPO (days)
+           - Debt/EBITDA: Total Debt / EBITDA (healthy <3.0)
+
+        2. PROFITABILITY MARGINS (3):
+           - Gross Margin: Gross Profit / Revenue × 100
+           - Operating Margin: Operating Income / Revenue × 100
+           - Net Profit Margin: Net Income / Revenue × 100
+
+        3. VALUATION METRICS (2):
+           - EV/EBITDA: Enterprise Value / EBITDA
+           - Graham Number: √(22.5 × EPS × BVPS)
+
+        4. COMPOSITE SCORES (2):
+           - Piotroski F-Score: 0-9 score (simplified)
+           - Magic Formula: Earnings Yield + ROIC ranking
+
+        Args:
+            ticker: US stock ticker (e.g., 'AAPL', 'MSFT', 'GOOGL')
+
+        Returns:
+            Dict with ComprehensiveFinancialAnalysis structure
+        """
+        result = await self.financial_ratios_provider.calculate_comprehensive_analysis(
+            ticker_kodu=ticker,
+            market="US"
+        )
+
+        if result.get('error'):
+            return {"error_message": result.get('error'), **result}
+
+        return result
+
+    async def get_us_sector_comparison(self, tickers: List[str]) -> Dict[str, Any]:
+        """
+        Compare US stocks across sectors with comprehensive metrics.
+
+        Provides sector-level analysis and comparison including:
+        - Per-company metrics: P/E, P/B, ROE, debt ratio, profit margin, yearly return, volatility
+        - Sector averages: Average P/E, P/B, ROE, debt, margins, returns, volatility
+        - Best performing sector (highest average return)
+        - Lowest risk sector (lowest average volatility)
+        - Largest sector by market cap
+
+        Args:
+            tickers: List of US stock tickers (e.g., ['AAPL', 'MSFT', 'GOOGL', 'AMZN'])
+
+        Returns:
+            Dict with company data, sector summaries, and overall market stats
+        """
+        # Use run_in_executor for synchronous Yahoo Finance call
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: self.yfinance_provider.get_sektor_karsilastirmasi(tickers, market="US")
+        )
+
+        if result.get('error'):
+            return {"error_message": result.get('error'), **result}
+
+        return result
+
+    async def search_us_indices(self, query: str) -> Dict[str, Any]:
+        """
+        Search US stock market indices by name, ticker, or category.
+
+        Searches through a database of major US indices including:
+        - Market indices: S&P 500, Dow Jones, Nasdaq, Russell
+        - International indices: FTSE, Nikkei, DAX, CAC 40
+        - Sector ETFs: XLK (Tech), XLF (Financial), XLE (Energy), etc.
+
+        Args:
+            query: Search term (e.g., 'S&P', 'nasdaq', 'tech', 'small cap')
+
+        Returns:
+            Dict with matching indices including ticker, name, description, category
+        """
+        # Synchronous method, use run_in_executor
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: self.yfinance_provider.search_us_indices(query)
+        )
+
+        if result.get('error'):
+            return {"error_message": result.get('error'), **result}
+
+        return result
+
+    async def get_us_index_info(self, index_ticker: str) -> Dict[str, Any]:
+        """
+        Get detailed information about a US index including current price and returns.
+
+        Args:
+            index_ticker: Index ticker (e.g., '^GSPC', '^DJI', 'XLK')
+
+        Returns:
+            Dict with index info, current price, YTD return, 1Y return, etc.
+        """
+        # Synchronous method, use run_in_executor
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: self.yfinance_provider.get_us_index_info(index_ticker)
+        )
+
+        if result.get('error'):
+            return {"error_message": result.get('error'), **result}
+
+        return result

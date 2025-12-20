@@ -149,6 +149,26 @@ from borsa_models import (
     MultiNakitAkisiTablosuSonucu
 )
 
+# US Stock Models from borsa_models
+from borsa_models import (
+    # Core US models
+    USCompanyInfo, USQuickInfo, USStockDataPoint,
+    USDividend, USStockSplit, USAnalystRating, USPriceTarget,
+    USEarningsDate, USPivotPoints, USTechnicalIndicators,
+    # Result models
+    USCompanySearchResult, USQuickInfoResult, USStockDataResult,
+    USAnalystResult, USDividendResult, USEarningsResult,
+    USTechnicalAnalysisResult, USPivotPointsResult, USSectorInfoResult,
+    # Multi-ticker models
+    MultiUSQuickInfoResult, MultiUSAnalystResult,
+    MultiUSDividendResult, MultiUSEarningsResult,
+    # US Financial Statement models
+    USBalanceSheetResult, USIncomeStatementResult, USCashFlowResult,
+    MultiUSBalanceSheetResult, MultiUSIncomeStatementResult, MultiUSCashFlowResult,
+    # US Index models
+    USIndexInfo, USIndexSearchResult, USIndexDetailResult
+)
+
 # Export all models for backward compatibility
 __all__ = [
     # Base enums
@@ -237,5 +257,20 @@ __all__ = [
 
     # Multi-ticker models (Phase 2: İş Yatırım Financial Statements)
     "MultiFinansalTabloSonucu", "MultiKarZararTablosuSonucu",
-    "MultiNakitAkisiTablosuSonucu"
+    "MultiNakitAkisiTablosuSonucu",
+
+    # US Stock Models
+    "USCompanyInfo", "USQuickInfo", "USStockDataPoint",
+    "USDividend", "USStockSplit", "USAnalystRating", "USPriceTarget",
+    "USEarningsDate", "USPivotPoints", "USTechnicalIndicators",
+    "USCompanySearchResult", "USQuickInfoResult", "USStockDataResult",
+    "USAnalystResult", "USDividendResult", "USEarningsResult",
+    "USTechnicalAnalysisResult", "USPivotPointsResult", "USSectorInfoResult",
+    "MultiUSQuickInfoResult", "MultiUSAnalystResult",
+    "MultiUSDividendResult", "MultiUSEarningsResult",
+    # US Financial Statement Models
+    "USBalanceSheetResult", "USIncomeStatementResult", "USCashFlowResult",
+    "MultiUSBalanceSheetResult", "MultiUSIncomeStatementResult", "MultiUSCashFlowResult",
+    # US Index Models
+    "USIndexInfo", "USIndexSearchResult", "USIndexDetailResult"
 ]

@@ -1647,3 +1647,372 @@ class MultiNakitAkisiTablosuSonucu(BaseModel):
     query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp of the query.")
 
 
+# ============================================================================
+# US STOCK MARKET MODELS
+# ============================================================================
+
+class USCompanyInfo(BaseModel):
+    """US company profile information."""
+    ticker: str = Field(description="Stock ticker symbol (e.g., AAPL, MSFT)")
+    name: Optional[str] = Field(None, description="Company name")
+    sector: Optional[str] = Field(None, description="GICS sector")
+    industry: Optional[str] = Field(None, description="Industry classification")
+    market_cap: Optional[float] = Field(None, description="Market capitalization in USD")
+    employees: Optional[int] = Field(None, description="Number of full-time employees")
+    website: Optional[str] = Field(None, description="Company website URL")
+    description: Optional[str] = Field(None, description="Business description")
+    city: Optional[str] = Field(None, description="Headquarters city")
+    country: Optional[str] = Field(None, description="Country of incorporation")
+    currency: str = Field(default="USD", description="Trading currency")
+
+
+class USQuickInfo(BaseModel):
+    """US stock quick info with key metrics."""
+    ticker: str = Field(description="Stock ticker symbol")
+    name: Optional[str] = Field(None, description="Company name")
+    price: Optional[float] = Field(None, description="Current stock price in USD")
+    change_percent: Optional[float] = Field(None, description="Daily price change percentage")
+    previous_close: Optional[float] = Field(None, description="Previous closing price")
+    open_price: Optional[float] = Field(None, description="Today's opening price")
+    day_high: Optional[float] = Field(None, description="Today's high price")
+    day_low: Optional[float] = Field(None, description="Today's low price")
+    fifty_two_week_high: Optional[float] = Field(None, description="52-week high price")
+    fifty_two_week_low: Optional[float] = Field(None, description="52-week low price")
+    volume: Optional[int] = Field(None, description="Trading volume")
+    avg_volume: Optional[int] = Field(None, description="Average trading volume")
+    market_cap: Optional[float] = Field(None, description="Market capitalization in USD")
+    pe_ratio: Optional[float] = Field(None, description="Trailing P/E ratio")
+    forward_pe: Optional[float] = Field(None, description="Forward P/E ratio")
+    peg_ratio: Optional[float] = Field(None, description="PEG ratio")
+    price_to_book: Optional[float] = Field(None, description="Price to book ratio")
+    dividend_yield: Optional[float] = Field(None, description="Dividend yield percentage")
+    beta: Optional[float] = Field(None, description="Beta (volatility measure)")
+    roe: Optional[float] = Field(None, description="Return on equity")
+    debt_to_equity: Optional[float] = Field(None, description="Debt to equity ratio")
+
+
+class USStockDataPoint(BaseModel):
+    """Single OHLCV data point for US stocks."""
+    date: datetime.datetime = Field(description="Trading date")
+    open: float = Field(description="Opening price")
+    high: float = Field(description="High price")
+    low: float = Field(description="Low price")
+    close: float = Field(description="Closing price")
+    volume: int = Field(description="Trading volume")
+
+
+class USDividend(BaseModel):
+    """US stock dividend payment."""
+    date: datetime.datetime = Field(description="Ex-dividend date")
+    amount: float = Field(description="Dividend amount per share in USD")
+
+
+class USStockSplit(BaseModel):
+    """US stock split event."""
+    date: datetime.datetime = Field(description="Split date")
+    ratio: float = Field(description="Split ratio (e.g., 4.0 for 4:1 split)")
+
+
+class USAnalystRating(BaseModel):
+    """Individual analyst rating/recommendation."""
+    date: Optional[datetime.datetime] = Field(None, description="Rating date")
+    firm: Optional[str] = Field(None, description="Analyst firm name")
+    current_rating: Optional[str] = Field(None, description="Current rating (Buy, Hold, Sell)")
+    previous_rating: Optional[str] = Field(None, description="Previous rating")
+    action: Optional[str] = Field(None, description="Action (upgrade, downgrade, maintain)")
+
+
+class USPriceTarget(BaseModel):
+    """Analyst price target summary."""
+    current: Optional[float] = Field(None, description="Current stock price")
+    mean: Optional[float] = Field(None, description="Mean price target")
+    low: Optional[float] = Field(None, description="Lowest price target")
+    high: Optional[float] = Field(None, description="Highest price target")
+    analyst_count: Optional[int] = Field(None, description="Number of analysts")
+
+
+class USEarningsDate(BaseModel):
+    """US stock earnings date with estimates."""
+    date: datetime.datetime = Field(description="Earnings announcement date")
+    eps_estimate: Optional[float] = Field(None, description="EPS estimate")
+    reported_eps: Optional[float] = Field(None, description="Reported EPS")
+    surprise_percent: Optional[float] = Field(None, description="Earnings surprise percentage")
+    status: str = Field(description="'upcoming' or 'past'")
+
+
+class USPivotPoints(BaseModel):
+    """US stock pivot point levels."""
+    pivot_point: float = Field(description="Pivot point (PP)")
+    r1: float = Field(description="Resistance level 1")
+    r2: float = Field(description="Resistance level 2")
+    r3: float = Field(description="Resistance level 3")
+    s1: float = Field(description="Support level 1")
+    s2: float = Field(description="Support level 2")
+    s3: float = Field(description="Support level 3")
+    current_price: float = Field(description="Current stock price")
+    reference_date: datetime.datetime = Field(description="Reference date for calculation")
+    position: str = Field(description="Current price position relative to pivot")
+    nearest_resistance: Optional[str] = Field(None, description="Nearest resistance level")
+    nearest_support: Optional[str] = Field(None, description="Nearest support level")
+    resistance_distance_pct: Optional[float] = Field(None, description="Distance to nearest resistance (%)")
+    support_distance_pct: Optional[float] = Field(None, description="Distance to nearest support (%)")
+
+
+class USTechnicalIndicators(BaseModel):
+    """Technical indicators for US stocks."""
+    rsi_14: Optional[float] = Field(None, description="14-day RSI")
+    macd: Optional[float] = Field(None, description="MACD line")
+    macd_signal: Optional[float] = Field(None, description="MACD signal line")
+    macd_histogram: Optional[float] = Field(None, description="MACD histogram")
+    sma_20: Optional[float] = Field(None, description="20-day SMA")
+    sma_50: Optional[float] = Field(None, description="50-day SMA")
+    sma_200: Optional[float] = Field(None, description="200-day SMA")
+    ema_12: Optional[float] = Field(None, description="12-day EMA")
+    ema_26: Optional[float] = Field(None, description="26-day EMA")
+    bollinger_upper: Optional[float] = Field(None, description="Bollinger upper band")
+    bollinger_middle: Optional[float] = Field(None, description="Bollinger middle band")
+    bollinger_lower: Optional[float] = Field(None, description="Bollinger lower band")
+
+
+# ============================================================================
+# US STOCK RESULT MODELS
+# ============================================================================
+
+class USCompanySearchResult(BaseModel):
+    """Result from US stock ticker search."""
+    query: str = Field(description="Search query used")
+    ticker: Optional[str] = Field(None, description="Matched ticker symbol")
+    name: Optional[str] = Field(None, description="Company name")
+    sector: Optional[str] = Field(None, description="GICS sector")
+    industry: Optional[str] = Field(None, description="Industry")
+    market_cap: Optional[float] = Field(None, description="Market cap in USD")
+    is_valid: bool = Field(description="Whether the ticker is valid")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+    error_message: Optional[str] = Field(None, description="Error message if search failed")
+
+
+class USQuickInfoResult(BaseModel):
+    """Result from US quick info query."""
+    ticker: str = Field(description="Ticker symbol queried")
+    info: Optional[USQuickInfo] = Field(None, description="Quick info data")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+    error_message: Optional[str] = Field(None, description="Error message if query failed")
+
+
+class USStockDataResult(BaseModel):
+    """Result from US historical stock data query."""
+    ticker: str = Field(description="Ticker symbol queried")
+    period: Optional[str] = Field(None, description="Period requested (e.g., '1mo', '1y')")
+    start_date: Optional[str] = Field(None, description="Start date if date range used")
+    end_date: Optional[str] = Field(None, description="End date if date range used")
+    data_points: List[USStockDataPoint] = Field(default_factory=list, description="OHLCV data points")
+    total_points: int = Field(default=0, description="Number of data points returned")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+    error_message: Optional[str] = Field(None, description="Error message if query failed")
+
+
+class USAnalystResult(BaseModel):
+    """Result from US analyst data query."""
+    ticker: str = Field(description="Ticker symbol queried")
+    price_target: Optional[USPriceTarget] = Field(None, description="Price target summary")
+    ratings: List[USAnalystRating] = Field(default_factory=list, description="Recent analyst ratings")
+    recommendation_summary: Optional[Dict[str, int]] = Field(None, description="Buy/Hold/Sell summary")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+    error_message: Optional[str] = Field(None, description="Error message if query failed")
+
+
+class USDividendResult(BaseModel):
+    """Result from US dividend query."""
+    ticker: str = Field(description="Ticker symbol queried")
+    dividends: List[USDividend] = Field(default_factory=list, description="Dividend history")
+    splits: List[USStockSplit] = Field(default_factory=list, description="Stock split history")
+    trailing_dividend_12m: Optional[float] = Field(None, description="Trailing 12-month dividend total")
+    dividend_yield: Optional[float] = Field(None, description="Current dividend yield")
+    last_dividend: Optional[USDividend] = Field(None, description="Most recent dividend")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+    error_message: Optional[str] = Field(None, description="Error message if query failed")
+
+
+class USEarningsResult(BaseModel):
+    """Result from US earnings calendar query."""
+    ticker: str = Field(description="Ticker symbol queried")
+    earnings_dates: List[USEarningsDate] = Field(default_factory=list, description="Earnings dates")
+    next_earnings_date: Optional[datetime.datetime] = Field(None, description="Next earnings date")
+    upcoming_count: int = Field(default=0, description="Number of upcoming earnings")
+    past_count: int = Field(default=0, description="Number of past earnings in data")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+    error_message: Optional[str] = Field(None, description="Error message if query failed")
+
+
+class USTechnicalAnalysisResult(BaseModel):
+    """Result from US technical analysis."""
+    ticker: str = Field(description="Ticker symbol queried")
+    analysis_date: datetime.datetime = Field(description="Analysis timestamp")
+    current_price: Optional[float] = Field(None, description="Current stock price")
+    indicators: Optional[USTechnicalIndicators] = Field(None, description="Technical indicators")
+    trend: Optional[str] = Field(None, description="Overall trend (bullish, bearish, neutral)")
+    signal: Optional[str] = Field(None, description="Trading signal")
+    signal_explanation: Optional[str] = Field(None, description="Signal explanation")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+    error_message: Optional[str] = Field(None, description="Error message if query failed")
+
+
+class USPivotPointsResult(BaseModel):
+    """Result from US pivot points calculation."""
+    ticker: str = Field(description="Ticker symbol queried")
+    pivot_points: Optional[USPivotPoints] = Field(None, description="Pivot point levels")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+    error_message: Optional[str] = Field(None, description="Error message if query failed")
+
+
+class USSectorInfoResult(BaseModel):
+    """Result from US sector comparison."""
+    ticker: str = Field(description="Ticker symbol queried")
+    sector: Optional[str] = Field(None, description="GICS sector")
+    industry: Optional[str] = Field(None, description="Industry")
+    sector_pe_avg: Optional[float] = Field(None, description="Sector average P/E")
+    sector_pb_avg: Optional[float] = Field(None, description="Sector average P/B")
+    relative_valuation: Optional[str] = Field(None, description="Relative valuation vs sector")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+    error_message: Optional[str] = Field(None, description="Error message if query failed")
+
+
+# ============================================================================
+# US STOCK MULTI-TICKER MODELS
+# ============================================================================
+
+class MultiUSQuickInfoResult(BaseModel):
+    """Multi-ticker result for US quick info query."""
+    tickers: List[str] = Field(description="List of ticker symbols queried")
+    data: List[Dict[str, Any]] = Field(description="List of quick info results")
+    successful_count: int = Field(description="Number of successful queries")
+    failed_count: int = Field(description="Number of failed queries")
+    warnings: List[str] = Field(default_factory=list, description="Warnings for failed tickers")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+
+
+class MultiUSAnalystResult(BaseModel):
+    """Multi-ticker result for US analyst data query."""
+    tickers: List[str] = Field(description="List of ticker symbols queried")
+    data: List[Dict[str, Any]] = Field(description="List of analyst data results")
+    successful_count: int = Field(description="Number of successful queries")
+    failed_count: int = Field(description="Number of failed queries")
+    warnings: List[str] = Field(default_factory=list, description="Warnings for failed tickers")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+
+
+class MultiUSDividendResult(BaseModel):
+    """Multi-ticker result for US dividend query."""
+    tickers: List[str] = Field(description="List of ticker symbols queried")
+    data: List[Dict[str, Any]] = Field(description="List of dividend results")
+    successful_count: int = Field(description="Number of successful queries")
+    failed_count: int = Field(description="Number of failed queries")
+    warnings: List[str] = Field(default_factory=list, description="Warnings for failed tickers")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+
+
+class MultiUSEarningsResult(BaseModel):
+    """Multi-ticker result for US earnings calendar query."""
+    tickers: List[str] = Field(description="List of ticker symbols queried")
+    data: List[Dict[str, Any]] = Field(description="List of earnings calendar results")
+    successful_count: int = Field(description="Number of successful queries")
+    failed_count: int = Field(description="Number of failed queries")
+    warnings: List[str] = Field(default_factory=list, description="Warnings for failed tickers")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+
+
+# ============================================================================
+# US STOCK FINANCIAL STATEMENT MODELS
+# ============================================================================
+
+class USBalanceSheetResult(BaseModel):
+    """US stock balance sheet result."""
+    ticker: str = Field(description="Ticker symbol")
+    period_type: str = Field(description="Period type: 'annual' or 'quarterly'")
+    tablo: List[Dict[str, Any]] = Field(description="Balance sheet data as list of records")
+    error_message: Optional[str] = Field(None, description="Error message if query failed")
+
+
+class USIncomeStatementResult(BaseModel):
+    """US stock income statement result."""
+    ticker: str = Field(description="Ticker symbol")
+    period_type: str = Field(description="Period type: 'annual' or 'quarterly'")
+    tablo: List[Dict[str, Any]] = Field(description="Income statement data as list of records")
+    error_message: Optional[str] = Field(None, description="Error message if query failed")
+
+
+class USCashFlowResult(BaseModel):
+    """US stock cash flow statement result."""
+    ticker: str = Field(description="Ticker symbol")
+    period_type: str = Field(description="Period type: 'annual' or 'quarterly'")
+    tablo: List[Dict[str, Any]] = Field(description="Cash flow data as list of records")
+    error_message: Optional[str] = Field(None, description="Error message if query failed")
+
+
+class MultiUSBalanceSheetResult(BaseModel):
+    """Multi-ticker result for US balance sheet query."""
+    tickers: List[str] = Field(description="List of ticker symbols queried")
+    data: List[Dict[str, Any]] = Field(description="List of balance sheet results")
+    successful_count: int = Field(description="Number of successful queries")
+    failed_count: int = Field(description="Number of failed queries")
+    warnings: List[str] = Field(default_factory=list, description="Warnings for failed tickers")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+
+
+class MultiUSIncomeStatementResult(BaseModel):
+    """Multi-ticker result for US income statement query."""
+    tickers: List[str] = Field(description="List of ticker symbols queried")
+    data: List[Dict[str, Any]] = Field(description="List of income statement results")
+    successful_count: int = Field(description="Number of successful queries")
+    failed_count: int = Field(description="Number of failed queries")
+    warnings: List[str] = Field(default_factory=list, description="Warnings for failed tickers")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+
+
+class MultiUSCashFlowResult(BaseModel):
+    """Multi-ticker result for US cash flow query."""
+    tickers: List[str] = Field(description="List of ticker symbols queried")
+    data: List[Dict[str, Any]] = Field(description="List of cash flow results")
+    successful_count: int = Field(description="Number of successful queries")
+    failed_count: int = Field(description="Number of failed queries")
+    warnings: List[str] = Field(default_factory=list, description="Warnings for failed tickers")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+
+
+# ==================== US INDEX MODELS ====================
+
+class USIndexInfo(BaseModel):
+    """Single US index information."""
+    ticker: str = Field(description="Index ticker (e.g., ^GSPC, ^DJI)")
+    name: str = Field(description="Index name (e.g., S&P 500)")
+    description: str = Field(description="Index description")
+    category: str = Field(description="Index category (Large Cap, Tech Heavy, etc.)")
+    approx_companies: int = Field(description="Approximate number of companies in index")
+
+
+class USIndexSearchResult(BaseModel):
+    """Result of US index search."""
+    query: str = Field(description="Search query term")
+    results: List[USIndexInfo] = Field(description="List of matching indices")
+    result_count: int = Field(description="Number of matching indices")
+    total_indices_in_database: int = Field(description="Total indices in database")
+    error: Optional[str] = Field(None, description="Error message if search failed")
+
+
+class USIndexDetailResult(BaseModel):
+    """Detailed information about a US index with current market data."""
+    ticker: str = Field(description="Index ticker (e.g., ^GSPC)")
+    name: str = Field(description="Index name (e.g., S&P 500)")
+    description: str = Field(description="Index description")
+    category: str = Field(description="Index category")
+    approx_companies: int = Field(description="Approximate number of companies")
+    current_price: Optional[float] = Field(None, description="Current index value")
+    previous_close: Optional[float] = Field(None, description="Previous close")
+    change_percent: Optional[float] = Field(None, description="Daily change percentage")
+    yearly_return: Optional[float] = Field(None, description="1-year return percentage")
+    ytd_return: Optional[float] = Field(None, description="Year-to-date return percentage")
+    day_high: Optional[float] = Field(None, description="Day high")
+    day_low: Optional[float] = Field(None, description="Day low")
+    fifty_two_week_high: Optional[float] = Field(None, description="52-week high")
+    fifty_two_week_low: Optional[float] = Field(None, description="52-week low")
+    error: Optional[str] = Field(None, description="Error message if failed")

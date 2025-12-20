@@ -115,9 +115,14 @@ class BuffettValueAnalysis(BaseModel):
     """
     Complete Warren Buffett value investing analysis.
     Consolidates 4 metrics: Owner Earnings, OE Yield, DCF Fisher, Safety Margin.
+    Supports both BIST and US markets.
     """
-    ticker: str = Field(description="BIST ticker code")
+    ticker: str = Field(description="Stock ticker code (BIST or US)")
     period: str = Field(description="Analysis period (e.g., '2024Q3')")
+    market: Optional[str] = Field(
+        None,
+        description="Market type: 'BIST' for Istanbul Stock Exchange, 'US' for US markets"
+    )
 
     # 1. Owner Earnings (Base cash flow metric)
     owner_earnings: OwnerEarningsSonucu = Field(

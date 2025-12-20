@@ -150,7 +150,8 @@ class BuffettAnalyzerProvider:
         growth_rate_real: Optional[float] = None,
         terminal_growth_real: Optional[float] = None,
         risk_premium: float = 0.10,
-        forecast_years: int = 5
+        forecast_years: int = 5,
+        market: str = "BIST"
     ) -> Dict[str, Any]:
         """
         Calculate DCF using Fisher Effect with dynamic parameters.
@@ -158,90 +159,131 @@ class BuffettAnalyzerProvider:
         Fisher Effect: r_real = (1 + r_nominal) / (1 + inflation) - 1 + risk_premium
 
         Dynamic Parameters (auto-fetched if None):
+        BIST Market:
         - nominal_rate: From Doviz.com 10Y bond (default: 30%)
         - expected_inflation: From TCMB TÜFE (default: 38%)
         - growth_rate_real: From Yahoo Finance analyst data + hybrid logic (default: 3%)
         - terminal_growth_real: From World Bank GDP growth (default: 2%, capped at 3%)
 
+        US Market:
+        - nominal_rate: From Yahoo Finance ^TNX 10Y Treasury (default: 4.5%)
+        - expected_inflation: Static 2.5% (US target inflation)
+        - growth_rate_real: From Yahoo Finance analyst data + hybrid logic (default: 2%)
+        - terminal_growth_real: From World Bank US GDP growth (default: 2%, capped at 3%)
+
         Args:
             ticker_kodu: Stock ticker for fetching analyst data
-            owner_earnings_quarterly: Quarterly owner earnings (Milyon TL)
+            owner_earnings_quarterly: Quarterly owner earnings (Million TL or USD)
             nominal_rate: Nominal discount rate (auto-fetched if None)
             expected_inflation: Expected inflation (auto-fetched if None)
             growth_rate_real: Real growth rate (auto-calculated if None)
             terminal_growth_real: Terminal growth rate (auto-fetched if None)
             risk_premium: Company risk premium (0.05-0.15 typical)
             forecast_years: Forecast period (5-10 years typical)
+            market: Market type - "BIST" or "US"
 
         Returns:
             Dict with intrinsic value and detailed breakdown
         """
         try:
             data_sources = {}
+            country_code = 'US' if market == "US" else 'TR'
+            currency_unit = 'Million USD' if market == "US" else 'Milyon TL'
 
-            # 1. Fetch nominal_rate from Doviz.com if not provided
+            # 1. Fetch nominal_rate based on market
             if nominal_rate is None:
-                if self.tahvil_provider:
-                    logger.info("Fetching 10Y bond yield from Doviz.com")
-                    fetched_rate = await self.tahvil_provider.get_10y_tahvil_faizi()
-                    if fetched_rate:
-                        nominal_rate = fetched_rate
-                        data_sources['nominal_rate'] = 'Doviz.com (10Y Tahvil - canlı)'
+                if market == "US":
+                    # Fetch US 10Y Treasury from Yahoo Finance (^TNX)
+                    if self.yfinance_provider:
+                        logger.info("Fetching US 10Y Treasury yield from Yahoo Finance (^TNX)")
+                        try:
+                            import yfinance as yf
+                            tnx = yf.Ticker("^TNX")
+                            hist = tnx.history(period="1d")
+                            if not hist.empty:
+                                # ^TNX returns yield as percentage (e.g., 4.5 means 4.5%)
+                                nominal_rate = hist['Close'].iloc[-1] / 100
+                                data_sources['nominal_rate'] = 'Yahoo Finance (^TNX 10Y Treasury - live)'
+                            else:
+                                nominal_rate = 0.045  # Default 4.5%
+                                data_sources['nominal_rate'] = 'Default 4.5% (Yahoo Finance error)'
+                        except Exception as e:
+                            logger.error(f"Error fetching ^TNX: {e}")
+                            nominal_rate = 0.045
+                            data_sources['nominal_rate'] = 'Default 4.5% (Yahoo Finance error)'
+                    else:
+                        nominal_rate = 0.045
+                        data_sources['nominal_rate'] = 'Default 4.5% (provider not available)'
+                else:
+                    # BIST: Fetch from Doviz.com
+                    if self.tahvil_provider:
+                        logger.info("Fetching 10Y bond yield from Doviz.com")
+                        fetched_rate = await self.tahvil_provider.get_10y_tahvil_faizi()
+                        if fetched_rate:
+                            nominal_rate = fetched_rate
+                            data_sources['nominal_rate'] = 'Doviz.com (10Y Tahvil - canlı)'
+                        else:
+                            nominal_rate = 0.30
+                            data_sources['nominal_rate'] = 'Default 30% (Doviz.com hatası)'
                     else:
                         nominal_rate = 0.30
-                        data_sources['nominal_rate'] = 'Default 30% (Doviz.com hatası)'
-                else:
-                    nominal_rate = 0.30
-                    data_sources['nominal_rate'] = 'Default 30% (provider yok)'
+                        data_sources['nominal_rate'] = 'Default 30% (provider yok)'
             else:
-                data_sources['nominal_rate'] = 'Kullanıcı girişi'
+                data_sources['nominal_rate'] = 'User input' if market == "US" else 'Kullanıcı girişi'
 
-            # 2. Fetch inflation from TCMB if not provided
+            # 2. Fetch inflation based on market
             if expected_inflation is None:
-                if self.tcmb_provider:
-                    logger.info("Fetching inflation from TCMB")
-                    try:
-                        inflation_result = await self.tcmb_provider.get_inflation_data(
-                            inflation_type='tufe', limit=1
-                        )
-                        # inflation_result is a Pydantic model (TcmbEnflasyonSonucu)
-                        if inflation_result and not inflation_result.error_message:
-                            veri_noktalari = inflation_result.data  # List[EnflasyonVerisi]
-                            if veri_noktalari:
-                                last_point = veri_noktalari[0]  # EnflasyonVerisi model
-                                yillik_degisim = last_point.yillik_enflasyon  # float or None
-                                if yillik_degisim:
-                                    expected_inflation = yillik_degisim / 100
-                                    data_sources['expected_inflation'] = f"TCMB TÜFE (canlı - {last_point.tarih})"
+                if market == "US":
+                    # US: Use static 2.5% (Fed target inflation)
+                    expected_inflation = 0.025
+                    data_sources['expected_inflation'] = 'US Fed target inflation (2.5%)'
+                    logger.info("Using US target inflation: 2.5%")
+                else:
+                    # BIST: Fetch from TCMB
+                    if self.tcmb_provider:
+                        logger.info("Fetching inflation from TCMB")
+                        try:
+                            inflation_result = await self.tcmb_provider.get_inflation_data(
+                                inflation_type='tufe', limit=1
+                            )
+                            # inflation_result is a Pydantic model (TcmbEnflasyonSonucu)
+                            if inflation_result and not inflation_result.error_message:
+                                veri_noktalari = inflation_result.data  # List[EnflasyonVerisi]
+                                if veri_noktalari:
+                                    last_point = veri_noktalari[0]  # EnflasyonVerisi model
+                                    yillik_degisim = last_point.yillik_enflasyon  # float or None
+                                    if yillik_degisim:
+                                        expected_inflation = yillik_degisim / 100
+                                        data_sources['expected_inflation'] = f"TCMB TÜFE (canlı - {last_point.tarih})"
+                                    else:
+                                        expected_inflation = 0.38
+                                        data_sources['expected_inflation'] = 'Default 38% (TCMB parse hatası)'
                                 else:
                                     expected_inflation = 0.38
-                                    data_sources['expected_inflation'] = 'Default 38% (TCMB parse hatası)'
+                                    data_sources['expected_inflation'] = 'Default 38% (TCMB veri yok)'
                             else:
                                 expected_inflation = 0.38
-                                data_sources['expected_inflation'] = 'Default 38% (TCMB veri yok)'
-                        else:
+                                data_sources['expected_inflation'] = 'Default 38% (TCMB hatası)'
+                        except Exception as e:
+                            logger.error(f"TCMB error: {e}")
                             expected_inflation = 0.38
                             data_sources['expected_inflation'] = 'Default 38% (TCMB hatası)'
-                    except Exception as e:
-                        logger.error(f"TCMB error: {e}")
+                    else:
                         expected_inflation = 0.38
-                        data_sources['expected_inflation'] = 'Default 38% (TCMB hatası)'
-                else:
-                    expected_inflation = 0.38
-                    data_sources['expected_inflation'] = 'Default 38% (provider yok)'
+                        data_sources['expected_inflation'] = 'Default 38% (provider yok)'
             else:
-                data_sources['expected_inflation'] = 'Kullanıcı girişi'
+                data_sources['expected_inflation'] = 'User input' if market == "US" else 'Kullanıcı girişi'
 
             # 3. Calculate growth_rate_real using HYBRID logic
             if growth_rate_real is None:
                 gdp_growth = None
 
-                # 3a. Fetch GDP growth for fallback
+                # 3a. Fetch GDP growth for fallback (use country_code based on market)
                 if self.worldbank_provider:
-                    logger.info("Fetching GDP growth from World Bank")
+                    logger.info(f"Fetching GDP growth from World Bank for {country_code}")
                     try:
                         gdp_result = await self.worldbank_provider.get_terminal_growth_rate(
-                            country_code='TR', years=10, conservative=True
+                            country_code=country_code, years=10, conservative=True
                         )
                         if gdp_result:
                             gdp_growth = gdp_result
@@ -253,7 +295,9 @@ class BuffettAnalyzerProvider:
                 if self.yfinance_provider and ticker_kodu:
                     logger.info(f"Fetching analyst growth for {ticker_kodu}")
                     try:
-                        info_result = await self.yfinance_provider.get_sirket_bilgileri(ticker_kodu)
+                        info_result = await self.yfinance_provider.get_sirket_bilgileri(
+                            ticker_kodu, market=market
+                        )
                         if info_result and not info_result.get('error'):
                             sirket_bilgileri = info_result.get('sirket_bilgileri', {})
                             earnings_growth = sirket_bilgileri.get('earningsGrowth')
@@ -264,47 +308,56 @@ class BuffettAnalyzerProvider:
                 if earnings_growth and earnings_growth > expected_inflation:
                     # Analyst data > inflation: Use it!
                     growth_rate_real = (1 + earnings_growth) / (1 + expected_inflation) - 1
-                    data_sources['growth_rate_real'] = f"Yahoo Finance (analyst {earnings_growth*100:.1f}% > enflasyon)"
+                    inflation_label = "inflation" if market == "US" else "enflasyon"
+                    data_sources['growth_rate_real'] = f"Yahoo Finance (analyst {earnings_growth*100:.1f}% > {inflation_label})"
                     logger.info(f"Using analyst growth: {earnings_growth*100:.2f}% → real {growth_rate_real*100:.2f}%")
                 else:
                     # Fallback: GDP growth or 3% (whichever is lower)
+                    default_fallback = 0.02 if market == "US" else 0.03  # US uses 2% default
                     if gdp_growth:
                         growth_rate_real = min(0.03, gdp_growth)
-                        source = "World Bank GDP" if gdp_growth <= 0.03 else "Conservative 3% (GDP yüksek)"
+                        gdp_high_msg = "GDP too high" if market == "US" else "GDP yüksek"
+                        source = f"World Bank GDP ({country_code})" if gdp_growth <= 0.03 else f"Conservative 3% ({gdp_high_msg})"
                         data_sources['growth_rate_real'] = source
                     else:
-                        growth_rate_real = 0.03
-                        data_sources['growth_rate_real'] = "Default 3% (veri yok)"
+                        growth_rate_real = default_fallback
+                        no_data_msg = "no data" if market == "US" else "veri yok"
+                        data_sources['growth_rate_real'] = f"Default {default_fallback*100:.0f}% ({no_data_msg})"
 
                     if earnings_growth:
-                        data_sources['growth_rate_real'] += f" (analyst {earnings_growth*100:.1f}% < enflasyon)"
+                        inflation_label = "inflation" if market == "US" else "enflasyon"
+                        data_sources['growth_rate_real'] += f" (analyst {earnings_growth*100:.1f}% < {inflation_label})"
 
                     logger.info(f"Using fallback growth: {growth_rate_real*100:.2f}%")
             else:
-                data_sources['growth_rate_real'] = 'Kullanıcı girişi'
+                data_sources['growth_rate_real'] = 'User input' if market == "US" else 'Kullanıcı girişi'
 
             # 4. Fetch terminal_growth_real from World Bank if not provided
             if terminal_growth_real is None:
                 if self.worldbank_provider:
-                    logger.info("Fetching terminal growth from World Bank")
+                    logger.info(f"Fetching terminal growth from World Bank for {country_code}")
                     try:
                         terminal_growth_real = await self.worldbank_provider.get_terminal_growth_rate(
-                            country_code='TR', years=10, conservative=True
+                            country_code=country_code, years=10, conservative=True
                         )
                         if terminal_growth_real:
-                            data_sources['terminal_growth_real'] = 'World Bank GDP (10 yıl ort, max 3%)'
+                            avg_label = "10 yr avg" if market == "US" else "10 yıl ort"
+                            data_sources['terminal_growth_real'] = f'World Bank GDP {country_code} ({avg_label}, max 3%)'
                         else:
                             terminal_growth_real = 0.02
-                            data_sources['terminal_growth_real'] = 'Default 2% (World Bank hatası)'
+                            error_msg = "World Bank error" if market == "US" else "World Bank hatası"
+                            data_sources['terminal_growth_real'] = f'Default 2% ({error_msg})'
                     except Exception as e:
                         logger.error(f"World Bank terminal growth error: {e}")
                         terminal_growth_real = 0.02
-                        data_sources['terminal_growth_real'] = 'Default 2% (World Bank hatası)'
+                        error_msg = "World Bank error" if market == "US" else "World Bank hatası"
+                        data_sources['terminal_growth_real'] = f'Default 2% ({error_msg})'
                 else:
                     terminal_growth_real = 0.02
-                    data_sources['terminal_growth_real'] = 'Default 2% (provider yok)'
+                    no_provider = "provider not available" if market == "US" else "provider yok"
+                    data_sources['terminal_growth_real'] = f'Default 2% ({no_provider})'
             else:
-                data_sources['terminal_growth_real'] = 'Kullanıcı girişi'
+                data_sources['terminal_growth_real'] = 'User input' if market == "US" else 'Kullanıcı girişi'
 
             # 5. Calculate real WACC using Fisher Effect
             r_real = ((1 + nominal_rate) / (1 + expected_inflation)) - 1 + risk_premium
@@ -362,7 +415,8 @@ class BuffettAnalyzerProvider:
                     'oe_annual': round(oe_annual, 2)
                 },
                 'data_sources': data_sources,
-                'birim': 'Milyon TL (reel - bugünkü TL)',
+                'birim': f'{currency_unit} (real - today\'s value)' if market == "US" else 'Milyon TL (reel - bugünkü TL)',
+                'market': market,
                 'notes': self._generate_dcf_notes(intrinsic_value_total, pv_cash_flows_total, pv_terminal, r_real)
             }
         except Exception as e:
@@ -505,7 +559,7 @@ class BuffettAnalyzerProvider:
         return " | ".join(notes)
 
     # ==================== Consolidated Buffett Value Analysis ====================
-    async def calculate_buffett_value_analysis(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def calculate_buffett_value_analysis(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """
         Complete Warren Buffett value investing analysis.
 
@@ -518,56 +572,62 @@ class BuffettAnalyzerProvider:
         Returns comprehensive analysis with overall Buffett score and insights.
 
         Args:
-            ticker_kodu: BIST ticker code (e.g., "GARAN", "ASELS")
+            ticker_kodu: Stock ticker code (e.g., "GARAN", "ASELS" for BIST, "AAPL", "MSFT" for US)
+            market: Market type - "BIST" or "US"
 
         Returns:
             Dict with BuffettValueAnalysis structure
         """
         try:
-            logger.info(f"Calculating complete Buffett value analysis for {ticker_kodu}")
+            logger.info(f"Calculating complete Buffett value analysis for {ticker_kodu} (market={market})")
+            currency = "USD" if market == "US" else "TL"
 
             # STEP 1: Fetch all required financial data from Yahoo Finance
             if not self.yfinance_provider:
                 return {
                     'error': 'YahooFinanceProvider not initialized',
                     'ticker': ticker_kodu,
-                    'period': 'N/A'
+                    'period': 'N/A',
+                    'market': market
                 }
 
             # Fetch income statement for net income
             logger.info(f"Fetching income statement for {ticker_kodu}")
-            income_result = await self.yfinance_provider.get_kar_zarar(ticker_kodu, period_type='quarterly')
+            income_result = await self.yfinance_provider.get_kar_zarar(ticker_kodu, period_type='quarterly', market=market)
             if income_result.get('error'):
                 return {
                     'error': f"Income statement error: {income_result['error']}",
                     'ticker': ticker_kodu,
-                    'period': 'N/A'
+                    'period': 'N/A',
+                    'market': market
                 }
 
             # Fetch cash flow statement for depreciation, capex, working capital
             logger.info(f"Fetching cash flow statement for {ticker_kodu}")
-            cashflow_result = await self.yfinance_provider.get_nakit_akisi(ticker_kodu, period_type='quarterly')
+            cashflow_result = await self.yfinance_provider.get_nakit_akisi(ticker_kodu, period_type='quarterly', market=market)
             if cashflow_result.get('error'):
                 return {
                     'error': f"Cash flow error: {cashflow_result['error']}",
                     'ticker': ticker_kodu,
-                    'period': 'N/A'
+                    'period': 'N/A',
+                    'market': market
                 }
 
             # Fetch balance sheet for working capital calculation
             logger.info(f"Fetching balance sheet for {ticker_kodu}")
-            balance_result = await self.yfinance_provider.get_bilanco(ticker_kodu, period_type='quarterly')
+            balance_result = await self.yfinance_provider.get_bilanco(ticker_kodu, period_type='quarterly', market=market)
             if balance_result.get('error'):
                 return {
                     'error': f"Balance sheet error: {balance_result['error']}",
                     'ticker': ticker_kodu,
-                    'period': 'N/A'
+                    'period': 'N/A',
+                    'market': market
                 }
 
             # Fetch company info for market cap, current price, shares outstanding
             # Note: We need to get raw info dict, not the Pydantic model
             logger.info(f"Fetching company info for {ticker_kodu}")
-            ticker = self.yfinance_provider._get_ticker(ticker_kodu)
+            ticker = self.yfinance_provider._get_ticker(ticker_kodu, market=market)
             company_info = ticker.info
 
             # STEP 2: Extract required fields from financial statements
@@ -647,27 +707,49 @@ class BuffettAnalyzerProvider:
             # Early exit if Owner Earnings is negative or zero
             owner_earnings = oe_result.get('owner_earnings', 0)
             if owner_earnings <= 0:
-                logger.warning(f"{ticker_kodu}: Negative Owner Earnings ({owner_earnings:.2f}M TL) - Cannot calculate DCF")
-                return {
-                    'error': (
-                        f"Negatif Owner Earnings: {owner_earnings:,.2f}M TL. "
+                logger.warning(f"{ticker_kodu}: Negative Owner Earnings ({owner_earnings:.2f}M {currency}) - Cannot calculate DCF")
+                if market == "US":
+                    error_msg = (
+                        f"Negative Owner Earnings: {owner_earnings:,.2f}M {currency}. "
+                        f"Company not generating real cash flow (losing money). "
+                        f"Not suitable for Buffett value investing. "
+                        f"Details: Net Income={net_income:,.2f}M, Depreciation={depreciation:,.2f}M, "
+                        f"CapEx={capex:,.2f}M, ΔWC={working_capital_change:,.2f}M"
+                    )
+                    rationale = f'Negative Owner Earnings ({owner_earnings:,.2f}M {currency}) - Company burning cash'
+                    warnings_list = [
+                        f'❌ Negative Owner Earnings: {owner_earnings:,.2f}M {currency}',
+                        f'❌ Net Income: {net_income:,.2f}M {currency} ({"loss" if net_income < 0 else "profit"})',
+                        '⚠️ Company not generating sustainable cash flow'
+                    ]
+                    data_quality = f'Financial data available but company losing money (Period: {latest_period})'
+                else:
+                    error_msg = (
+                        f"Negatif Owner Earnings: {owner_earnings:,.2f}M {currency}. "
                         f"Şirket gerçek nakit akışı üretmiyor (zarar ediyor). "
                         f"Buffett değer yatırımı için uygun değil. "
                         f"Detay: Net Income={net_income:,.2f}M, Depreciation={depreciation:,.2f}M, "
                         f"CapEx={capex:,.2f}M, ΔWC={working_capital_change:,.2f}M"
-                    ),
+                    )
+                    rationale = f'Negatif Owner Earnings ({owner_earnings:,.2f}M {currency}) - Şirket nakit yakıyor'
+                    warnings_list = [
+                        f'❌ Negatif Owner Earnings: {owner_earnings:,.2f}M {currency}',
+                        f'❌ Net Income: {net_income:,.2f}M {currency} ({"zarar" if net_income < 0 else "kar"})',
+                        '⚠️ Şirket sürdürülebilir nakit akışı üretmiyor'
+                    ]
+                    data_quality = f'Finansal veri mevcut ama şirket zarar ediyor (Period: {latest_period})'
+
+                return {
+                    'error': error_msg,
                     'ticker': ticker_kodu,
                     'period': latest_period,
+                    'market': market,
                     'owner_earnings': oe_result,
                     'buffett_score': 'AVOID',
-                    'buffett_score_rationale': f'Negatif Owner Earnings ({owner_earnings:,.2f}M TL) - Şirket nakit yakıyor',
+                    'buffett_score_rationale': rationale,
                     'key_insights': [],
-                    'warnings': [
-                        f'❌ Negatif Owner Earnings: {owner_earnings:,.2f}M TL',
-                        f'❌ Net Income: {net_income:,.2f}M TL ({"zarar" if net_income < 0 else "kar"})',
-                        '⚠️ Şirket sürdürülebilir nakit akışı üretmiyor'
-                    ],
-                    'data_quality_notes': f'Finansal veri mevcut ama şirket zarar ediyor (Period: {latest_period})'
+                    'warnings': warnings_list,
+                    'data_quality_notes': data_quality
                 }
 
             # 2. OE Yield (uses owner earnings)
@@ -682,7 +764,8 @@ class BuffettAnalyzerProvider:
             logger.info("Calculating DCF Fisher")
             dcf_result = await self.calculate_dcf_fisher(
                 ticker_kodu=ticker_kodu,
-                owner_earnings_quarterly=owner_earnings
+                owner_earnings_quarterly=owner_earnings,
+                market=market
             )
 
             # Add intrinsic_per_share and current_price to DCF result for completeness
@@ -740,7 +823,8 @@ class BuffettAnalyzerProvider:
                 return {
                     'error': ' | '.join(errors),
                     'ticker': ticker_kodu,
-                    'period': latest_period
+                    'period': latest_period,
+                    'market': market
                 }
 
             # Calculate overall Buffett Score
@@ -766,6 +850,7 @@ class BuffettAnalyzerProvider:
             return {
                 'ticker': ticker_kodu,
                 'period': latest_period,
+                'market': market,
                 'owner_earnings': oe_result,
                 'oe_yield': oe_yield_result,
                 'dcf_fisher': dcf_result,

@@ -20,15 +20,49 @@ from models import (
 
 logger = logging.getLogger(__name__)
 
+# Market configuration constants
+MARKET_SUFFIXES = {
+    "BIST": ".IS",
+    "US": "",
+    "NYSE": "",
+    "NASDAQ": "",
+}
+
+MARKET_TIMEZONES = {
+    "BIST": "Europe/Istanbul",
+    "US": "America/New_York",
+    "NYSE": "America/New_York",
+    "NASDAQ": "America/New_York",
+}
+
+
 class YahooFinanceProvider:
     def __init__(self):
         pass
 
-    def _get_ticker(self, ticker_kodu: str) -> yf.Ticker:
-        """Appends .IS for BIST and returns a yfinance Ticker object."""
-        if not ticker_kodu.upper().endswith('.IS'):
-            ticker_kodu += '.IS'
+    def _get_ticker(self, ticker_kodu: str, market: str = "BIST") -> yf.Ticker:
+        """
+        Returns a yfinance Ticker object with market-specific suffix.
+
+        Args:
+            ticker_kodu: Stock ticker symbol (e.g., 'GARAN', 'AAPL')
+            market: Market identifier ('BIST', 'US', 'NYSE', 'NASDAQ')
+
+        Returns:
+            yfinance Ticker object
+        """
+        ticker_kodu = ticker_kodu.upper().strip()
+        suffix = MARKET_SUFFIXES.get(market.upper(), "")
+
+        # Only append suffix if not already present
+        if suffix and not ticker_kodu.endswith(suffix):
+            ticker_kodu += suffix
+
         return yf.Ticker(ticker_kodu)
+
+    def _get_timezone(self, market: str = "BIST") -> str:
+        """Returns the timezone for the specified market."""
+        return MARKET_TIMEZONES.get(market.upper(), "UTC")
         
     def _financial_statement_to_dict_list(self, df) -> List[Dict[str, Any]]:
         """
@@ -71,10 +105,10 @@ class YahooFinanceProvider:
         # Convert the DataFrame to a list of dictionaries
         return df_reset.to_dict(orient='records')
 
-    async def get_sirket_bilgileri(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def get_sirket_bilgileri(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """Fetches company profile information from Yahoo Finance."""
         try:
-            ticker = self._get_ticker(ticker_kodu)
+            ticker = self._get_ticker(ticker_kodu, market=market)
             info = ticker.info
             
             profile = SirketProfiliYFinance(
@@ -92,10 +126,10 @@ class YahooFinanceProvider:
             logger.exception(f"Error fetching company info from yfinance for {ticker_kodu}")
             return {"error": str(e)}
 
-    async def get_bilanco(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
+    async def get_bilanco(self, ticker_kodu: str, period_type: str, market: str = "BIST") -> Dict[str, Any]:
         """Fetches annual or quarterly balance sheet."""
         try:
-            ticker = self._get_ticker(ticker_kodu)
+            ticker = self._get_ticker(ticker_kodu, market=market)
             data = ticker.quarterly_balance_sheet if period_type == 'quarterly' else ticker.balance_sheet
             records = self._financial_statement_to_dict_list(data)
             return {"tablo": records}
@@ -103,10 +137,10 @@ class YahooFinanceProvider:
             logger.exception(f"Error fetching balance sheet from yfinance for {ticker_kodu}")
             return {"error": str(e)}
 
-    async def get_kar_zarar(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
+    async def get_kar_zarar(self, ticker_kodu: str, period_type: str, market: str = "BIST") -> Dict[str, Any]:
         """Fetches annual or quarterly income statement (P/L)."""
         try:
-            ticker = self._get_ticker(ticker_kodu)
+            ticker = self._get_ticker(ticker_kodu, market=market)
             data = ticker.quarterly_income_stmt if period_type == 'quarterly' else ticker.income_stmt
             records = self._financial_statement_to_dict_list(data)
             return {"tablo": records}
@@ -114,10 +148,10 @@ class YahooFinanceProvider:
             logger.exception(f"Error fetching income statement from yfinance for {ticker_kodu}")
             return {"error": str(e)}
     
-    async def get_nakit_akisi(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
+    async def get_nakit_akisi(self, ticker_kodu: str, period_type: str, market: str = "BIST") -> Dict[str, Any]:
         """Fetches annual or quarterly cash flow statement."""
         try:
-            ticker = self._get_ticker(ticker_kodu)
+            ticker = self._get_ticker(ticker_kodu, market=market)
             data = ticker.quarterly_cashflow if period_type == 'quarterly' else ticker.cashflow
             records = self._financial_statement_to_dict_list(data)
             return {"tablo": records}
@@ -130,7 +164,8 @@ class YahooFinanceProvider:
         ticker_kodu: str,
         period: YFinancePeriodEnum = None,
         start_date: str = None,
-        end_date: str = None
+        end_date: str = None,
+        market: str = "BIST"
     ) -> Dict[str, Any]:
         """Fetches historical OHLCV data with token optimization for long time frames.
 
@@ -139,6 +174,7 @@ class YahooFinanceProvider:
             period: Time period (1d, 5d, 1mo, etc.) - used if start_date/end_date not provided
             start_date: Start date in YYYY-MM-DD format (optional)
             end_date: End date in YYYY-MM-DD format (optional)
+            market: Market identifier ('BIST', 'US', 'NYSE', 'NASDAQ')
 
         Note: If start_date or end_date is provided, period is ignored.
         """
@@ -146,7 +182,7 @@ class YahooFinanceProvider:
             from token_optimizer import TokenOptimizer
             from datetime import datetime
 
-            ticker = self._get_ticker(ticker_kodu)
+            ticker = self._get_ticker(ticker_kodu, market=market)
 
             # Determine which mode to use: date range or period
             if start_date or end_date:
@@ -217,10 +253,10 @@ class YahooFinanceProvider:
             logger.exception(f"Error fetching historical data from yfinance for {ticker_kodu}")
             return {"error": str(e)}
     
-    async def get_analist_verileri(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def get_analist_verileri(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """Fetches analyst recommendations, price targets, and recommendation trends."""
         try:
-            ticker = self._get_ticker(ticker_kodu)
+            ticker = self._get_ticker(ticker_kodu, market=market)
             
             # Get analyst price targets
             price_targets = None
@@ -301,10 +337,10 @@ class YahooFinanceProvider:
             logger.exception(f"Error fetching analyst data from yfinance for {ticker_kodu}")
             return {"error": str(e)}
     
-    async def get_temettu_ve_aksiyonlar(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def get_temettu_ve_aksiyonlar(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """Fetches dividend history and corporate actions (splits)."""
         try:
-            ticker = self._get_ticker(ticker_kodu)
+            ticker = self._get_ticker(ticker_kodu, market=market)
             
             # Get dividends
             temettuler = []
@@ -385,10 +421,10 @@ class YahooFinanceProvider:
             logger.exception(f"Error fetching dividends and corporate actions for {ticker_kodu}")
             return {"error": str(e)}
     
-    async def get_hizli_bilgi(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def get_hizli_bilgi(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """Fetches fast info - key metrics without heavy data processing."""
         try:
-            ticker = self._get_ticker(ticker_kodu)
+            ticker = self._get_ticker(ticker_kodu, market=market)
             
             # Get fast_info (lightweight) and basic info
             fast_info = getattr(ticker, 'fast_info', None)
@@ -448,20 +484,21 @@ class YahooFinanceProvider:
             logger.exception(f"Error fetching fast info for {ticker_kodu}")
             return {"error": str(e)}
     
-    async def get_kazanc_takvimi(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def get_kazanc_takvimi(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """Fetches earnings calendar including upcoming and historical earnings dates."""
         try:
-            ticker = self._get_ticker(ticker_kodu)
-            
+            ticker = self._get_ticker(ticker_kodu, market=market)
+            timezone = self._get_timezone(market)
+
             # Get earnings dates
             kazanc_tarihleri = []
             gelecek_kazanc_sayisi = 0
             gecmis_kazanc_sayisi = 0
-            
+
             try:
                 earnings_dates = ticker.earnings_dates
                 if earnings_dates is not None and not earnings_dates.empty:
-                    now = pd.Timestamp.now(tz='Europe/Istanbul')
+                    now = pd.Timestamp.now(tz=timezone)
                     
                     for date, row in earnings_dates.iterrows():
                         # Determine status
@@ -538,13 +575,13 @@ class YahooFinanceProvider:
             logger.exception(f"Error fetching earnings calendar for {ticker_kodu}")
             return {"error": str(e)}
     
-    def get_teknik_analiz(self, ticker_kodu: str) -> Dict[str, Any]:
+    def get_teknik_analiz(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """Comprehensive technical analysis with indicators, trends, and signals."""
         try:
             import pandas as pd
             from datetime import datetime
-            
-            ticker = self._get_ticker(ticker_kodu)
+
+            ticker = self._get_ticker(ticker_kodu, market=market)
             
             # Get historical data for calculations (6 months to have enough data for 200-day SMA)
             hist = ticker.history(period="6mo")
@@ -867,13 +904,13 @@ class YahooFinanceProvider:
             logger.exception(f"Error in technical analysis for {ticker_kodu}")
             return {"error": str(e)}
     
-    def get_sektor_karsilastirmasi(self, ticker_listesi: List[str]) -> Dict[str, Any]:
+    def get_sektor_karsilastirmasi(self, ticker_listesi: List[str], market: str = "BIST") -> Dict[str, Any]:
         """Comprehensive sector analysis and comparison for multiple companies."""
         try:
             import pandas as pd
             from datetime import datetime
             from collections import defaultdict
-            
+
             current_time = datetime.now().replace(microsecond=0)
             
             # Initialize result structure
@@ -912,7 +949,7 @@ class YahooFinanceProvider:
             
             for ticker_kodu in ticker_listesi:
                 try:
-                    ticker = self._get_ticker(ticker_kodu)
+                    ticker = self._get_ticker(ticker_kodu, market=market)
                     info = ticker.info
                     
                     # Basic company info
@@ -1431,7 +1468,7 @@ class YahooFinanceProvider:
         )
         return await self.hisse_tarama(kriterler, sirket_listesi)
 
-    async def get_pivot_points(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def get_pivot_points(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """
         Calculate pivot points support and resistance levels.
 
@@ -1447,7 +1484,7 @@ class YahooFinanceProvider:
         Returns 7 levels (PP, R1-R3, S1-S3) with current price context.
         """
         try:
-            ticker = self._get_ticker(ticker_kodu)
+            ticker = self._get_ticker(ticker_kodu, market=market)
 
             # Get last 5 days of data (for safety, in case of holidays)
             hist = ticker.history(period="5d")
@@ -1532,12 +1569,13 @@ class YahooFinanceProvider:
     # MULTI-TICKER SUPPORT METHODS (Phase 1: Parallel Yahoo Finance Fetching)
     # ============================================================================
 
-    async def get_hizli_bilgi_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+    async def get_hizli_bilgi_multi(self, ticker_kodlari: List[str], market: str = "BIST") -> Dict[str, Any]:
         """
         Fetch fast info for multiple tickers in parallel.
 
         Args:
-            ticker_kodlari: List of ticker codes (max 5 recommended)
+            ticker_kodlari: List of ticker codes (max 10)
+            market: Market identifier ('BIST', 'US', 'NYSE', 'NASDAQ')
 
         Returns:
             Dict with 'successful', 'failed', 'data', 'warnings' keys
@@ -1551,7 +1589,7 @@ class YahooFinanceProvider:
                 return {"error": "Maximum 10 tickers allowed per request"}
 
             # Create tasks for parallel execution
-            tasks = [self.get_hizli_bilgi(ticker) for ticker in ticker_kodlari]
+            tasks = [self.get_hizli_bilgi(ticker, market=market) for ticker in ticker_kodlari]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             # Process results
@@ -1585,12 +1623,13 @@ class YahooFinanceProvider:
             logger.exception("Error in get_hizli_bilgi_multi")
             return {"error": str(e)}
 
-    async def get_temettu_ve_aksiyonlar_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+    async def get_temettu_ve_aksiyonlar_multi(self, ticker_kodlari: List[str], market: str = "BIST") -> Dict[str, Any]:
         """
         Fetch dividends and corporate actions for multiple tickers in parallel.
 
         Args:
-            ticker_kodlari: List of ticker codes (max 5 recommended)
+            ticker_kodlari: List of ticker codes (max 10)
+            market: Market identifier ('BIST', 'US', 'NYSE', 'NASDAQ')
 
         Returns:
             Dict with 'successful', 'failed', 'data', 'warnings' keys
@@ -1602,7 +1641,7 @@ class YahooFinanceProvider:
             if len(ticker_kodlari) > 10:
                 return {"error": "Maximum 10 tickers allowed per request"}
 
-            tasks = [self.get_temettu_ve_aksiyonlar(ticker) for ticker in ticker_kodlari]
+            tasks = [self.get_temettu_ve_aksiyonlar(ticker, market=market) for ticker in ticker_kodlari]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             successful = []
@@ -1633,12 +1672,13 @@ class YahooFinanceProvider:
             logger.exception("Error in get_temettu_ve_aksiyonlar_multi")
             return {"error": str(e)}
 
-    async def get_analist_verileri_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+    async def get_analist_verileri_multi(self, ticker_kodlari: List[str], market: str = "BIST") -> Dict[str, Any]:
         """
         Fetch analyst data for multiple tickers in parallel.
 
         Args:
-            ticker_kodlari: List of ticker codes (max 5 recommended)
+            ticker_kodlari: List of ticker codes (max 10)
+            market: Market identifier ('BIST', 'US', 'NYSE', 'NASDAQ')
 
         Returns:
             Dict with 'successful', 'failed', 'data', 'warnings' keys
@@ -1650,7 +1690,7 @@ class YahooFinanceProvider:
             if len(ticker_kodlari) > 10:
                 return {"error": "Maximum 10 tickers allowed per request"}
 
-            tasks = [self.get_analist_verileri(ticker) for ticker in ticker_kodlari]
+            tasks = [self.get_analist_verileri(ticker, market=market) for ticker in ticker_kodlari]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             successful = []
@@ -1681,12 +1721,13 @@ class YahooFinanceProvider:
             logger.exception("Error in get_analist_verileri_multi")
             return {"error": str(e)}
 
-    async def get_kazanc_takvimi_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+    async def get_kazanc_takvimi_multi(self, ticker_kodlari: List[str], market: str = "BIST") -> Dict[str, Any]:
         """
         Fetch earnings calendar for multiple tickers in parallel.
 
         Args:
-            ticker_kodlari: List of ticker codes (max 5 recommended)
+            ticker_kodlari: List of ticker codes (max 10)
+            market: Market identifier ('BIST', 'US', 'NYSE', 'NASDAQ')
 
         Returns:
             Dict with 'successful', 'failed', 'data', 'warnings' keys
@@ -1698,7 +1739,7 @@ class YahooFinanceProvider:
             if len(ticker_kodlari) > 10:
                 return {"error": "Maximum 10 tickers allowed per request"}
 
-            tasks = [self.get_kazanc_takvimi(ticker) for ticker in ticker_kodlari]
+            tasks = [self.get_kazanc_takvimi(ticker, market=market) for ticker in ticker_kodlari]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             successful = []
@@ -1728,3 +1769,151 @@ class YahooFinanceProvider:
         except Exception as e:
             logger.exception("Error in get_kazanc_takvimi_multi")
             return {"error": str(e)}
+
+    # ==================== US INDEX TOOLS ====================
+
+    # Static US Index Database
+    US_INDICES = {
+        "^GSPC": {"name": "S&P 500", "description": "500 large-cap US companies", "category": "Large Cap", "approx_count": 500},
+        "^DJI": {"name": "Dow Jones Industrial Average", "description": "30 blue-chip US companies", "category": "Blue Chip", "approx_count": 30},
+        "^IXIC": {"name": "Nasdaq Composite", "description": "All Nasdaq listed stocks", "category": "Tech Heavy", "approx_count": 3000},
+        "^NDX": {"name": "Nasdaq-100", "description": "100 largest non-financial Nasdaq companies", "category": "Tech Heavy", "approx_count": 100},
+        "^RUT": {"name": "Russell 2000", "description": "2000 small-cap US companies", "category": "Small Cap", "approx_count": 2000},
+        "^RUA": {"name": "Russell 3000", "description": "3000 largest US stocks", "category": "Broad Market", "approx_count": 3000},
+        "^VIX": {"name": "CBOE Volatility Index", "description": "Market volatility expectation (Fear Index)", "category": "Volatility", "approx_count": 0},
+        "^NYA": {"name": "NYSE Composite", "description": "All NYSE listed stocks", "category": "Broad Market", "approx_count": 2000},
+        "^MID": {"name": "S&P MidCap 400", "description": "400 mid-cap US companies", "category": "Mid Cap", "approx_count": 400},
+        "^SML": {"name": "S&P SmallCap 600", "description": "600 small-cap US companies", "category": "Small Cap", "approx_count": 600},
+        "^OEX": {"name": "S&P 100", "description": "100 largest S&P 500 companies", "category": "Mega Cap", "approx_count": 100},
+        "^FTSE": {"name": "FTSE 100", "description": "100 largest UK companies", "category": "International", "approx_count": 100},
+        "^N225": {"name": "Nikkei 225", "description": "225 largest Japan companies", "category": "International", "approx_count": 225},
+        "^HSI": {"name": "Hang Seng Index", "description": "Hong Kong stock market index", "category": "International", "approx_count": 50},
+        "^GDAXI": {"name": "DAX", "description": "40 largest German companies", "category": "International", "approx_count": 40},
+        "^FCHI": {"name": "CAC 40", "description": "40 largest French companies", "category": "International", "approx_count": 40},
+        "^STOXX50E": {"name": "Euro Stoxx 50", "description": "50 largest Eurozone companies", "category": "International", "approx_count": 50},
+        # Sector ETFs (tracked like indices)
+        "XLK": {"name": "Technology Select Sector", "description": "S&P 500 Technology sector ETF", "category": "Sector", "approx_count": 75},
+        "XLF": {"name": "Financial Select Sector", "description": "S&P 500 Financial sector ETF", "category": "Sector", "approx_count": 70},
+        "XLE": {"name": "Energy Select Sector", "description": "S&P 500 Energy sector ETF", "category": "Sector", "approx_count": 25},
+        "XLV": {"name": "Health Care Select Sector", "description": "S&P 500 Healthcare sector ETF", "category": "Sector", "approx_count": 65},
+        "XLI": {"name": "Industrial Select Sector", "description": "S&P 500 Industrial sector ETF", "category": "Sector", "approx_count": 75},
+        "XLY": {"name": "Consumer Discretionary Select", "description": "S&P 500 Consumer Discretionary ETF", "category": "Sector", "approx_count": 55},
+        "XLP": {"name": "Consumer Staples Select", "description": "S&P 500 Consumer Staples ETF", "category": "Sector", "approx_count": 40},
+        "XLB": {"name": "Materials Select Sector", "description": "S&P 500 Materials sector ETF", "category": "Sector", "approx_count": 30},
+        "XLU": {"name": "Utilities Select Sector", "description": "S&P 500 Utilities sector ETF", "category": "Sector", "approx_count": 30},
+        "XLRE": {"name": "Real Estate Select Sector", "description": "S&P 500 Real Estate ETF", "category": "Sector", "approx_count": 30},
+        "XLC": {"name": "Communication Services Select", "description": "S&P 500 Communication Services ETF", "category": "Sector", "approx_count": 25},
+    }
+
+    def search_us_indices(self, query: str) -> Dict[str, Any]:
+        """
+        Search US indices by name, ticker, or category.
+
+        Args:
+            query: Search term (e.g., 'S&P', 'nasdaq', 'tech', 'small cap')
+
+        Returns:
+            Dict with matching indices
+        """
+        try:
+            query_lower = query.lower()
+            results = []
+
+            for ticker, info in self.US_INDICES.items():
+                # Search in ticker, name, description, and category
+                searchable = f"{ticker} {info['name']} {info['description']} {info['category']}".lower()
+                if query_lower in searchable:
+                    results.append({
+                        "ticker": ticker,
+                        "name": info["name"],
+                        "description": info["description"],
+                        "category": info["category"],
+                        "approx_companies": info["approx_count"]
+                    })
+
+            return {
+                "query": query,
+                "results": results,
+                "result_count": len(results),
+                "total_indices_in_database": len(self.US_INDICES),
+                "error": None
+            }
+
+        except Exception as e:
+            logger.exception(f"Error searching US indices for '{query}'")
+            return {"query": query, "results": [], "result_count": 0, "error": str(e)}
+
+    def get_us_index_info(self, index_ticker: str) -> Dict[str, Any]:
+        """
+        Get information and current data for a US index.
+
+        Args:
+            index_ticker: Index ticker (e.g., '^GSPC', '^DJI', 'XLK')
+
+        Returns:
+            Dict with index info and current market data
+        """
+        try:
+            import yfinance as yf
+
+            # Normalize ticker
+            if not index_ticker.startswith('^') and index_ticker not in self.US_INDICES:
+                # Try with ^ prefix
+                if f"^{index_ticker}" in self.US_INDICES:
+                    index_ticker = f"^{index_ticker}"
+
+            # Get static info
+            static_info = self.US_INDICES.get(index_ticker, {
+                "name": index_ticker,
+                "description": "Unknown index",
+                "category": "Unknown",
+                "approx_count": 0
+            })
+
+            # Get live data from Yahoo Finance
+            ticker = yf.Ticker(index_ticker)
+            info = ticker.info
+            hist = ticker.history(period="1y")
+
+            current_price = info.get('regularMarketPrice') or info.get('previousClose')
+            prev_close = info.get('previousClose')
+
+            # Calculate YTD and 1Y returns
+            ytd_return = None
+            yearly_return = None
+
+            if not hist.empty:
+                # 1Y return
+                start_price = hist['Close'].iloc[0]
+                end_price = hist['Close'].iloc[-1]
+                yearly_return = ((end_price - start_price) / start_price) * 100
+
+                # YTD return (from Jan 1st of current year)
+                from datetime import datetime
+                current_year = datetime.now().year
+                ytd_data = hist[hist.index >= f"{current_year}-01-01"]
+                if not ytd_data.empty:
+                    ytd_start = ytd_data['Close'].iloc[0]
+                    ytd_return = ((end_price - ytd_start) / ytd_start) * 100
+
+            return {
+                "ticker": index_ticker,
+                "name": static_info.get("name", info.get("shortName", index_ticker)),
+                "description": static_info.get("description", ""),
+                "category": static_info.get("category", "Unknown"),
+                "approx_companies": static_info.get("approx_count", 0),
+                "current_price": float(current_price) if current_price else None,
+                "previous_close": float(prev_close) if prev_close else None,
+                "change_percent": float(((current_price - prev_close) / prev_close) * 100) if current_price and prev_close else None,
+                "yearly_return": float(yearly_return) if yearly_return else None,
+                "ytd_return": float(ytd_return) if ytd_return else None,
+                "day_high": info.get("dayHigh"),
+                "day_low": info.get("dayLow"),
+                "fifty_two_week_high": info.get("fiftyTwoWeekHigh"),
+                "fifty_two_week_low": info.get("fiftyTwoWeekLow"),
+                "error": None
+            }
+
+        except Exception as e:
+            logger.exception(f"Error getting US index info for '{index_ticker}'")
+            return {"ticker": index_ticker, "error": str(e)}

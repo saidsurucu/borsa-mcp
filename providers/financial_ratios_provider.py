@@ -38,118 +38,218 @@ class FinancialRatiosProvider:
                         return float(value)
         return None
 
-    def _assess_roe(self, roe_percent: float) -> str:
+    def _assess_roe(self, roe_percent: float, market: str = "BIST") -> str:
         """Assess ROE quality."""
-        if roe_percent >= 15.0:
-            return "Mükemmel (≥15%)"
-        elif roe_percent >= 10.0:
-            return "İyi (≥10%)"
-        elif roe_percent >= 5.0:
-            return "Orta (5-10%)"
+        if market == "US":
+            if roe_percent >= 15.0:
+                return "Excellent (≥15%)"
+            elif roe_percent >= 10.0:
+                return "Good (≥10%)"
+            elif roe_percent >= 5.0:
+                return "Average (5-10%)"
+            else:
+                return "Low (<5%)"
         else:
-            return "Düşük (<5%)"
+            if roe_percent >= 15.0:
+                return "Mükemmel (≥15%)"
+            elif roe_percent >= 10.0:
+                return "İyi (≥10%)"
+            elif roe_percent >= 5.0:
+                return "Orta (5-10%)"
+            else:
+                return "Düşük (<5%)"
 
-    def _assess_roic(self, roic_percent: float) -> str:
+    def _assess_roic(self, roic_percent: float, market: str = "BIST") -> str:
         """Assess ROIC quality."""
-        if roic_percent >= 15.0:
-            return "Mükemmel (≥15%)"
-        elif roic_percent >= 10.0:
-            return "İyi (≥10%)"
-        elif roic_percent >= 5.0:
-            return "Orta (5-10%)"
+        if market == "US":
+            if roic_percent >= 15.0:
+                return "Excellent (≥15%)"
+            elif roic_percent >= 10.0:
+                return "Good (≥10%)"
+            elif roic_percent >= 5.0:
+                return "Average (5-10%)"
+            else:
+                return "Low (<5%)"
         else:
-            return "Düşük (<5%)"
+            if roic_percent >= 15.0:
+                return "Mükemmel (≥15%)"
+            elif roic_percent >= 10.0:
+                return "İyi (≥10%)"
+            elif roic_percent >= 5.0:
+                return "Orta (5-10%)"
+            else:
+                return "Düşük (<5%)"
 
-    def _assess_debt_to_equity(self, ratio: float) -> str:
+    def _assess_debt_to_equity(self, ratio: float, market: str = "BIST") -> str:
         """Assess Debt-to-Equity ratio."""
-        if ratio < 0.5:
-            return "Mükemmel (<0.5)"
-        elif ratio < 1.0:
-            return "İyi (<1.0)"
-        elif ratio < 2.0:
-            return "Orta (1.0-2.0)"
+        if market == "US":
+            if ratio < 0.5:
+                return "Excellent (<0.5)"
+            elif ratio < 1.0:
+                return "Good (<1.0)"
+            elif ratio < 2.0:
+                return "Average (1.0-2.0)"
+            else:
+                return "High Risk (>2.0)"
         else:
-            return "Yüksek Risk (>2.0)"
+            if ratio < 0.5:
+                return "Mükemmel (<0.5)"
+            elif ratio < 1.0:
+                return "İyi (<1.0)"
+            elif ratio < 2.0:
+                return "Orta (1.0-2.0)"
+            else:
+                return "Yüksek Risk (>2.0)"
 
-    def _assess_debt_to_assets(self, ratio: float) -> str:
+    def _assess_debt_to_assets(self, ratio: float, market: str = "BIST") -> str:
         """Assess Debt-to-Assets ratio."""
-        if ratio < 0.3:
-            return "Mükemmel (<30%)"
-        elif ratio < 0.5:
-            return "İyi (<50%)"
-        elif ratio < 0.7:
-            return "Orta (50-70%)"
+        if market == "US":
+            if ratio < 0.3:
+                return "Excellent (<30%)"
+            elif ratio < 0.5:
+                return "Good (<50%)"
+            elif ratio < 0.7:
+                return "Average (50-70%)"
+            else:
+                return "High Risk (>70%)"
         else:
-            return "Yüksek Risk (>70%)"
+            if ratio < 0.3:
+                return "Mükemmel (<30%)"
+            elif ratio < 0.5:
+                return "İyi (<50%)"
+            elif ratio < 0.7:
+                return "Orta (50-70%)"
+            else:
+                return "Yüksek Risk (>70%)"
 
-    def _assess_interest_coverage(self, ratio: float) -> str:
+    def _assess_interest_coverage(self, ratio: float, market: str = "BIST") -> str:
         """Assess Interest Coverage ratio."""
-        if ratio > 5.0:
-            return "Mükemmel (>5x)"
-        elif ratio > 3.0:
-            return "İyi (>3x)"
-        elif ratio > 1.5:
-            return "Orta (1.5-3x)"
+        if market == "US":
+            if ratio > 5.0:
+                return "Excellent (>5x)"
+            elif ratio > 3.0:
+                return "Good (>3x)"
+            elif ratio > 1.5:
+                return "Average (1.5-3x)"
+            else:
+                return "Risky (<1.5x)"
         else:
-            return "Riskli (<1.5x)"
+            if ratio > 5.0:
+                return "Mükemmel (>5x)"
+            elif ratio > 3.0:
+                return "İyi (>3x)"
+            elif ratio > 1.5:
+                return "Orta (1.5-3x)"
+            else:
+                return "Riskli (<1.5x)"
 
-    def _assess_debt_service(self, ratio: float) -> str:
+    def _assess_debt_service(self, ratio: float, market: str = "BIST") -> str:
         """Assess Debt Service Coverage ratio."""
-        if ratio > 2.0:
-            return "Mükemmel (>2x)"
-        elif ratio > 1.5:
-            return "İyi (>1.5x)"
-        elif ratio > 1.0:
-            return "Orta (1.0-1.5x)"
+        if market == "US":
+            if ratio > 2.0:
+                return "Excellent (>2x)"
+            elif ratio > 1.5:
+                return "Good (>1.5x)"
+            elif ratio > 1.0:
+                return "Average (1.0-1.5x)"
+            else:
+                return "Risky (<1.0x)"
         else:
-            return "Riskli (<1.0x)"
+            if ratio > 2.0:
+                return "Mükemmel (>2x)"
+            elif ratio > 1.5:
+                return "İyi (>1.5x)"
+            elif ratio > 1.0:
+                return "Orta (1.0-1.5x)"
+            else:
+                return "Riskli (<1.0x)"
 
-    def _assess_fcf_margin(self, margin_percent: float) -> str:
+    def _assess_fcf_margin(self, margin_percent: float, market: str = "BIST") -> str:
         """Assess FCF margin quality."""
-        if margin_percent >= 10.0:
-            return "Mükemmel (≥10%)"
-        elif margin_percent >= 5.0:
-            return "İyi (≥5%)"
-        elif margin_percent >= 2.0:
-            return "Orta (2-5%)"
+        if market == "US":
+            if margin_percent >= 10.0:
+                return "Excellent (≥10%)"
+            elif margin_percent >= 5.0:
+                return "Good (≥5%)"
+            elif margin_percent >= 2.0:
+                return "Average (2-5%)"
+            else:
+                return "Low (<2%)"
         else:
-            return "Düşük (<2%)"
+            if margin_percent >= 10.0:
+                return "Mükemmel (≥10%)"
+            elif margin_percent >= 5.0:
+                return "İyi (≥5%)"
+            elif margin_percent >= 2.0:
+                return "Orta (2-5%)"
+            else:
+                return "Düşük (<2%)"
 
-    def _assess_cf_to_earnings(self, ratio: float) -> str:
+    def _assess_cf_to_earnings(self, ratio: float, market: str = "BIST") -> str:
         """Assess Cash Flow to Earnings ratio."""
-        if ratio >= 1.2:
-            return "Mükemmel (≥1.2) - Yüksek nakit kalitesi"
-        elif ratio >= 1.0:
-            return "İyi (≥1.0) - Sağlıklı nakit üretimi"
-        elif ratio >= 0.8:
-            return "Orta (0.8-1.0) - Makul nakit kalitesi"
+        if market == "US":
+            if ratio >= 1.2:
+                return "Excellent (≥1.2) - High cash quality"
+            elif ratio >= 1.0:
+                return "Good (≥1.0) - Healthy cash generation"
+            elif ratio >= 0.8:
+                return "Average (0.8-1.0) - Reasonable cash quality"
+            else:
+                return "Low (<0.8) - Weak cash conversion"
         else:
-            return "Düşük (<0.8) - Zayıf nakit dönüşümü"
+            if ratio >= 1.2:
+                return "Mükemmel (≥1.2) - Yüksek nakit kalitesi"
+            elif ratio >= 1.0:
+                return "İyi (≥1.0) - Sağlıklı nakit üretimi"
+            elif ratio >= 0.8:
+                return "Orta (0.8-1.0) - Makul nakit kalitesi"
+            else:
+                return "Düşük (<0.8) - Zayıf nakit dönüşümü"
 
-    def _assess_accruals(self, accruals_percent: float) -> str:
+    def _assess_accruals(self, accruals_percent: float, market: str = "BIST") -> str:
         """Assess Accruals ratio (lower is better)."""
         abs_accruals = abs(accruals_percent)
-        if abs_accruals < 5.0:
-            return "Mükemmel (<5%) - Düşük tahakkuklar"
-        elif abs_accruals < 10.0:
-            return "İyi (<10%) - Makul tahakkuklar"
-        elif abs_accruals < 15.0:
-            return "Orta (10-15%) - Yüksekçe tahakkuklar"
+        if market == "US":
+            if abs_accruals < 5.0:
+                return "Excellent (<5%) - Low accruals"
+            elif abs_accruals < 10.0:
+                return "Good (<10%) - Reasonable accruals"
+            elif abs_accruals < 15.0:
+                return "Average (10-15%) - Moderate accruals"
+            else:
+                return "Low (>15%) - Very high accruals"
         else:
-            return "Düşük (>15%) - Çok yüksek tahakkuklar"
+            if abs_accruals < 5.0:
+                return "Mükemmel (<5%) - Düşük tahakkuklar"
+            elif abs_accruals < 10.0:
+                return "İyi (<10%) - Makul tahakkuklar"
+            elif abs_accruals < 15.0:
+                return "Orta (10-15%) - Yüksekçe tahakkuklar"
+            else:
+                return "Düşük (>15%) - Çok yüksek tahakkuklar"
 
-    def _assess_wc_impact(self, wc_impact_percent: float) -> str:
+    def _assess_wc_impact(self, wc_impact_percent: float, market: str = "BIST") -> str:
         """Assess Working Capital impact (negative is good)."""
-        if wc_impact_percent < -10.0:
-            return "Endişe verici - İşletme sermayesi büyük kaynak tüketiyor"
-        elif wc_impact_percent < 0:
-            return "İyi - İşletme sermayesi kaynak tüketiyor"
-        elif wc_impact_percent < 10.0:
-            return "Mükemmel - İşletme sermayesi nakit sağlıyor"
+        if market == "US":
+            if wc_impact_percent < -10.0:
+                return "Concerning - Working capital consuming significant resources"
+            elif wc_impact_percent < 0:
+                return "Good - Working capital consuming resources"
+            elif wc_impact_percent < 10.0:
+                return "Excellent - Working capital generating cash"
+            else:
+                return "Very Good - Working capital generating significant cash"
         else:
-            return "Çok iyi - İşletme sermayesi önemli nakit sağlıyor"
+            if wc_impact_percent < -10.0:
+                return "Endişe verici - İşletme sermayesi büyük kaynak tüketiyor"
+            elif wc_impact_percent < 0:
+                return "İyi - İşletme sermayesi kaynak tüketiyor"
+            elif wc_impact_percent < 10.0:
+                return "Mükemmel - İşletme sermayesi nakit sağlıyor"
+            else:
+                return "Çok iyi - İşletme sermayesi önemli nakit sağlıyor"
 
-    def _assess_overall_quality(self, cf_ratio: float, accruals_abs: float, wc_good: bool) -> str:
+    def _assess_overall_quality(self, cf_ratio: float, accruals_abs: float, wc_good: bool, market: str = "BIST") -> str:
         """Assess overall earnings quality."""
         score = 0
         if cf_ratio >= 1.0:
@@ -159,41 +259,62 @@ class FinancialRatiosProvider:
         if wc_good:
             score += 1
 
-        if score >= 3:
-            return "Yüksek Kalite"
-        elif score >= 2:
-            return "Orta Kalite"
+        if market == "US":
+            if score >= 3:
+                return "High Quality"
+            elif score >= 2:
+                return "Medium Quality"
+            else:
+                return "Low Quality"
         else:
-            return "Düşük Kalite"
+            if score >= 3:
+                return "Yüksek Kalite"
+            elif score >= 2:
+                return "Orta Kalite"
+            else:
+                return "Düşük Kalite"
 
-    async def calculate_roe(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def calculate_roe(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """
         Calculate Return on Equity (ROE).
 
         Formula: ROE = Net Income / Total Equity
 
         Args:
-            ticker_kodu: BIST ticker code (e.g., "GARAN", "THYAO")
+            ticker_kodu: Stock ticker code (BIST: e.g., "GARAN", US: e.g., "AAPL")
+            market: Market type - "BIST" or "US"
 
         Returns:
             Dict with ROE percentage, components, assessment, and notes
         """
         try:
-            logger.info(f"Calculating ROE for {ticker_kodu}")
+            logger.info(f"Calculating ROE for {ticker_kodu} (market={market})")
 
             # Fetch income statement for Net Income
-            income_result = await self.data_provider.get_kar_zarar(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
+            if market == "US":
+                income_result = await self.data_provider.get_us_income_statement(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                income_result = await self.data_provider.get_kar_zarar(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
             if income_result.get('error'):
                 return {'error': f"Income statement error: {income_result['error']}", 'roe_percent': 0}
 
             # Fetch balance sheet for Total Equity
-            balance_result = await self.data_provider.get_bilanco(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
+            if market == "US":
+                balance_result = await self.data_provider.get_us_balance_sheet(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                balance_result = await self.data_provider.get_bilanco(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
             if balance_result.get('error'):
                 return {'error': f"Balance sheet error: {balance_result['error']}", 'roe_percent': 0}
 
@@ -217,18 +338,31 @@ class FinancialRatiosProvider:
             roe_percent = roe_decimal * 100
 
             # Generate assessment
-            assessment = self._assess_roe(roe_percent)
+            assessment = self._assess_roe(roe_percent, market)
 
-            # Generate notes
-            notes = [
-                f"ROE: {roe_percent:.2f}%",
-                f"Net Income: {net_income:,.0f}M TRY",
-                f"Total Equity: {total_equity:,.0f}M TRY",
-            ]
-            if roe_percent > 0:
-                notes.append("✅ Pozitif karlılık")
+            # Generate notes (localized)
+            currency_symbol = "$" if market == "US" else "₺"
+            unit = "M" if market == "US" else "M"
+            if market == "US":
+                notes = [
+                    f"ROE: {roe_percent:.2f}%",
+                    f"Net Income: {currency_symbol}{net_income:,.0f}{unit}",
+                    f"Total Equity: {currency_symbol}{total_equity:,.0f}{unit}",
+                ]
+                if roe_percent > 0:
+                    notes.append("✅ Positive profitability")
+                else:
+                    notes.append("❌ Negative profitability (loss)")
             else:
-                notes.append("❌ Negatif karlılık (zarar)")
+                notes = [
+                    f"ROE: {roe_percent:.2f}%",
+                    f"Net Income: {net_income:,.0f}M TRY",
+                    f"Total Equity: {total_equity:,.0f}M TRY",
+                ]
+                if roe_percent > 0:
+                    notes.append("✅ Pozitif karlılık")
+                else:
+                    notes.append("❌ Negatif karlılık (zarar)")
 
             return {
                 'roe_percent': round(roe_percent, 2),
@@ -244,7 +378,7 @@ class FinancialRatiosProvider:
             logger.error(f"ROE calculation error for {ticker_kodu}: {e}")
             return {'error': str(e), 'roe_percent': 0}
 
-    async def calculate_roic(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def calculate_roic(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """
         Calculate Return on Invested Capital (ROIC).
 
@@ -254,27 +388,40 @@ class FinancialRatiosProvider:
         - Invested Capital = Total Debt + Total Equity - Cash
 
         Args:
-            ticker_kodu: BIST ticker code (e.g., "GARAN", "THYAO")
+            ticker_kodu: Stock ticker code (BIST: e.g., "GARAN", US: e.g., "AAPL")
+            market: Market type - "BIST" or "US"
 
         Returns:
             Dict with ROIC percentage, NOPAT, invested capital, and assessment
         """
         try:
-            logger.info(f"Calculating ROIC for {ticker_kodu}")
+            logger.info(f"Calculating ROIC for {ticker_kodu} (market={market})")
 
             # Fetch income statement
-            income_result = await self.data_provider.get_kar_zarar(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
+            if market == "US":
+                income_result = await self.data_provider.get_us_income_statement(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                income_result = await self.data_provider.get_kar_zarar(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
             if income_result.get('error'):
                 return {'error': f"Income statement error: {income_result['error']}", 'roic_percent': 0}
 
             # Fetch balance sheet
-            balance_result = await self.data_provider.get_bilanco(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
+            if market == "US":
+                balance_result = await self.data_provider.get_us_balance_sheet(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                balance_result = await self.data_provider.get_bilanco(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
             if balance_result.get('error'):
                 return {'error': f"Balance sheet error: {balance_result['error']}", 'roic_percent': 0}
 
@@ -351,16 +498,27 @@ class FinancialRatiosProvider:
             roic_percent = roic_decimal * 100
 
             # Generate assessment
-            assessment = self._assess_roic(roic_percent)
+            assessment = self._assess_roic(roic_percent, market)
 
-            # Generate notes
-            notes = [
-                f"ROIC: {roic_percent:.2f}%",
-                f"NOPAT: {nopat:,.0f}M TRY",
-                f"Invested Capital: {invested_capital:,.0f}M TRY",
-                f"(Debt: {total_debt:,.0f}M + Equity: {total_equity:,.0f}M - Cash: {cash:,.0f}M)",
-                f"Tax Rate: {tax_rate*100:.1f}%"
-            ]
+            # Generate notes (localized)
+            currency_symbol = "$" if market == "US" else "₺"
+            unit = "M"
+            if market == "US":
+                notes = [
+                    f"ROIC: {roic_percent:.2f}%",
+                    f"NOPAT: {currency_symbol}{nopat:,.0f}{unit}",
+                    f"Invested Capital: {currency_symbol}{invested_capital:,.0f}{unit}",
+                    f"(Debt: {currency_symbol}{total_debt:,.0f}{unit} + Equity: {currency_symbol}{total_equity:,.0f}{unit} - Cash: {currency_symbol}{cash:,.0f}{unit})",
+                    f"Tax Rate: {tax_rate*100:.1f}%"
+                ]
+            else:
+                notes = [
+                    f"ROIC: {roic_percent:.2f}%",
+                    f"NOPAT: {nopat:,.0f}M TRY",
+                    f"Invested Capital: {invested_capital:,.0f}M TRY",
+                    f"(Debt: {total_debt:,.0f}M + Equity: {total_equity:,.0f}M - Cash: {cash:,.0f}M)",
+                    f"Tax Rate: {tax_rate*100:.1f}%"
+                ]
 
             return {
                 'roic_percent': round(roic_percent, 2),
@@ -378,7 +536,7 @@ class FinancialRatiosProvider:
             logger.error(f"ROIC calculation error for {ticker_kodu}: {e}")
             return {'error': str(e), 'roic_percent': 0}
 
-    async def calculate_debt_ratios(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def calculate_debt_ratios(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """
         Calculate debt and leverage ratios.
 
@@ -389,27 +547,40 @@ class FinancialRatiosProvider:
         4. Debt Service Coverage = Operating Income / (Interest + Current Debt)
 
         Args:
-            ticker_kodu: BIST ticker code (e.g., "GARAN", "THYAO")
+            ticker_kodu: Stock ticker code (BIST: e.g., "GARAN", US: e.g., "AAPL")
+            market: Market type - "BIST" or "US"
 
         Returns:
             Dict with all 4 ratios, components, and assessments
         """
         try:
-            logger.info(f"Calculating debt ratios for {ticker_kodu}")
+            logger.info(f"Calculating debt ratios for {ticker_kodu} (market={market})")
 
             # Fetch balance sheet
-            balance_result = await self.data_provider.get_bilanco(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
+            if market == "US":
+                balance_result = await self.data_provider.get_us_balance_sheet(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                balance_result = await self.data_provider.get_bilanco(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
             if balance_result.get('error'):
                 return {'error': f"Balance sheet error: {balance_result['error']}"}
 
             # Fetch income statement
-            income_result = await self.data_provider.get_kar_zarar(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
+            if market == "US":
+                income_result = await self.data_provider.get_us_income_statement(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                income_result = await self.data_provider.get_kar_zarar(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
             if income_result.get('error'):
                 return {'error': f"Income statement error: {income_result['error']}"}
 
@@ -463,10 +634,10 @@ class FinancialRatiosProvider:
                 debt_service_coverage = 999.99  # No debt service = infinite coverage
 
             # Generate assessments
-            de_assessment = self._assess_debt_to_equity(debt_to_equity)
-            da_assessment = self._assess_debt_to_assets(debt_to_assets)
-            ic_assessment = self._assess_interest_coverage(interest_coverage)
-            ds_assessment = self._assess_debt_service(debt_service_coverage)
+            de_assessment = self._assess_debt_to_equity(debt_to_equity, market)
+            da_assessment = self._assess_debt_to_assets(debt_to_assets, market)
+            ic_assessment = self._assess_interest_coverage(interest_coverage, market)
+            ds_assessment = self._assess_debt_service(debt_service_coverage, market)
 
             # Generate overall notes
             notes_parts = [
@@ -500,34 +671,47 @@ class FinancialRatiosProvider:
             logger.error(f"Debt ratios calculation error for {ticker_kodu}: {e}")
             return {'error': str(e)}
 
-    async def calculate_fcf_margin(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def calculate_fcf_margin(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """
         Calculate Free Cash Flow Margin.
 
         Formula: FCF Margin = Free Cash Flow / Total Revenue
 
         Args:
-            ticker_kodu: BIST ticker code (e.g., "GARAN", "THYAO")
+            ticker_kodu: Stock ticker code (BIST: e.g., "GARAN", US: e.g., "AAPL")
+            market: Market type - "BIST" or "US"
 
         Returns:
             Dict with FCF margin percentage, components, and assessment
         """
         try:
-            logger.info(f"Calculating FCF margin for {ticker_kodu}")
+            logger.info(f"Calculating FCF margin for {ticker_kodu} (market={market})")
 
             # Fetch cash flow statement
-            cashflow_result = await self.data_provider.get_nakit_akisi(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
+            if market == "US":
+                cashflow_result = await self.data_provider.get_us_cash_flow(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                cashflow_result = await self.data_provider.get_nakit_akisi(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
             if cashflow_result.get('error'):
                 return {'error': f"Cash flow error: {cashflow_result['error']}", 'fcf_margin_percent': 0}
 
             # Fetch income statement for revenue
-            income_result = await self.data_provider.get_kar_zarar(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
+            if market == "US":
+                income_result = await self.data_provider.get_us_income_statement(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                income_result = await self.data_provider.get_kar_zarar(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
             if income_result.get('error'):
                 return {'error': f"Income statement error: {income_result['error']}", 'fcf_margin_percent': 0}
 
@@ -551,18 +735,31 @@ class FinancialRatiosProvider:
             fcf_margin_percent = fcf_margin_decimal * 100
 
             # Generate assessment
-            assessment = self._assess_fcf_margin(fcf_margin_percent)
+            assessment = self._assess_fcf_margin(fcf_margin_percent, market)
 
-            # Generate notes
-            notes = [
-                f"FCF Margin: {fcf_margin_percent:.2f}%",
-                f"Free Cash Flow: {fcf:,.0f}M TRY",
-                f"Total Revenue: {total_revenue:,.0f}M TRY",
-            ]
-            if fcf > 0:
-                notes.append("✅ Pozitif serbest nakit akışı")
+            # Generate notes (localized)
+            currency_symbol = "$" if market == "US" else "₺"
+            unit = "M"
+            if market == "US":
+                notes = [
+                    f"FCF Margin: {fcf_margin_percent:.2f}%",
+                    f"Free Cash Flow: {currency_symbol}{fcf:,.0f}{unit}",
+                    f"Total Revenue: {currency_symbol}{total_revenue:,.0f}{unit}",
+                ]
+                if fcf > 0:
+                    notes.append("✅ Positive free cash flow")
+                else:
+                    notes.append("❌ Negative free cash flow")
             else:
-                notes.append("❌ Negatif serbest nakit akışı")
+                notes = [
+                    f"FCF Margin: {fcf_margin_percent:.2f}%",
+                    f"Free Cash Flow: {fcf:,.0f}M TRY",
+                    f"Total Revenue: {total_revenue:,.0f}M TRY",
+                ]
+                if fcf > 0:
+                    notes.append("✅ Pozitif serbest nakit akışı")
+                else:
+                    notes.append("❌ Negatif serbest nakit akışı")
 
             return {
                 'fcf_margin_percent': round(fcf_margin_percent, 2),
@@ -578,7 +775,7 @@ class FinancialRatiosProvider:
             logger.error(f"FCF margin calculation error for {ticker_kodu}: {e}")
             return {'error': str(e), 'fcf_margin_percent': 0}
 
-    async def calculate_earnings_quality(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def calculate_earnings_quality(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """
         Calculate earnings quality metrics.
 
@@ -588,35 +785,54 @@ class FinancialRatiosProvider:
         3. WC Impact = Change in Working Capital / Operating CF (negative is good)
 
         Args:
-            ticker_kodu: BIST ticker code (e.g., "GARAN", "THYAO")
+            ticker_kodu: Stock ticker code (BIST: e.g., "GARAN", US: e.g., "AAPL")
+            market: Market type - "BIST" or "US"
 
         Returns:
             Dict with all 3 metrics, components, and overall quality assessment
         """
         try:
-            logger.info(f"Calculating earnings quality for {ticker_kodu}")
+            logger.info(f"Calculating earnings quality for {ticker_kodu} (market={market})")
 
             # Fetch income statement
-            income_result = await self.data_provider.get_kar_zarar(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
+            if market == "US":
+                income_result = await self.data_provider.get_us_income_statement(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                income_result = await self.data_provider.get_kar_zarar(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
             if income_result.get('error'):
                 return {'error': f"Income statement error: {income_result['error']}"}
 
             # Fetch cash flow statement
-            cashflow_result = await self.data_provider.get_nakit_akisi(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
+            if market == "US":
+                cashflow_result = await self.data_provider.get_us_cash_flow(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                cashflow_result = await self.data_provider.get_nakit_akisi(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
             if cashflow_result.get('error'):
                 return {'error': f"Cash flow error: {cashflow_result['error']}"}
 
             # Fetch balance sheet
-            balance_result = await self.data_provider.get_bilanco(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
+            if market == "US":
+                balance_result = await self.data_provider.get_us_balance_sheet(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                balance_result = await self.data_provider.get_bilanco(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
             if balance_result.get('error'):
                 return {'error': f"Balance sheet error: {balance_result['error']}"}
 
@@ -660,16 +876,17 @@ class FinancialRatiosProvider:
                 wc_impact_percent = 0
 
             # Generate assessments
-            cf_assessment = self._assess_cf_to_earnings(cf_to_earnings_ratio)
-            accruals_assessment = self._assess_accruals(accruals_ratio_percent)
-            wc_assessment = self._assess_wc_impact(wc_impact_percent)
+            cf_assessment = self._assess_cf_to_earnings(cf_to_earnings_ratio, market)
+            accruals_assessment = self._assess_accruals(accruals_ratio_percent, market)
+            wc_assessment = self._assess_wc_impact(wc_impact_percent, market)
 
             # Overall quality assessment
             wc_good = wc_impact_percent >= 0  # Positive WC impact means cash generation
             overall_quality = self._assess_overall_quality(
                 cf_to_earnings_ratio,
                 abs(accruals_ratio_percent),
-                wc_good
+                wc_good,
+                market
             )
 
             # Generate notes
@@ -701,7 +918,7 @@ class FinancialRatiosProvider:
             logger.error(f"Earnings quality calculation error for {ticker_kodu}: {e}")
             return {'error': str(e)}
 
-    async def calculate_altman_z_score(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def calculate_altman_z_score(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """
         Calculate Altman Z-Score for bankruptcy prediction.
 
@@ -721,34 +938,53 @@ class FinancialRatiosProvider:
         - Z < 1.81: Distress Zone (high bankruptcy risk)
 
         Args:
-            ticker_kodu: BIST ticker code (e.g., "GARAN", "THYAO")
+            ticker_kodu: Stock ticker code (e.g., "GARAN" for BIST, "AAPL" for US)
+            market: "BIST" for Istanbul Stock Exchange, "US" for US markets
 
         Returns:
             Dict with Z-Score, components, and risk assessment
         """
         try:
-            logger.info(f"Calculating Altman Z-Score for {ticker_kodu}")
+            logger.info(f"Calculating Altman Z-Score for {ticker_kodu} (market={market})")
 
-            # Fetch balance sheet
-            balance_result = await self.data_provider.get_bilanco(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
-            if balance_result.get('error'):
-                return {'error': f"Balance sheet error: {balance_result['error']}", 'z_score': 0}
+            # Fetch balance sheet based on market
+            if market == "US":
+                balance_result = await self.data_provider.get_us_balance_sheet(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                balance_result = await self.data_provider.get_bilanco(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
+            if balance_result.get('error') or balance_result.get('error_message'):
+                error_msg = balance_result.get('error') or balance_result.get('error_message')
+                return {'error': f"Balance sheet error: {error_msg}", 'z_score': 0}
 
-            # Fetch income statement
-            income_result = await self.data_provider.get_kar_zarar(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
-            if income_result.get('error'):
-                return {'error': f"Income statement error: {income_result['error']}", 'z_score': 0}
+            # Fetch income statement based on market
+            if market == "US":
+                income_result = await self.data_provider.get_us_income_statement(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+            else:
+                income_result = await self.data_provider.get_kar_zarar(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
+            if income_result.get('error') or income_result.get('error_message'):
+                error_msg = income_result.get('error') or income_result.get('error_message')
+                return {'error': f"Income statement error: {error_msg}", 'z_score': 0}
 
-            # Fetch company info for market cap
-            info_result = await self.data_provider.get_hizli_bilgi(ticker_kodu)
-            if info_result.get('error'):
-                return {'error': f"Company info error: {info_result['error']}", 'z_score': 0}
+            # Fetch company info for market cap based on market
+            if market == "US":
+                info_result = await self.data_provider.get_us_quick_info(ticker_kodu)
+            else:
+                info_result = await self.data_provider.get_hizli_bilgi(ticker_kodu)
+            if info_result.get('error') or info_result.get('error_message'):
+                error_msg = info_result.get('error') or info_result.get('error_message')
+                return {'error': f"Company info error: {error_msg}", 'z_score': 0}
 
             # Extract balance sheet items
             total_assets = self._extract_field(balance_result.get('tablo', []), 'Total Assets')
@@ -824,16 +1060,27 @@ class FinancialRatiosProvider:
             # Calculate Z-Score
             z_score = (1.2 * x1) + (1.4 * x2) + (3.3 * x3) + (0.6 * x4) + (1.0 * x5)
 
-            # Generate assessment
-            if z_score > 2.99:
-                assessment = "Güvenli Bölge (>2.99) - Düşük iflas riski"
-                risk_level = "DÜŞÜK"
-            elif z_score > 1.81:
-                assessment = "Gri Bölge (1.81-2.99) - Orta düzey risk"
-                risk_level = "ORTA"
+            # Generate assessment based on market (localized text)
+            if market == "US":
+                if z_score > 2.99:
+                    assessment = "Safe Zone (>2.99) - Low bankruptcy risk"
+                    risk_level = "LOW"
+                elif z_score > 1.81:
+                    assessment = "Grey Zone (1.81-2.99) - Moderate risk"
+                    risk_level = "MODERATE"
+                else:
+                    assessment = "Distress Zone (<1.81) - High bankruptcy risk"
+                    risk_level = "HIGH"
             else:
-                assessment = "Sıkıntı Bölgesi (<1.81) - Yüksek iflas riski"
-                risk_level = "YÜKSEK"
+                if z_score > 2.99:
+                    assessment = "Güvenli Bölge (>2.99) - Düşük iflas riski"
+                    risk_level = "DÜŞÜK"
+                elif z_score > 1.81:
+                    assessment = "Gri Bölge (1.81-2.99) - Orta düzey risk"
+                    risk_level = "ORTA"
+                else:
+                    assessment = "Sıkıntı Bölgesi (<1.81) - Yüksek iflas riski"
+                    risk_level = "YÜKSEK"
 
             # Generate notes
             notes = [
@@ -841,6 +1088,9 @@ class FinancialRatiosProvider:
                 f"Risk Level: {risk_level}",
                 f"Components: WC/TA={x1:.3f}, RE/TA={x2:.3f}, EBIT/TA={x3:.3f}, MC/TL={x4:.3f}, Sales/TA={x5:.3f}"
             ]
+
+            # Currency unit based on market
+            currency_unit = "Million USD" if market == "US" else "Milyon TL"
 
             return {
                 'z_score': round(z_score, 2),
@@ -860,6 +1110,8 @@ class FinancialRatiosProvider:
                 'assessment': assessment,
                 'risk_level': risk_level,
                 'notes': ' | '.join(notes),
+                'birim': currency_unit,
+                'market': market,
                 'error': None
             }
 
@@ -870,7 +1122,8 @@ class FinancialRatiosProvider:
     async def calculate_real_growth(
         self,
         ticker_kodu: str,
-        growth_metric: str = 'revenue'
+        growth_metric: str = 'revenue',
+        market: str = "BIST"
     ) -> Dict[str, Any]:
         """
         Calculate Real Growth Rate (inflation-adjusted growth).
@@ -878,19 +1131,24 @@ class FinancialRatiosProvider:
         Formula: Real Growth ≈ Nominal Growth - Inflation (Fisher Equation approximation)
 
         Args:
-            ticker_kodu: BIST ticker code (e.g., "GARAN", "THYAO")
+            ticker_kodu: Stock ticker code (e.g., "GARAN" for BIST, "AAPL" for US)
             growth_metric: Metric to calculate growth for ('revenue' or 'earnings')
+            market: "BIST" for Istanbul Stock Exchange, "US" for US markets
 
         Returns:
             Dict with real growth rate, nominal growth, inflation, and assessment
         """
         try:
-            logger.info(f"Calculating Real Growth for {ticker_kodu}, metric={growth_metric}")
+            logger.info(f"Calculating Real Growth for {ticker_kodu}, metric={growth_metric}, market={market}")
 
-            # Fetch company info for growth rates
-            info_result = await self.data_provider.get_hizli_bilgi(ticker_kodu)
-            if info_result.get('error'):
-                return {'error': f"Company info error: {info_result['error']}", 'real_growth_percent': 0}
+            # Fetch company info for growth rates based on market
+            if market == "US":
+                info_result = await self.data_provider.get_us_quick_info(ticker_kodu)
+            else:
+                info_result = await self.data_provider.get_hizli_bilgi(ticker_kodu)
+            if info_result.get('error') or info_result.get('error_message'):
+                error_msg = info_result.get('error') or info_result.get('error_message')
+                return {'error': f"Company info error: {error_msg}", 'real_growth_percent': 0}
 
             bilgiler = info_result.get('bilgiler')
             if bilgiler is None:
@@ -915,46 +1173,64 @@ class FinancialRatiosProvider:
             else:
                 nominal_growth_percent = nominal_growth
 
-            # Fetch latest inflation data from TCMB
-            from providers.tcmb_provider import TcmbProvider
-            import httpx
+            # Fetch inflation data based on market
+            if market == "US":
+                # US: Use Fed target inflation rate (approximately 2.5%)
+                inflation_percent = 2.5
+                inflation_date = 'Fed Target'
+                inflation_source = 'US Fed Target (2.5%)'
+                logger.info(f"Using US Fed target inflation: {inflation_percent}%")
+            else:
+                # BIST: Fetch latest inflation data from TCMB
+                from providers.tcmb_provider import TcmbProvider
+                import httpx
 
-            tcmb_client = httpx.AsyncClient(timeout=30.0, verify=False)
-            try:
-                tcmb_provider = TcmbProvider(tcmb_client)
-                inflation_result = await tcmb_provider.get_inflation_data(
-                    inflation_type='tufe',
-                    limit=1
-                )
+                tcmb_client = httpx.AsyncClient(timeout=30.0, verify=False)
+                try:
+                    tcmb_provider = TcmbProvider(tcmb_client)
+                    inflation_result = await tcmb_provider.get_inflation_data(
+                        inflation_type='tufe',
+                        limit=1
+                    )
 
-                if inflation_result.data and len(inflation_result.data) > 0:
-                    latest_inflation = inflation_result.data[0]
-                    inflation_percent = latest_inflation.yillik_enflasyon or 0
-                    inflation_date = latest_inflation.ay_yil
-                    inflation_source = 'TCMB (live)'
-                else:
-                    # Fallback to default
-                    inflation_percent = 50.0  # Conservative estimate for Turkey
-                    inflation_date = 'Default'
-                    inflation_source = 'Default estimate'
-                    logger.warning(f"Could not fetch inflation data, using default {inflation_percent}%")
+                    if inflation_result.data and len(inflation_result.data) > 0:
+                        latest_inflation = inflation_result.data[0]
+                        inflation_percent = latest_inflation.yillik_enflasyon or 0
+                        inflation_date = latest_inflation.ay_yil
+                        inflation_source = 'TCMB (live)'
+                    else:
+                        # Fallback to default
+                        inflation_percent = 50.0  # Conservative estimate for Turkey
+                        inflation_date = 'Default'
+                        inflation_source = 'Default estimate'
+                        logger.warning(f"Could not fetch inflation data, using default {inflation_percent}%")
 
-            finally:
-                await tcmb_client.aclose()
+                finally:
+                    await tcmb_client.aclose()
 
             # Calculate Real Growth using Fisher Equation approximation
             # Real Growth ≈ Nominal Growth - Inflation
             real_growth_percent = nominal_growth_percent - inflation_percent
 
-            # Generate assessment
-            if real_growth_percent > 10:
-                assessment = "Mükemmel (>10%) - Güçlü reel büyüme"
-            elif real_growth_percent > 5:
-                assessment = "İyi (5-10%) - Sağlıklı reel büyüme"
-            elif real_growth_percent > 0:
-                assessment = "Orta (0-5%) - Pozitif ama zayıf reel büyüme"
+            # Generate assessment based on market (localized text)
+            if market == "US":
+                if real_growth_percent > 10:
+                    assessment = "Excellent (>10%) - Strong real growth"
+                elif real_growth_percent > 5:
+                    assessment = "Good (5-10%) - Healthy real growth"
+                elif real_growth_percent > 0:
+                    assessment = "Average (0-5%) - Positive but weak real growth"
+                else:
+                    assessment = "Poor (<0%) - Negative real growth (below inflation)"
             else:
-                assessment = "Düşük (<0%) - Negatif reel büyüme (enflasyonun altında)"
+                if real_growth_percent > 10:
+                    assessment = "Mükemmel (>10%) - Güçlü reel büyüme"
+                elif real_growth_percent > 5:
+                    assessment = "İyi (5-10%) - Sağlıklı reel büyüme"
+                elif real_growth_percent > 0:
+                    assessment = "Orta (0-5%) - Pozitif ama zayıf reel büyüme"
+                else:
+                    assessment = "Düşük (<0%) - Negatif reel büyüme (enflasyonun altında)"
 
             # Generate notes
             notes = [
@@ -977,6 +1253,7 @@ class FinancialRatiosProvider:
                 },
                 'assessment': assessment,
                 'notes': ' | '.join(notes),
+                'market': market,
                 'error': None
             }
 
@@ -1118,7 +1395,7 @@ class FinancialRatiosProvider:
         else:
             return "AVOID"
 
-    async def calculate_comprehensive_analysis(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def calculate_comprehensive_analysis(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """
         Calculate comprehensive financial analysis with 11 metrics in 4 categories.
 
@@ -1129,28 +1406,44 @@ class FinancialRatiosProvider:
         4. Composite Scores (2): Piotroski F-Score (simplified), Magic Formula
 
         Args:
-            ticker_kodu: BIST ticker code (e.g., "GARAN", "ASELS")
+            ticker_kodu: Stock ticker code (BIST: "GARAN", US: "AAPL")
+            market: Market type ("BIST" or "US")
 
         Returns:
             Dict with ComprehensiveFinancialAnalysis structure
         """
         try:
-            logger.info(f"Calculating comprehensive analysis for {ticker_kodu}")
+            logger.info(f"Calculating comprehensive analysis for {ticker_kodu} (market: {market})")
 
-            # Fetch all data sources once
-            balance_result = await self.data_provider.get_bilanco(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
-            income_result = await self.data_provider.get_kar_zarar(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
-            cashflow_result = await self.data_provider.get_nakit_akisi(
-                ticker_kodu=ticker_kodu,
-                period_type='quarterly'
-            )
-            info_result = await self.data_provider.get_hizli_bilgi(ticker_kodu)
+            # Fetch all data sources based on market
+            if market == "US":
+                balance_result = await self.data_provider.get_us_balance_sheet(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+                income_result = await self.data_provider.get_us_income_statement(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+                cashflow_result = await self.data_provider.get_us_cash_flow(
+                    ticker=ticker_kodu,
+                    period_type='quarterly'
+                )
+                info_result = await self.data_provider.get_us_quick_info(ticker_kodu)
+            else:
+                balance_result = await self.data_provider.get_bilanco(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
+                income_result = await self.data_provider.get_kar_zarar(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
+                cashflow_result = await self.data_provider.get_nakit_akisi(
+                    ticker_kodu=ticker_kodu,
+                    period_type='quarterly'
+                )
+                info_result = await self.data_provider.get_hizli_bilgi(ticker_kodu)
 
             # Check for errors
             errors = []
@@ -1659,7 +1952,7 @@ class FinancialRatiosProvider:
 
         return None
 
-    async def calculate_core_financial_health(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def calculate_core_financial_health(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """
         Calculate Core Financial Health Analysis (5 metrics in 1 call).
 
@@ -1671,21 +1964,22 @@ class FinancialRatiosProvider:
         - Overall health assessment with strengths/concerns
 
         Args:
-            ticker_kodu: BIST ticker code (e.g., "GARAN", "ASELS")
+            ticker_kodu: Stock ticker code (BIST: e.g., "GARAN", US: e.g., "AAPL")
+            market: Market type - "BIST" or "US"
 
         Returns:
             Dict with all 5 metrics, overall assessment, strengths, and concerns
         """
         try:
-            logger.info(f"Calculating Core Financial Health for {ticker_kodu}")
+            logger.info(f"Calculating Core Financial Health for {ticker_kodu} (market={market})")
 
-            # Calculate all 5 metrics using existing methods
+            # Calculate all 5 metrics using existing methods with market parameter
             # These methods handle their own data fetching efficiently
-            roe_result = await self.calculate_roe(ticker_kodu)
-            roic_result = await self.calculate_roic(ticker_kodu)
-            debt_result = await self.calculate_debt_ratios(ticker_kodu)
-            fcf_result = await self.calculate_fcf_margin(ticker_kodu)
-            quality_result = await self.calculate_earnings_quality(ticker_kodu)
+            roe_result = await self.calculate_roe(ticker_kodu, market)
+            roic_result = await self.calculate_roic(ticker_kodu, market)
+            debt_result = await self.calculate_debt_ratios(ticker_kodu, market)
+            fcf_result = await self.calculate_fcf_margin(ticker_kodu, market)
+            quality_result = await self.calculate_earnings_quality(ticker_kodu, market)
 
             # Check for any critical errors
             errors = []
@@ -1711,51 +2005,65 @@ class FinancialRatiosProvider:
             score_points = 0
             total_metrics = 0
 
+            # Define assessment keywords based on market
+            if market == "US":
+                excellent_kw = "Excellent"
+                good_kw = "Good"
+                average_kw = "Average"
+                high_quality_kw = "High Quality"
+                medium_quality_kw = "Medium Quality"
+            else:
+                excellent_kw = "Mükemmel"
+                good_kw = "İyi"
+                average_kw = "Orta"
+                high_quality_kw = "Yüksek Kalite"
+                medium_quality_kw = "Orta Kalite"
+
             # ROE scoring
             if not roe_result.get('error'):
                 total_metrics += 1
-                if "Mükemmel" in roe_result.get('assessment', ''):
+                if excellent_kw in roe_result.get('assessment', ''):
                     score_points += 3
-                elif "İyi" in roe_result.get('assessment', ''):
+                elif good_kw in roe_result.get('assessment', ''):
                     score_points += 2
-                elif "Orta" in roe_result.get('assessment', ''):
+                elif average_kw in roe_result.get('assessment', ''):
                     score_points += 1
 
             # ROIC scoring
             if not roic_result.get('error'):
                 total_metrics += 1
-                if "Mükemmel" in roic_result.get('assessment', ''):
+                if excellent_kw in roic_result.get('assessment', ''):
                     score_points += 3
-                elif "İyi" in roic_result.get('assessment', ''):
+                elif good_kw in roic_result.get('assessment', ''):
                     score_points += 2
-                elif "Orta" in roic_result.get('assessment', ''):
+                elif average_kw in roic_result.get('assessment', ''):
                     score_points += 1
 
             # Debt scoring (inverse - lower is better)
             if not debt_result.get('error'):
                 total_metrics += 1
                 de_assessment = debt_result.get('debt_to_equity_assessment', '')
-                if "Mükemmel" in de_assessment or "İyi" in de_assessment:
+                if excellent_kw in de_assessment or good_kw in de_assessment:
                     score_points += 3
-                elif "Orta" in de_assessment:
+                elif average_kw in de_assessment:
                     score_points += 1.5
 
             # FCF Margin scoring
             if not fcf_result.get('error'):
                 total_metrics += 1
-                if "Mükemmel" in fcf_result.get('assessment', ''):
+                if excellent_kw in fcf_result.get('assessment', ''):
                     score_points += 3
-                elif "İyi" in fcf_result.get('assessment', ''):
+                elif good_kw in fcf_result.get('assessment', ''):
                     score_points += 2
-                elif "Orta" in fcf_result.get('assessment', ''):
+                elif average_kw in fcf_result.get('assessment', ''):
                     score_points += 1
 
             # Earnings Quality scoring
             if not quality_result.get('error'):
                 total_metrics += 1
-                if quality_result.get('overall_quality') == 'Yüksek Kalite':
+                if quality_result.get('overall_quality') == high_quality_kw:
                     score_points += 3
-                elif quality_result.get('overall_quality') == 'Orta Kalite':
+                elif quality_result.get('overall_quality') == medium_quality_kw:
                     score_points += 1.5
 
             # Calculate overall score
@@ -1772,47 +2080,79 @@ class FinancialRatiosProvider:
             else:
                 overall_health_score = "UNKNOWN"
 
-            # Generate strengths
+            # Generate strengths (localized)
             strengths = []
-            if not roe_result.get('error') and roe_result.get('roe_percent', 0) >= 15:
-                strengths.append(f"Mükemmel ROE ({roe_result['roe_percent']:.1f}%)")
-            if not roic_result.get('error') and roic_result.get('roic_percent', 0) >= 15:
-                strengths.append(f"Mükemmel ROIC ({roic_result['roic_percent']:.1f}%)")
-            if not debt_result.get('error') and debt_result.get('debt_to_equity', 999) < 0.5:
-                strengths.append(f"Düşük borç oranı (D/E: {debt_result['debt_to_equity']:.2f})")
-            if not fcf_result.get('error') and fcf_result.get('fcf_margin_percent', 0) >= 10:
-                strengths.append(f"Güçlü nakit akışı ({fcf_result['fcf_margin_percent']:.1f}%)")
-            if not quality_result.get('error') and quality_result.get('overall_quality') == 'Yüksek Kalite':
-                strengths.append("Yüksek kazanç kalitesi")
+            if market == "US":
+                if not roe_result.get('error') and roe_result.get('roe_percent', 0) >= 15:
+                    strengths.append(f"Excellent ROE ({roe_result['roe_percent']:.1f}%)")
+                if not roic_result.get('error') and roic_result.get('roic_percent', 0) >= 15:
+                    strengths.append(f"Excellent ROIC ({roic_result['roic_percent']:.1f}%)")
+                if not debt_result.get('error') and debt_result.get('debt_to_equity', 999) < 0.5:
+                    strengths.append(f"Low debt ratio (D/E: {debt_result['debt_to_equity']:.2f})")
+                if not fcf_result.get('error') and fcf_result.get('fcf_margin_percent', 0) >= 10:
+                    strengths.append(f"Strong cash flow ({fcf_result['fcf_margin_percent']:.1f}%)")
+                if not quality_result.get('error') and quality_result.get('overall_quality') == 'High Quality':
+                    strengths.append("High earnings quality")
+            else:
+                if not roe_result.get('error') and roe_result.get('roe_percent', 0) >= 15:
+                    strengths.append(f"Mükemmel ROE ({roe_result['roe_percent']:.1f}%)")
+                if not roic_result.get('error') and roic_result.get('roic_percent', 0) >= 15:
+                    strengths.append(f"Mükemmel ROIC ({roic_result['roic_percent']:.1f}%)")
+                if not debt_result.get('error') and debt_result.get('debt_to_equity', 999) < 0.5:
+                    strengths.append(f"Düşük borç oranı (D/E: {debt_result['debt_to_equity']:.2f})")
+                if not fcf_result.get('error') and fcf_result.get('fcf_margin_percent', 0) >= 10:
+                    strengths.append(f"Güçlü nakit akışı ({fcf_result['fcf_margin_percent']:.1f}%)")
+                if not quality_result.get('error') and quality_result.get('overall_quality') == 'Yüksek Kalite':
+                    strengths.append("Yüksek kazanç kalitesi")
 
-            # Generate concerns
+            # Generate concerns (localized)
             concerns = []
-            if not roe_result.get('error') and roe_result.get('roe_percent', 0) < 5:
-                concerns.append(f"Düşük ROE ({roe_result['roe_percent']:.1f}%)")
-            if not roic_result.get('error') and roic_result.get('roic_percent', 0) < 5:
-                concerns.append(f"Düşük ROIC ({roic_result['roic_percent']:.1f}%)")
-            if not debt_result.get('error') and debt_result.get('debt_to_equity', 0) > 2.0:
-                concerns.append(f"Yüksek borç oranı (D/E: {debt_result['debt_to_equity']:.2f})")
-            if not fcf_result.get('error') and fcf_result.get('fcf_margin_percent', 0) < 2:
-                concerns.append(f"Zayıf nakit akışı ({fcf_result['fcf_margin_percent']:.1f}%)")
-            if not quality_result.get('error') and quality_result.get('overall_quality') == 'Düşük Kalite':
-                concerns.append("Düşük kazanç kalitesi")
+            low_quality_kw = "Low Quality" if market == "US" else "Düşük Kalite"
+            if market == "US":
+                if not roe_result.get('error') and roe_result.get('roe_percent', 0) < 5:
+                    concerns.append(f"Low ROE ({roe_result['roe_percent']:.1f}%)")
+                if not roic_result.get('error') and roic_result.get('roic_percent', 0) < 5:
+                    concerns.append(f"Low ROIC ({roic_result['roic_percent']:.1f}%)")
+                if not debt_result.get('error') and debt_result.get('debt_to_equity', 0) > 2.0:
+                    concerns.append(f"High debt ratio (D/E: {debt_result['debt_to_equity']:.2f})")
+                if not fcf_result.get('error') and fcf_result.get('fcf_margin_percent', 0) < 2:
+                    concerns.append(f"Weak cash flow ({fcf_result['fcf_margin_percent']:.1f}%)")
+                if not quality_result.get('error') and quality_result.get('overall_quality') == low_quality_kw:
+                    concerns.append("Low earnings quality")
+            else:
+                if not roe_result.get('error') and roe_result.get('roe_percent', 0) < 5:
+                    concerns.append(f"Düşük ROE ({roe_result['roe_percent']:.1f}%)")
+                if not roic_result.get('error') and roic_result.get('roic_percent', 0) < 5:
+                    concerns.append(f"Düşük ROIC ({roic_result['roic_percent']:.1f}%)")
+                if not debt_result.get('error') and debt_result.get('debt_to_equity', 0) > 2.0:
+                    concerns.append(f"Yüksek borç oranı (D/E: {debt_result['debt_to_equity']:.2f})")
+                if not fcf_result.get('error') and fcf_result.get('fcf_margin_percent', 0) < 2:
+                    concerns.append(f"Zayıf nakit akışı ({fcf_result['fcf_margin_percent']:.1f}%)")
+                if not quality_result.get('error') and quality_result.get('overall_quality') == low_quality_kw:
+                    concerns.append("Düşük kazanç kalitesi")
 
-            # Data quality notes
+            # Data quality notes (localized)
             data_quality_notes = None
             if errors:
-                data_quality_notes = f"Bazı metriklerde veri eksikliği: {', '.join(errors)}"
+                if market == "US":
+                    data_quality_notes = f"Some metrics have missing data: {', '.join(errors)}"
+                else:
+                    data_quality_notes = f"Bazı metriklerde veri eksikliği: {', '.join(errors)}"
+
+            # Default strength message if none found
+            default_strength = "Insufficient data for analysis" if market == "US" else "Analiz için yeterli veri yok"
 
             return {
                 'ticker': ticker_kodu,
                 'period': 'quarterly',
+                'market': market,
                 'roe': roe_result,
                 'roic': roic_result,
                 'debt_ratios': debt_result,
                 'fcf_margin': fcf_result,
                 'earnings_quality': quality_result,
                 'overall_health_score': overall_health_score,
-                'strengths': strengths if strengths else ["Analiz için yeterli veri yok"],
+                'strengths': strengths if strengths else [default_strength],
                 'concerns': concerns,
                 'data_quality_notes': data_quality_notes,
                 'error': None
@@ -1826,27 +2166,28 @@ class FinancialRatiosProvider:
                 'overall_health_score': 'ERROR'
             }
 
-    async def calculate_advanced_metrics(self, ticker_kodu: str) -> Dict[str, Any]:
+    async def calculate_advanced_metrics(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """
         Calculate Advanced Financial Metrics (2 metrics in 1 call).
 
         Consolidates: Altman Z-Score + Real Growth (revenue & earnings)
 
         Args:
-            ticker_kodu: BIST ticker code (e.g., "GARAN", "ASELS")
+            ticker_kodu: Stock ticker code (e.g., "GARAN" for BIST, "AAPL" for US)
+            market: "BIST" for Istanbul Stock Exchange, "US" for US markets
 
         Returns:
             Dict with Altman Z-Score, Real Growth metrics, and overall assessment
         """
         try:
-            logger.info(f"Calculating Advanced Metrics for {ticker_kodu}")
+            logger.info(f"Calculating Advanced Metrics for {ticker_kodu} (market={market})")
 
-            # Calculate Altman Z-Score
-            altman_result = await self.calculate_altman_z_score(ticker_kodu)
+            # Calculate Altman Z-Score with market parameter
+            altman_result = await self.calculate_altman_z_score(ticker_kodu, market)
 
-            # Calculate Real Growth for both revenue and earnings
-            real_growth_revenue = await self.calculate_real_growth(ticker_kodu, 'revenue')
-            real_growth_earnings = await self.calculate_real_growth(ticker_kodu, 'earnings')
+            # Calculate Real Growth for both revenue and earnings with market parameter
+            real_growth_revenue = await self.calculate_real_growth(ticker_kodu, 'revenue', market)
+            real_growth_earnings = await self.calculate_real_growth(ticker_kodu, 'earnings', market)
 
             # Check for critical errors
             if altman_result.get('error') and real_growth_revenue.get('error') and real_growth_earnings.get('error'):
@@ -1891,31 +2232,51 @@ class FinancialRatiosProvider:
             else:
                 growth_quality = "UNKNOWN"
 
-            # Generate key findings
+            # Generate key findings based on market (localized text)
             key_findings = []
 
             # Z-Score findings
             if not altman_result.get('error'):
                 z_score = altman_result.get('z_score', 0)
-                if z_score > 2.99:
-                    key_findings.append(f"Güçlü finansal istikrar (Z-Score: {z_score:.2f})")
-                elif z_score < 1.81:
-                    key_findings.append(f"⚠️ Yüksek iflas riski (Z-Score: {z_score:.2f})")
+                if market == "US":
+                    if z_score > 2.99:
+                        key_findings.append(f"Strong financial stability (Z-Score: {z_score:.2f})")
+                    elif z_score < 1.81:
+                        key_findings.append(f"⚠️ High bankruptcy risk (Z-Score: {z_score:.2f})")
+                    else:
+                        key_findings.append(f"Moderate financial risk (Z-Score: {z_score:.2f})")
                 else:
-                    key_findings.append(f"Orta düzey finansal risk (Z-Score: {z_score:.2f})")
+                    if z_score > 2.99:
+                        key_findings.append(f"Güçlü finansal istikrar (Z-Score: {z_score:.2f})")
+                    elif z_score < 1.81:
+                        key_findings.append(f"⚠️ Yüksek iflas riski (Z-Score: {z_score:.2f})")
+                    else:
+                        key_findings.append(f"Orta düzey finansal risk (Z-Score: {z_score:.2f})")
 
             # Real growth findings
             if revenue_growth != -999:
-                if revenue_growth > 10:
-                    key_findings.append(f"Güçlü reel gelir büyümesi ({revenue_growth:.1f}%)")
-                elif revenue_growth < 0:
-                    key_findings.append(f"⚠️ Negatif reel gelir büyümesi ({revenue_growth:.1f}%)")
+                if market == "US":
+                    if revenue_growth > 10:
+                        key_findings.append(f"Strong real revenue growth ({revenue_growth:.1f}%)")
+                    elif revenue_growth < 0:
+                        key_findings.append(f"⚠️ Negative real revenue growth ({revenue_growth:.1f}%)")
+                else:
+                    if revenue_growth > 10:
+                        key_findings.append(f"Güçlü reel gelir büyümesi ({revenue_growth:.1f}%)")
+                    elif revenue_growth < 0:
+                        key_findings.append(f"⚠️ Negatif reel gelir büyümesi ({revenue_growth:.1f}%)")
 
             if earnings_growth != -999:
-                if earnings_growth > 10:
-                    key_findings.append(f"Güçlü reel kazanç büyümesi ({earnings_growth:.1f}%)")
-                elif earnings_growth < 0:
-                    key_findings.append(f"⚠️ Negatif reel kazanç büyümesi ({earnings_growth:.1f}%)")
+                if market == "US":
+                    if earnings_growth > 10:
+                        key_findings.append(f"Strong real earnings growth ({earnings_growth:.1f}%)")
+                    elif earnings_growth < 0:
+                        key_findings.append(f"⚠️ Negative real earnings growth ({earnings_growth:.1f}%)")
+                else:
+                    if earnings_growth > 10:
+                        key_findings.append(f"Güçlü reel kazanç büyümesi ({earnings_growth:.1f}%)")
+                    elif earnings_growth < 0:
+                        key_findings.append(f"⚠️ Negatif reel kazanç büyümesi ({earnings_growth:.1f}%)")
 
             # Data quality notes
             data_quality_notes = None
@@ -1928,14 +2289,21 @@ class FinancialRatiosProvider:
                 errors.append(f"Earnings Growth: {real_growth_earnings['error']}")
 
             if errors:
-                data_quality_notes = f"Bazı metriklerde veri eksikliği: {', '.join(errors)}"
+                if market == "US":
+                    data_quality_notes = f"Data missing for some metrics: {', '.join(errors)}"
+                else:
+                    data_quality_notes = f"Bazı metriklerde veri eksikliği: {', '.join(errors)}"
 
             if not key_findings:
-                key_findings = ["Analiz için yeterli veri yok"]
+                if market == "US":
+                    key_findings = ["Insufficient data for analysis"]
+                else:
+                    key_findings = ["Analiz için yeterli veri yok"]
 
             return {
                 'ticker': ticker_kodu,
                 'period': 'quarterly',
+                'market': market,
                 'altman_z_score': altman_result,
                 'real_growth_revenue': real_growth_revenue,
                 'real_growth_earnings': real_growth_earnings,

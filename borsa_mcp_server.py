@@ -65,6 +65,29 @@ from models import (
     MultiFinansalTabloSonucu,
     MultiKarZararTablosuSonucu,
     MultiNakitAkisiTablosuSonucu,
+    # US Stock Models
+    USCompanySearchResult,
+    USQuickInfoResult,
+    USStockDataResult,
+    USAnalystResult,
+    USDividendResult,
+    USEarningsResult,
+    USTechnicalAnalysisResult,
+    USPivotPointsResult,
+    MultiUSQuickInfoResult,
+    MultiUSAnalystResult,
+    MultiUSDividendResult,
+    MultiUSEarningsResult,
+    # US Stock Financial Statement Models
+    USBalanceSheetResult,
+    USIncomeStatementResult,
+    USCashFlowResult,
+    MultiUSBalanceSheetResult,
+    MultiUSIncomeStatementResult,
+    MultiUSCashFlowResult,
+    # US Index Models
+    USIndexSearchResult,
+    USIndexDetailResult,
 )
 from models.financial_ratios_models import (
     CoreFinancialHealthAnalysis,
@@ -3589,6 +3612,875 @@ async def calculate_advanced_metrics(
         return AdvancedFinancialMetrics(**result)
     except Exception as e:
         raise ToolError(f"Advanced metrics analysis failed for {ticker_kodu}: {str(e)}")
+
+# ============================================================================
+# US STOCK MARKET TOOLS
+# ============================================================================
+
+@app.tool(description="US STOCKS: Search/validate US stock ticker (AAPL, MSFT, GOOGL, etc.)")
+async def search_us_stock(
+    query: Annotated[str, Field(
+        description="US stock ticker to validate (e.g., AAPL, MSFT, GOOGL, TSLA)",
+        pattern=r"^[A-Z]{1,5}$",
+        examples=["AAPL", "MSFT", "GOOGL", "TSLA", "SPY"]
+    )]
+) -> USCompanySearchResult:
+    """
+    Search and validate a US stock ticker using Yahoo Finance.
+
+    Validates the ticker and returns company information if valid.
+    Works with individual stocks (AAPL, MSFT) and ETFs (SPY, QQQ, VOO).
+
+    Args:
+        query: US stock ticker symbol (1-5 uppercase letters)
+
+    Returns:
+        Company info including name, sector, industry, market cap if valid.
+
+    Example:
+        - query: "AAPL" → Apple Inc., Technology, $3T market cap
+        - query: "SPY" → SPDR S&P 500 ETF Trust
+    """
+    try:
+        result = await borsa_client.search_us_stock(query)
+        return USCompanySearchResult(**result)
+    except Exception as e:
+        raise ToolError(f"US stock search failed for {query}: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Get company profile with financials (sector, market cap, P/E)")
+async def get_us_company_profile(
+    ticker: Annotated[str, Field(
+        description="US stock ticker (e.g., AAPL, MSFT, GOOGL)",
+        pattern=r"^[A-Z]{1,5}$",
+        examples=["AAPL", "MSFT", "GOOGL"]
+    )]
+) -> Dict[str, Any]:
+    """
+    Get comprehensive US company profile from Yahoo Finance.
+
+    Returns company information including sector, industry, description,
+    financial metrics like market cap, P/E ratios, and more.
+
+    Args:
+        ticker: US stock ticker symbol
+
+    Returns:
+        Complete company profile with all available metrics.
+    """
+    try:
+        result = await borsa_client.get_us_company_profile(ticker)
+        if result.get("error_message"):
+            raise ToolError(result["error_message"])
+        return result
+    except Exception as e:
+        raise ToolError(f"US company profile failed for {ticker}: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Get quick metrics (P/E, P/B, ROE, 52w high/low). Supports single or multiple tickers.")
+async def get_us_quick_info(
+    ticker: Annotated[Union[str, List[str]], Field(
+        description="US ticker(s): single 'AAPL' or list ['AAPL','MSFT','GOOGL'] (max 10)",
+        examples=["AAPL", ["AAPL", "MSFT", "GOOGL"]]
+    )]
+) -> Union[USQuickInfoResult, MultiUSQuickInfoResult]:
+    """
+    Get US stock quick info with key metrics.
+
+    For single ticker: Returns P/E, P/B, ROE, market cap, 52-week range, volume.
+    For multiple tickers: Executes in parallel (75% faster for 5+ stocks).
+
+    Args:
+        ticker: Single ticker string or list of tickers (max 10)
+
+    Returns:
+        USQuickInfoResult for single, MultiUSQuickInfoResult for multiple.
+
+    Example:
+        - Single: "AAPL" → P/E 28.5, P/B 45.2, ROE 147%
+        - Multi: ["AAPL","MSFT","GOOGL"] → 3 results in parallel
+    """
+    try:
+        if isinstance(ticker, list):
+            result = await borsa_client.get_us_quick_info_multi(ticker)
+            return MultiUSQuickInfoResult(**result)
+        else:
+            result = await borsa_client.get_us_quick_info(ticker)
+            if result.get("error_message"):
+                raise ToolError(result["error_message"])
+            return USQuickInfoResult(**result)
+    except Exception as e:
+        raise ToolError(f"US quick info failed: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Get historical OHLCV data with date range support")
+async def get_us_stock_data(
+    ticker: Annotated[str, Field(
+        description="US stock ticker (e.g., AAPL, MSFT)",
+        pattern=r"^[A-Z]{1,5}$",
+        examples=["AAPL", "MSFT", "SPY"]
+    )],
+    period: Annotated[Optional[str], Field(
+        description="Time period: 1d,5d,1mo,3mo,6mo,1y,2y,5y,ytd,max",
+        examples=["1mo", "1y", "5y"]
+    )] = "1mo",
+    start_date: Annotated[Optional[str], Field(
+        description="Start date YYYY-MM-DD (overrides period)",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2024-01-01"]
+    )] = None,
+    end_date: Annotated[Optional[str], Field(
+        description="End date YYYY-MM-DD",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2024-12-31"]
+    )] = None
+) -> USStockDataResult:
+    """
+    Get US stock historical OHLCV data.
+
+    Supports two modes:
+    1. Period mode: Use period parameter (1d, 1mo, 1y, etc.)
+    2. Date range mode: Use start_date/end_date (overrides period)
+
+    Args:
+        ticker: US stock ticker symbol
+        period: Time period (default: 1mo)
+        start_date: Start date YYYY-MM-DD (optional)
+        end_date: End date YYYY-MM-DD (optional)
+
+    Returns:
+        Historical OHLCV data with token optimization for large datasets.
+
+    Example:
+        - Period mode: AAPL, period="1y" → 1 year of daily data
+        - Date range: AAPL, start="2024-01-01", end="2024-06-30"
+    """
+    try:
+        result = await borsa_client.get_us_stock_data(
+            ticker, period=period, start_date=start_date, end_date=end_date
+        )
+        if result.get("error_message"):
+            raise ToolError(result["error_message"])
+        return USStockDataResult(**result)
+    except Exception as e:
+        raise ToolError(f"US stock data failed for {ticker}: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Get analyst ratings (buy/sell/hold, price targets). Supports single or multiple tickers.")
+async def get_us_analyst_ratings(
+    ticker: Annotated[Union[str, List[str]], Field(
+        description="US ticker(s): single 'AAPL' or list ['AAPL','MSFT'] (max 10)",
+        examples=["AAPL", ["AAPL", "MSFT", "GOOGL"]]
+    )]
+) -> Union[USAnalystResult, MultiUSAnalystResult]:
+    """
+    Get US stock analyst recommendations and price targets.
+
+    Returns analyst ratings (Strong Buy, Buy, Hold, Sell, Strong Sell),
+    price targets (current, mean, low, high), and recent upgrades/downgrades.
+
+    Args:
+        ticker: Single ticker string or list of tickers (max 10)
+
+    Returns:
+        USAnalystResult for single, MultiUSAnalystResult for multiple.
+
+    Example:
+        - AAPL: 15 Strong Buy, 20 Buy, 5 Hold, Mean Target $200
+    """
+    try:
+        if isinstance(ticker, list):
+            result = await borsa_client.get_us_analyst_ratings_multi(ticker)
+            return MultiUSAnalystResult(**result)
+        else:
+            result = await borsa_client.get_us_analyst_ratings(ticker)
+            if result.get("error_message"):
+                raise ToolError(result["error_message"])
+            return USAnalystResult(**result)
+    except Exception as e:
+        raise ToolError(f"US analyst ratings failed: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Get dividends & stock splits history. Supports single or multiple tickers.")
+async def get_us_dividends(
+    ticker: Annotated[Union[str, List[str]], Field(
+        description="US ticker(s): single 'AAPL' or list ['AAPL','MSFT'] (max 10)",
+        examples=["AAPL", ["AAPL", "MSFT", "JNJ"]]
+    )]
+) -> Union[USDividendResult, MultiUSDividendResult]:
+    """
+    Get US stock dividends and corporate actions (splits).
+
+    Returns dividend history, 12-month total dividends, most recent dividend,
+    and stock split history.
+
+    Args:
+        ticker: Single ticker string or list of tickers (max 10)
+
+    Returns:
+        USDividendResult for single, MultiUSDividendResult for multiple.
+
+    Example:
+        - AAPL: $0.96/year dividend, 4:1 split in 2020
+        - JNJ: $4.76/year dividend, 61 years of increases
+    """
+    try:
+        if isinstance(ticker, list):
+            result = await borsa_client.get_us_dividends_multi(ticker)
+            return MultiUSDividendResult(**result)
+        else:
+            result = await borsa_client.get_us_dividends(ticker)
+            if result.get("error_message"):
+                raise ToolError(result["error_message"])
+            return USDividendResult(**result)
+    except Exception as e:
+        raise ToolError(f"US dividends failed: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Get earnings calendar (dates, EPS estimates, surprises). Supports single or multiple tickers.")
+async def get_us_earnings(
+    ticker: Annotated[Union[str, List[str]], Field(
+        description="US ticker(s): single 'AAPL' or list ['AAPL','MSFT'] (max 10)",
+        examples=["AAPL", ["AAPL", "MSFT", "NVDA"]]
+    )]
+) -> Union[USEarningsResult, MultiUSEarningsResult]:
+    """
+    Get US stock earnings calendar.
+
+    Returns upcoming and historical earnings dates, EPS estimates,
+    reported EPS, surprise percentages, and growth data.
+
+    Args:
+        ticker: Single ticker string or list of tickers (max 10)
+
+    Returns:
+        USEarningsResult for single, MultiUSEarningsResult for multiple.
+
+    Example:
+        - AAPL: Next earnings Jan 30, EPS Est $2.10, +8% YoY growth
+    """
+    try:
+        if isinstance(ticker, list):
+            result = await borsa_client.get_us_earnings_multi(ticker)
+            return MultiUSEarningsResult(**result)
+        else:
+            result = await borsa_client.get_us_earnings(ticker)
+            if result.get("error_message"):
+                raise ToolError(result["error_message"])
+            return USEarningsResult(**result)
+    except Exception as e:
+        raise ToolError(f"US earnings failed: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Get technical analysis (RSI, MACD, Bollinger, trends, signals)")
+async def get_us_technical_analysis(
+    ticker: Annotated[str, Field(
+        description="US stock ticker (e.g., AAPL, MSFT, SPY)",
+        pattern=r"^[A-Z]{1,5}$",
+        examples=["AAPL", "MSFT", "SPY"]
+    )]
+) -> USTechnicalAnalysisResult:
+    """
+    Get comprehensive US stock technical analysis.
+
+    Calculates and returns:
+    - Price analysis: current, change, 52-week range
+    - Moving averages: SMA 5/10/20/50/200, EMA 12/26
+    - Technical indicators: RSI, MACD, Bollinger Bands, Stochastic
+    - Volume analysis: current vs average, trend
+    - Trend analysis: short/medium/long term, Golden/Death cross
+    - Overall signal: Strong Buy/Buy/Neutral/Sell/Strong Sell
+
+    Args:
+        ticker: US stock ticker symbol
+
+    Returns:
+        Complete technical analysis with all indicators and signals.
+
+    Example:
+        - AAPL: RSI 65, MACD Bullish, Above SMA200, Signal: BUY
+    """
+    try:
+        result = await borsa_client.get_us_technical_analysis(ticker)
+        if result.get("error_message"):
+            raise ToolError(result["error_message"])
+        return USTechnicalAnalysisResult(**result)
+    except Exception as e:
+        raise ToolError(f"US technical analysis failed for {ticker}: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Calculate pivot points (support/resistance levels R1-R3, S1-S3)")
+async def get_us_pivot_points(
+    ticker: Annotated[str, Field(
+        description="US stock ticker (e.g., AAPL, MSFT, SPY)",
+        pattern=r"^[A-Z]{1,5}$",
+        examples=["AAPL", "MSFT", "SPY"]
+    )]
+) -> USPivotPointsResult:
+    """
+    Calculate US stock pivot points for support/resistance levels.
+
+    Uses classic pivot point formula:
+    PP = (High + Low + Close) / 3
+    R1, R2, R3: Resistance levels above pivot
+    S1, S2, S3: Support levels below pivot
+
+    Returns 7 levels with current price position and distances.
+
+    Args:
+        ticker: US stock ticker symbol
+
+    Returns:
+        Pivot point, 3 resistance levels, 3 support levels, current position.
+
+    Example:
+        - AAPL at $175: PP $174, R1 $176, S1 $172, Position: Above pivot
+    """
+    try:
+        result = await borsa_client.get_us_pivot_points(ticker)
+        if result.get("error_message"):
+            raise ToolError(result["error_message"])
+        return USPivotPointsResult(**result)
+    except Exception as e:
+        raise ToolError(f"US pivot points failed for {ticker}: {str(e)}")
+
+
+# ============================================================================
+# US STOCK FINANCIAL STATEMENT TOOLS
+# ============================================================================
+
+@app.tool(description="US STOCKS: Get balance sheet (assets, liabilities, equity). Supports single or multiple tickers.")
+async def get_us_balance_sheet(
+    ticker: Annotated[Union[str, List[str]], Field(
+        description="US ticker(s): single 'AAPL' or list ['AAPL','MSFT','GOOGL'] (max 10)",
+        examples=["AAPL", ["AAPL", "MSFT", "GOOGL"]]
+    )],
+    period_type: Annotated[Literal["annual", "quarterly"], Field(
+        description="'annual' for yearly, 'quarterly' for recent quarters",
+        default="annual"
+    )] = "annual"
+) -> Union[USBalanceSheetResult, MultiUSBalanceSheetResult]:
+    """
+    Get US stock balance sheet from Yahoo Finance.
+
+    Returns assets (current, non-current), liabilities (current, non-current),
+    and shareholders' equity. Use for financial health, liquidity, leverage analysis.
+
+    For multiple tickers: Executes in parallel (60-75% faster for 5+ stocks).
+
+    Args:
+        ticker: Single ticker or list of tickers (max 10)
+        period_type: 'annual' for yearly data, 'quarterly' for recent quarters
+
+    Returns:
+        USBalanceSheetResult for single, MultiUSBalanceSheetResult for multiple.
+
+    Example:
+        - AAPL annual: Total Assets $352B, Total Liabilities $287B, Equity $65B
+    """
+    try:
+        if isinstance(ticker, list):
+            result = await borsa_client.get_us_balance_sheet_multi(ticker, period_type)
+            if result.get("error"):
+                raise ToolError(result["error"])
+            return MultiUSBalanceSheetResult(**result)
+
+        result = await borsa_client.get_us_balance_sheet(ticker, period_type)
+        if result.get("error_message"):
+            raise ToolError(result["error_message"])
+        return USBalanceSheetResult(ticker=ticker, period_type=period_type, **result)
+    except Exception as e:
+        raise ToolError(f"US balance sheet failed: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Get income statement (revenue, profit, margins). Supports single or multiple tickers.")
+async def get_us_income_statement(
+    ticker: Annotated[Union[str, List[str]], Field(
+        description="US ticker(s): single 'AAPL' or list ['AAPL','MSFT','GOOGL'] (max 10)",
+        examples=["AAPL", ["AAPL", "MSFT", "GOOGL"]]
+    )],
+    period_type: Annotated[Literal["annual", "quarterly"], Field(
+        description="'annual' for yearly, 'quarterly' for recent quarters",
+        default="annual"
+    )] = "annual"
+) -> Union[USIncomeStatementResult, MultiUSIncomeStatementResult]:
+    """
+    Get US stock income statement (P/L) from Yahoo Finance.
+
+    Returns revenue, cost of goods sold, gross profit, operating income,
+    net income, and various margins. Use for profitability analysis.
+
+    For multiple tickers: Executes in parallel (60-75% faster for 5+ stocks).
+
+    Args:
+        ticker: Single ticker or list of tickers (max 10)
+        period_type: 'annual' for yearly data, 'quarterly' for recent quarters
+
+    Returns:
+        USIncomeStatementResult for single, MultiUSIncomeStatementResult for multiple.
+
+    Example:
+        - AAPL annual: Revenue $383B, Net Income $97B, Net Margin 25%
+    """
+    try:
+        if isinstance(ticker, list):
+            result = await borsa_client.get_us_income_statement_multi(ticker, period_type)
+            if result.get("error"):
+                raise ToolError(result["error"])
+            return MultiUSIncomeStatementResult(**result)
+
+        result = await borsa_client.get_us_income_statement(ticker, period_type)
+        if result.get("error_message"):
+            raise ToolError(result["error_message"])
+        return USIncomeStatementResult(ticker=ticker, period_type=period_type, **result)
+    except Exception as e:
+        raise ToolError(f"US income statement failed: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Get cash flow statement (operating, investing, financing). Supports single or multiple tickers.")
+async def get_us_cash_flow(
+    ticker: Annotated[Union[str, List[str]], Field(
+        description="US ticker(s): single 'AAPL' or list ['AAPL','MSFT','GOOGL'] (max 10)",
+        examples=["AAPL", ["AAPL", "MSFT", "GOOGL"]]
+    )],
+    period_type: Annotated[Literal["annual", "quarterly"], Field(
+        description="'annual' for yearly, 'quarterly' for recent quarters",
+        default="annual"
+    )] = "annual"
+) -> Union[USCashFlowResult, MultiUSCashFlowResult]:
+    """
+    Get US stock cash flow statement from Yahoo Finance.
+
+    Returns operating cash flow, capital expenditures, free cash flow,
+    investing activities, and financing activities. Essential for DCF valuation.
+
+    For multiple tickers: Executes in parallel (60-75% faster for 5+ stocks).
+
+    Args:
+        ticker: Single ticker or list of tickers (max 10)
+        period_type: 'annual' for yearly data, 'quarterly' for recent quarters
+
+    Returns:
+        USCashFlowResult for single, MultiUSCashFlowResult for multiple.
+
+    Example:
+        - AAPL annual: Operating CF $110B, CapEx $11B, FCF $99B
+    """
+    try:
+        if isinstance(ticker, list):
+            result = await borsa_client.get_us_cash_flow_multi(ticker, period_type)
+            if result.get("error"):
+                raise ToolError(result["error"])
+            return MultiUSCashFlowResult(**result)
+
+        result = await borsa_client.get_us_cash_flow(ticker, period_type)
+        if result.get("error_message"):
+            raise ToolError(result["error_message"])
+        return USCashFlowResult(ticker=ticker, period_type=period_type, **result)
+    except Exception as e:
+        raise ToolError(f"US cash flow failed: {str(e)}")
+
+
+# ======================= US STOCK FINANCIAL ANALYSIS TOOLS =======================
+
+
+@app.tool(description="US STOCKS: Warren Buffett's complete value investing analysis with US-specific macro data.")
+async def calculate_us_buffett_analysis(
+    ticker: Annotated[str, Field(
+        description="US stock ticker (e.g., AAPL, MSFT, GOOGL)",
+        pattern=r"^[A-Z]{1,5}$",
+        examples=["AAPL", "MSFT", "GOOGL"]
+    )]
+) -> BuffettValueAnalysis:
+    """
+    Warren Buffett's complete value investing analysis for US stocks.
+
+    Consolidates 4 key Buffett metrics with US-specific parameters:
+
+    1. OWNER EARNINGS (Real Cash Flow)
+       - Formula: Net Income + Depreciation - CapEx - ΔWorking Capital
+       - Buffett's preferred cash flow metric
+       - Shows real cash available to shareholders (in Million USD)
+
+    2. OE YIELD (Cash Return %)
+       - Formula: (Owner Earnings × 4) / Market Cap × 100
+       - Buffett criterion: >10% = Good investment
+       - Compares cash return to market price
+
+    3. DCF FISHER (Intrinsic Value)
+       - Inflation-adjusted DCF using Fisher Effect
+       - Real discount rate: (1 + nominal) / (1 + inflation) - 1
+       - US Parameters auto-fetched:
+         * 10Y Treasury (^TNX): ~4.5%
+         * US Fed target inflation: 2.5%
+         * Analyst earnings growth or World Bank US GDP: ~2%
+
+    4. SAFETY MARGIN (Buy Signal)
+       - Discount to intrinsic value per share
+       - Moat-adjusted thresholds: STRONG=30%, ORTA=25%, WEAK=20%
+       - BUY signal: Current price < (Intrinsic - Safety Margin)
+
+    Returns comprehensive BuffettValueAnalysis with:
+    - buffett_score: STRONG_BUY | BUY | HOLD | AVOID
+    - key_insights: 3-5 actionable insights
+    - warnings: 0-3 concerns or red flags
+    - data_quality_notes: Data completeness info
+
+    Example:
+        - AAPL: OE $120B, OE Yield 4.2%, Intrinsic $185/share, Safety 22%
+        - MSFT: OE $85B, OE Yield 3.8%, Intrinsic $420/share, Safety 15%
+    """
+    try:
+        result = await borsa_client.calculate_us_buffett_analysis(ticker)
+        if result.get('error_message'):
+            raise ToolError(result['error_message'])
+        return BuffettValueAnalysis(**result)
+    except Exception as e:
+        raise ToolError(f"US Buffett analysis failed: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Core Financial Health Analysis with ROE, ROIC, Debt Ratios, FCF Margin, Earnings Quality.")
+async def calculate_us_core_health(
+    ticker: Annotated[str, Field(
+        description="US stock ticker (e.g., AAPL, MSFT, GOOGL)",
+        pattern=r"^[A-Z]{1,5}$",
+        examples=["AAPL", "MSFT", "GOOGL"]
+    )]
+) -> CoreFinancialHealthAnalysis:
+    """
+    Core Financial Health Analysis for US stocks.
+
+    Consolidates 5 key financial health metrics in 1 call:
+
+    1. ROE - Return on Equity (Profitability)
+       - Formula: Net Income / Shareholders' Equity × 100
+       - Benchmark: ≥15% Excellent, ≥10% Good, ≥5% Average, <5% Poor
+       - Measures: How efficiently company uses shareholder capital
+
+    2. ROIC - Return on Invested Capital (Capital Efficiency)
+       - Formula: NOPAT / (Equity + Debt - Cash) × 100
+       - Benchmark: ≥15% Excellent, ≥10% Good, ≥7% Average, <7% Poor
+       - Measures: How efficiently company uses ALL capital
+
+    3. DEBT RATIOS (4 metrics)
+       - Debt/Equity: Total Debt / Equity (healthy <1.0)
+       - Debt/Assets: Total Debt / Total Assets (healthy <0.5)
+       - Interest Coverage: EBIT / Interest Expense (healthy >3.0)
+       - Debt Service: (Current Debt + Interest) / OCF (healthy <0.5)
+
+    4. FCF MARGIN (Cash Generation)
+       - Formula: Free Cash Flow / Revenue × 100
+       - Benchmark: ≥10% Excellent, ≥5% Good, ≥0% Average, <0% Poor
+       - Measures: Cash conversion efficiency
+
+    5. EARNINGS QUALITY (Sustainability)
+       - CF/NI Ratio: Operating CF / Net Income (healthy >1.0)
+       - Accruals: (Net Income - OCF) / Total Assets
+       - Working Capital Impact: ΔWC / Revenue
+       - Measures: How real and sustainable earnings are
+
+    Returns CoreFinancialHealthAnalysis with:
+    - health_score: STRONG | GOOD | AVERAGE | WEAK
+    - strengths: 2-5 positive findings
+    - concerns: 0-3 warning signals
+    - All individual metrics with assessments
+
+    Example:
+        - AAPL: ROE 160%, ROIC 55%, D/E 1.8, FCF 25%, Quality High → STRONG
+        - MSFT: ROE 35%, ROIC 25%, D/E 0.4, FCF 30%, Quality High → STRONG
+    """
+    try:
+        result = await borsa_client.calculate_us_core_health(ticker)
+        if result.get('error_message'):
+            raise ToolError(result['error_message'])
+        return CoreFinancialHealthAnalysis(**result)
+    except Exception as e:
+        raise ToolError(f"US Core Health analysis failed: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Advanced Financial Metrics with Altman Z-Score and Real Growth analysis.")
+async def calculate_us_advanced_metrics(
+    ticker: Annotated[str, Field(
+        description="US stock ticker (e.g., AAPL, MSFT, GOOGL)",
+        pattern=r"^[A-Z]{1,5}$",
+        examples=["AAPL", "MSFT", "GOOGL"]
+    )]
+) -> AdvancedFinancialMetrics:
+    """
+    Advanced Financial Metrics for US stocks.
+
+    Consolidates 2 advanced metrics in 1 call:
+
+    1. ALTMAN Z-SCORE (Bankruptcy Prediction)
+       - Formula: 1.2×X1 + 1.4×X2 + 3.3×X3 + 0.6×X4 + 1.0×X5
+       - X1: Working Capital / Total Assets (liquidity)
+       - X2: Retained Earnings / Total Assets (profitability)
+       - X3: EBIT / Total Assets (operating efficiency)
+       - X4: Market Cap / Total Liabilities (solvency)
+       - X5: Revenue / Total Assets (asset utilization)
+       - Zones:
+         * Z > 2.99: Safe Zone (low bankruptcy risk)
+         * 1.81 < Z < 2.99: Grey Zone (moderate risk)
+         * Z < 1.81: Distress Zone (high bankruptcy risk)
+
+    2. REAL GROWTH (Inflation-Adjusted Growth)
+       - Formula: Real Growth ≈ Nominal Growth - Inflation
+       - Uses Fisher Equation for precise calculation
+       - Revenue Real Growth: YoY revenue growth adjusted for inflation
+       - Earnings Real Growth: YoY earnings growth adjusted for inflation
+       - US Inflation: Fed target rate (2.5%)
+       - Quality Assessment:
+         * STRONG: Real growth > 5%
+         * MODERATE: Real growth 0-5%
+         * WEAK: Real growth -5% to 0%
+         * NEGATIVE: Real growth < -5%
+
+    Returns AdvancedFinancialMetrics with:
+    - altman_z_score: Z-Score calculation with component breakdown
+    - real_growth_revenue: Inflation-adjusted revenue growth
+    - real_growth_earnings: Inflation-adjusted earnings growth
+    - financial_stability: SAFE | GREY | DISTRESS
+    - growth_quality: STRONG | MODERATE | WEAK | NEGATIVE
+    - key_findings: 2-4 critical insights
+
+    Example:
+        - AAPL: Z=8.5 (Safe), Revenue +5% real, Earnings +8% real → Strong
+        - MSFT: Z=12.0 (Safe), Revenue +10% real, Earnings +15% real → Strong
+    """
+    try:
+        result = await borsa_client.calculate_us_advanced_metrics(ticker)
+        if result.get('error_message'):
+            raise ToolError(result['error_message'])
+        return AdvancedFinancialMetrics(**result)
+    except Exception as e:
+        raise ToolError(f"US Advanced Metrics analysis failed: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Comprehensive Financial Analysis with 11 metrics across Liquidity, Profitability, Valuation, and Composite Scores.")
+async def calculate_us_comprehensive(
+    ticker: Annotated[str, Field(
+        description="US stock ticker (e.g., AAPL, MSFT, GOOGL)",
+        pattern=r"^[A-Z]{1,5}$",
+        examples=["AAPL", "MSFT", "GOOGL"]
+    )]
+) -> ComprehensiveFinancialAnalysis:
+    """
+    Comprehensive Financial Analysis for US stocks.
+
+    Includes 11 metrics in 4 categories:
+
+    1. LIQUIDITY METRICS (5):
+       - Current Ratio: Current Assets / Current Liabilities
+         * Excellent: >2.0 | Good: 1.5-2.0 | Average: 1.0-1.5 | Poor: <1.0
+       - Quick Ratio: (Current Assets - Inventory) / Current Liabilities
+         * Excellent: >1.5 | Good: 1.0-1.5 | Average: 0.5-1.0 | Poor: <0.5
+       - OCF Ratio: Operating Cash Flow / Current Liabilities
+         * Excellent: >1.0 | Good: 0.5-1.0 | Average: 0.25-0.5 | Poor: <0.25
+       - Cash Conversion Cycle: DSO + DIO - DPO (in days)
+         * Excellent: <30 | Good: 30-60 | Average: 60-90 | Poor: >90
+       - Debt/EBITDA: Total Debt / EBITDA
+         * Excellent: <1.0 | Good: 1.0-2.0 | Average: 2.0-3.0 | Poor: >3.0
+
+    2. PROFITABILITY MARGINS (3):
+       - Gross Margin: Gross Profit / Revenue × 100
+         * Excellent: >40% | Good: 25-40% | Average: 15-25% | Poor: <15%
+       - Operating Margin: Operating Income / Revenue × 100
+         * Excellent: >20% | Good: 10-20% | Average: 5-10% | Poor: <5%
+       - Net Profit Margin: Net Income / Revenue × 100
+         * Excellent: >15% | Good: 8-15% | Average: 3-8% | Poor: <3%
+
+    3. VALUATION METRICS (2):
+       - EV/EBITDA: Enterprise Value / EBITDA
+         * Excellent: <8 | Good: 8-12 | Average: 12-18 | Expensive: >18
+       - Graham Number: √(22.5 × EPS × BVPS) with discount calculation
+         * Shows intrinsic value per share vs current price
+
+    4. COMPOSITE SCORES (2):
+       - Piotroski F-Score: 0-9 score based on profitability, leverage, efficiency
+         * Excellent: 8-9 | Good: 6-7 | Average: 4-5 | Poor: 0-3
+       - Magic Formula: Combines Earnings Yield + ROIC
+         * QUALITY: High ROIC > Earnings Yield (quality growth)
+         * VALUE: High Earnings Yield > ROIC (value opportunity)
+
+    Returns ComprehensiveFinancialAnalysis with:
+    - liquidity_metrics: 5 liquidity indicators with assessments
+    - profitability_margins: 3 margin metrics with assessments
+    - valuation_metrics: 2 valuation metrics with assessments
+    - composite_scores: 2 composite scores with assessments
+    - interpretation: Strengths and weaknesses summary
+    - data_quality_notes: Notes on data completeness
+
+    Example:
+        - AAPL: Current 0.99, Quick 0.85, Gross 46%, Op 31%, EV/EBITDA 22, F-Score 7
+        - MSFT: Current 1.77, Quick 1.54, Gross 70%, Op 45%, EV/EBITDA 21, F-Score 8
+    """
+    try:
+        result = await borsa_client.calculate_us_comprehensive(ticker)
+        if result.get('error_message'):
+            raise ToolError(result['error_message'])
+        return ComprehensiveFinancialAnalysis(**result)
+    except Exception as e:
+        raise ToolError(f"US Comprehensive analysis failed: {str(e)}")
+
+
+@app.tool(description="US STOCKS: Compare stocks across GICS sectors with performance, risk, and valuation metrics.")
+async def get_us_sector_comparison(
+    tickers: Annotated[List[str], Field(
+        description="List of US stock tickers to compare (e.g., ['AAPL', 'MSFT', 'GOOGL', 'JPM', 'JNJ'])",
+        min_length=2,
+        max_length=20,
+        examples=[["AAPL", "MSFT", "GOOGL"], ["JPM", "BAC", "WFC", "GS"]]
+    )]
+) -> SektorKarsilastirmaSonucu:
+    """
+    Compare US stocks across GICS sectors.
+
+    Provides comprehensive sector-level analysis for a portfolio of stocks.
+
+    Per-Company Metrics:
+    - P/E Ratio: Price to Earnings (trailing)
+    - P/B Ratio: Price to Book value
+    - ROE: Return on Equity (%)
+    - Debt Ratio: Debt to Equity
+    - Profit Margin: Net profit margin (%)
+    - Yearly Return: 1-year price return (%)
+    - Volatility: Annualized volatility (%)
+    - Average Volume: Daily trading volume
+
+    Sector-Level Aggregates:
+    - Number of companies per sector
+    - Average P/E, P/B, ROE, debt ratio
+    - Average profit margin, yearly return, volatility
+    - Total market cap by sector
+    - Best and worst performers in sector
+
+    Overall Analysis:
+    - Best performing sector (highest avg return)
+    - Lowest risk sector (lowest avg volatility)
+    - Largest sector (highest market cap)
+    - Overall market statistics
+
+    Example Portfolio Analysis:
+    - Tech: AAPL, MSFT, GOOGL, META → Avg P/E 28, Avg Return +35%
+    - Finance: JPM, BAC, GS → Avg P/E 12, Avg Return +20%
+    - Healthcare: JNJ, PFE, UNH → Avg P/E 18, Avg Return +15%
+
+    Use Cases:
+    - Portfolio sector diversification analysis
+    - Compare performance across sectors
+    - Identify sector rotation opportunities
+    - Risk assessment by sector exposure
+    """
+    try:
+        result = await borsa_client.get_us_sector_comparison(tickers)
+        if result.get('error_message'):
+            raise ToolError(result['error_message'])
+        return SektorKarsilastirmaSonucu(**result)
+    except Exception as e:
+        raise ToolError(f"US Sector comparison failed: {str(e)}")
+
+
+@app.tool(description="US INDICES: Search major US and international market indices by name or category.")
+async def get_us_index_search(
+    query: Annotated[str, Field(
+        description="Search term: index name, ticker, or category (e.g., 'S&P', 'nasdaq', 'tech', 'small cap')",
+        min_length=2,
+        examples=["S&P 500", "nasdaq", "tech", "small cap", "international"]
+    )]
+) -> USIndexSearchResult:
+    """
+    Search US and international stock market indices.
+
+    Database includes 28 major indices across categories:
+
+    Market Cap Indices:
+    - ^GSPC: S&P 500 (500 large-cap)
+    - ^DJI: Dow Jones Industrial Average (30 blue-chip)
+    - ^IXIC: Nasdaq Composite (all Nasdaq)
+    - ^NDX: Nasdaq-100 (100 largest tech)
+    - ^RUT: Russell 2000 (2000 small-cap)
+    - ^MID: S&P MidCap 400
+    - ^SML: S&P SmallCap 600
+    - ^OEX: S&P 100 (mega-cap)
+
+    Volatility & Broad:
+    - ^VIX: CBOE Volatility Index (Fear Index)
+    - ^NYA: NYSE Composite
+    - ^RUA: Russell 3000
+
+    International:
+    - ^FTSE: FTSE 100 (UK)
+    - ^N225: Nikkei 225 (Japan)
+    - ^HSI: Hang Seng (Hong Kong)
+    - ^GDAXI: DAX (Germany)
+    - ^FCHI: CAC 40 (France)
+    - ^STOXX50E: Euro Stoxx 50
+
+    Sector ETFs:
+    - XLK: Technology, XLF: Financial, XLE: Energy
+    - XLV: Healthcare, XLI: Industrial, XLY: Consumer Discretionary
+    - XLP: Consumer Staples, XLB: Materials, XLU: Utilities
+    - XLRE: Real Estate, XLC: Communication Services
+
+    Search Examples:
+    - 'S&P' → S&P 500, S&P 100, S&P MidCap 400
+    - 'tech' → Nasdaq-100, Technology Select Sector
+    - 'small cap' → Russell 2000, S&P SmallCap 600
+    - 'international' → FTSE, Nikkei, DAX, etc.
+    """
+    try:
+        result = await borsa_client.search_us_indices(query)
+        if result.get('error_message'):
+            raise ToolError(result['error_message'])
+        return USIndexSearchResult(**result)
+    except Exception as e:
+        raise ToolError(f"US Index search failed: {str(e)}")
+
+
+@app.tool(description="US INDICES: Get detailed info about a US index with current price, returns, and 52-week range.")
+async def get_us_index_info(
+    index_ticker: Annotated[str, Field(
+        description="Index ticker (e.g., '^GSPC', '^DJI', 'XLK'). Use get_us_index_search to find tickers.",
+        examples=["^GSPC", "^DJI", "^IXIC", "^NDX", "^RUT", "XLK", "XLF"]
+    )]
+) -> USIndexDetailResult:
+    """
+    Get detailed information and current market data for a US index.
+
+    Returns:
+    - Current index value and daily change
+    - Year-to-date (YTD) return percentage
+    - 1-year return percentage
+    - 52-week high and low
+    - Day's high and low
+    - Index description and category
+
+    Popular Indices:
+    - ^GSPC: S&P 500 (benchmark for large-cap US stocks)
+    - ^DJI: Dow Jones Industrial Average (30 blue-chip)
+    - ^IXIC: Nasdaq Composite (tech-heavy)
+    - ^NDX: Nasdaq-100 (100 largest non-financial Nasdaq)
+    - ^RUT: Russell 2000 (small-cap benchmark)
+    - ^VIX: Volatility Index (market fear gauge)
+
+    Sector ETFs:
+    - XLK: Technology sector performance
+    - XLF: Financial sector performance
+    - XLE: Energy sector performance
+
+    Use Case Examples:
+    - Check S&P 500 YTD performance: get_us_index_info('^GSPC')
+    - Compare tech vs finance: get_us_index_info('XLK') + get_us_index_info('XLF')
+    - Assess market fear: get_us_index_info('^VIX')
+    """
+    try:
+        result = await borsa_client.get_us_index_info(index_ticker)
+        if result.get('error_message'):
+            raise ToolError(result['error_message'])
+        return USIndexDetailResult(**result)
+    except Exception as e:
+        raise ToolError(f"US Index info failed: {str(e)}")
+
 
 def main():
     """Main function to run the server."""
