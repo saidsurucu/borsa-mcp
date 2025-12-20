@@ -1105,7 +1105,8 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
         """Get US stock quick info with key metrics."""
         result = await self.yfinance_provider.get_hizli_bilgi(ticker, market="US")
         if "error" in result:
-            return {"error_message": result.get("error")}
+            return {"error_message": result.get("error"), "ticker": ticker}
+        result["ticker"] = ticker
         return result
 
     async def get_us_stock_data(
@@ -1141,35 +1142,40 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
         """Get US stock analyst recommendations and price targets."""
         result = await self.yfinance_provider.get_analist_verileri(ticker, market="US")
         if "error" in result:
-            return {"error_message": result.get("error")}
+            return {"error_message": result.get("error"), "ticker": ticker}
+        result["ticker"] = ticker
         return result
 
     async def get_us_dividends(self, ticker: str) -> Dict[str, Any]:
         """Get US stock dividends and corporate actions."""
         result = await self.yfinance_provider.get_temettu_ve_aksiyonlar(ticker, market="US")
         if "error" in result:
-            return {"error_message": result.get("error")}
+            return {"error_message": result.get("error"), "ticker": ticker}
+        result["ticker"] = ticker
         return result
 
     async def get_us_earnings(self, ticker: str) -> Dict[str, Any]:
         """Get US stock earnings calendar."""
         result = await self.yfinance_provider.get_kazanc_takvimi(ticker, market="US")
         if "error" in result:
-            return {"error_message": result.get("error")}
+            return {"error_message": result.get("error"), "ticker": ticker}
+        result["ticker"] = ticker
         return result
 
     async def get_us_technical_analysis(self, ticker: str) -> Dict[str, Any]:
         """Get US stock technical analysis with indicators."""
         result = self.yfinance_provider.get_teknik_analiz(ticker, market="US")
         if "error" in result:
-            return {"error_message": result.get("error")}
+            return {"error_message": result.get("error"), "ticker": ticker}
+        result["ticker"] = ticker
         return result
 
     async def get_us_pivot_points(self, ticker: str) -> Dict[str, Any]:
         """Get US stock pivot points (support/resistance levels)."""
         result = await self.yfinance_provider.get_pivot_points(ticker, market="US")
         if "error" in result:
-            return {"error_message": result.get("error")}
+            return {"error_message": result.get("error"), "ticker": ticker}
+        result["ticker"] = ticker
         return result
 
     # ============================================================================
@@ -1336,21 +1342,27 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
         """Get US stock balance sheet from Yahoo Finance."""
         result = await self.yfinance_provider.get_bilanco(ticker, period_type, market="US")
         if result.get("error"):
-            return {"error_message": result.get("error")}
+            return {"error_message": result.get("error"), "ticker": ticker, "period_type": period_type}
+        result["ticker"] = ticker
+        result["period_type"] = period_type
         return result
 
     async def get_us_income_statement(self, ticker: str, period_type: str = "annual") -> Dict[str, Any]:
         """Get US stock income statement from Yahoo Finance."""
         result = await self.yfinance_provider.get_kar_zarar(ticker, period_type, market="US")
         if result.get("error"):
-            return {"error_message": result.get("error")}
+            return {"error_message": result.get("error"), "ticker": ticker, "period_type": period_type}
+        result["ticker"] = ticker
+        result["period_type"] = period_type
         return result
 
     async def get_us_cash_flow(self, ticker: str, period_type: str = "annual") -> Dict[str, Any]:
         """Get US stock cash flow statement from Yahoo Finance."""
         result = await self.yfinance_provider.get_nakit_akisi(ticker, period_type, market="US")
         if result.get("error"):
-            return {"error_message": result.get("error")}
+            return {"error_message": result.get("error"), "ticker": ticker, "period_type": period_type}
+        result["ticker"] = ticker
+        result["period_type"] = period_type
         return result
 
     # ============================================================================

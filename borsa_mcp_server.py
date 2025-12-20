@@ -4016,7 +4016,7 @@ async def get_us_balance_sheet(
         result = await borsa_client.get_us_balance_sheet(ticker, period_type)
         if result.get("error_message"):
             raise ToolError(result["error_message"])
-        return USBalanceSheetResult(ticker=ticker, period_type=period_type, **result)
+        return USBalanceSheetResult(**result)
     except Exception as e:
         raise ToolError(f"US balance sheet failed: {str(e)}")
 
@@ -4060,7 +4060,7 @@ async def get_us_income_statement(
         result = await borsa_client.get_us_income_statement(ticker, period_type)
         if result.get("error_message"):
             raise ToolError(result["error_message"])
-        return USIncomeStatementResult(ticker=ticker, period_type=period_type, **result)
+        return USIncomeStatementResult(**result)
     except Exception as e:
         raise ToolError(f"US income statement failed: {str(e)}")
 
@@ -4104,7 +4104,7 @@ async def get_us_cash_flow(
         result = await borsa_client.get_us_cash_flow(ticker, period_type)
         if result.get("error_message"):
             raise ToolError(result["error_message"])
-        return USCashFlowResult(ticker=ticker, period_type=period_type, **result)
+        return USCashFlowResult(**result)
     except Exception as e:
         raise ToolError(f"US cash flow failed: {str(e)}")
 
