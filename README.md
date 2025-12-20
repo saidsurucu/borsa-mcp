@@ -2,7 +2,7 @@
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
-Borsa İstanbul (BIST) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 50 araçla kapsamlı finansal analiz.
+Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 60 araçla kapsamlı finansal analiz.
 
 ![ornek](./ornek.jpeg)
 
@@ -45,9 +45,10 @@ Bitcoin'in TRY fiyatını kontrol et
 
 ## 🎯 Temel Özellikler
 
-**50 Araç ile Kapsamlı Finansal Analiz:**
+**60 Araç ile Kapsamlı Finansal Analiz:**
 
 * 📈 **BIST Hisseleri:** 758 şirket, finansal tablolar, teknik analiz, analist raporları, KAP haberleri
+* 🇺🇸 **US Hisse Senetleri:** S&P 500, Nasdaq, Dow Jones şirketleri, finansal tablolar, Buffett analizi, sektör karşılaştırması
 * 🆕 **Tarih Aralığı:** Belirli tarihler arası geçmiş veri sorgulaması (örn: "2024-01-01" - "2024-12-31")
 * 🎯 **Pivot Points:** 3 direnç & 3 destek seviyesi hesaplama (klasik pivot formülü)
 * 📊 **BIST Endeksleri:** XU100, XBANK, XK100 ve tüm endeksler için tam destek
@@ -82,6 +83,7 @@ Bitcoin'in TRY fiyatını kontrol et
 - [BIST Endeks Araçları](#bist-endeks-araçları)
 - [Katılım Finans](#katılım-finans)
 - [Değer Yatırımı & Finansal Sağlık](#değer-yatırımı--finansal-sağlık-araçları)
+- [US Hisse Senetleri Araçları](#us-hisse-senetleri-araçları-abd-piyasası)
 - [TEFAS Fon Araçları](#tefas-fon-araçları)
 - [BtcTurk Kripto Araçları](#btcturk-kripto-para-araçları-türk-piyasası)
 - [Coinbase Global Kripto Araçları](#coinbase-global-kripto-para-araçları-uluslararası-piyasalar)
@@ -95,7 +97,8 @@ Bitcoin'in TRY fiyatını kontrol et
 <summary><b>🔍 Veri Kaynakları & Kapsam</b></summary>
 
 - [KAP (Kamuyu Aydınlatma Platformu)](#kap-kamuyu-aydınlatma-platformu)
-- [Yahoo Finance](#yahoo-finance-entegrasyonu)
+- [Yahoo Finance (BIST)](#yahoo-finance-entegrasyonu)
+- [US Stock Market](#us-stock-market-yahoo-finance)
 - [Mynet Finans](#mynet-finans-hibrit-mod)
 - [TEFAS](#tefas-türkiye-elektronik-fon-alım-satım-platformu)
 - [BtcTurk & Coinbase](#btcturk-kripto-para-borsası-türk-piyasası)
@@ -220,6 +223,35 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 **Kapsamlı Analiz:**
 * **`calculate_comprehensive_analysis`**: 11 metrikte tam finansal sağlık değerlendirmesi (Likidite, Karlılık, Değerleme, Kompozit Skorlar)
 
+### US Hisse Senetleri Araçları (ABD Piyasası)
+
+**Temel US Araçları:**
+* **`search_us_stock`**: US şirket arama (S&P 500, Nasdaq, NYSE)
+* **`get_us_company_profile`**: US şirket profili
+* **`get_us_quick_info`**: US hızlı bilgi (P/E, P/B, ROE)
+* **`get_us_stock_data`**: US geçmiş OHLCV verileri
+* **`get_us_analyst_ratings`**: US analist tavsiyeleri
+* **`get_us_dividends`**: US temettü geçmişi
+* **`get_us_earnings`**: US kazanç takvimi
+* **`get_us_technical_analysis`**: US teknik analiz
+* **`get_us_pivot_points`**: US pivot noktaları
+
+**US Finansal Tablolar:**
+* **`get_us_balance_sheet`**: US bilanço (yıllık/çeyreklik)
+* **`get_us_income_statement`**: US gelir tablosu
+* **`get_us_cash_flow`**: US nakit akışı
+
+**US Finansal Analiz:**
+* **`calculate_us_buffett_analysis`**: US Buffett değer analizi (Owner Earnings, OE Yield, DCF, Safety Margin)
+* **`calculate_us_core_health`**: US finansal sağlık (ROE, ROIC, Borç Oranları, FCF Marjı)
+* **`calculate_us_advanced_metrics`**: US Altman Z-Score ve reel büyüme
+* **`calculate_us_comprehensive`**: US kapsamlı analiz (11 metrik)
+
+**US Endeks Araçları:**
+* **`get_us_sector_comparison`**: GICS sektör karşılaştırması
+* **`get_us_index_search`**: 28 US endeksi arama (S&P 500, Nasdaq-100, Dow Jones, Russell vb.)
+* **`get_us_index_info`**: US endeks detayları ve performans verileri
+
 ### TEFAS Fon Araçları
 * **`search_funds`**: Türk yatırım fonları arama (kategori filtreleme ve performans metrikleri ile).
 * **`get_fund_detail`**: Kapsamlı fon bilgileri ve analitiği.
@@ -278,6 +310,14 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **İki Sorgu Modu**:
   - **Dönem Modu:** Period parametresi ile (1d, 1mo, 1y, vb.) - varsayılan
   - **Tarih Modu:** start_date ve end_date parametreleri ile belirli tarih aralığı
+
+### US Stock Market (Yahoo Finance)
+- **Kapsam**: S&P 500, Nasdaq-100, Dow Jones ve NYSE'deki tüm şirketler
+- **Endeksler**: 28 ana US endeksi (^GSPC, ^IXIC, ^DJI, Russell, sektör ETF'leri)
+- **Kategoriler**: Large Cap, Tech, Blue Chip, Small Cap, Mid Cap, International
+- **Finansal Tablolar**: Quarterly ve annual balance sheet, income statement, cash flow
+- **Değer Analizi**: Buffett analizi için US 10Y Treasury (^TNX) ve Fed %2.5 enflasyon hedefi
+- **Güncelleme**: Gerçek zamanlı piyasa verileri
 
 ### Mynet Finans (Hibrit Mod)
 - **Türk Özel Verileri**: Kurumsal yönetim, ortaklık yapısı, bağlı şirketler
@@ -389,6 +429,24 @@ ARCLK'nın katılım finans uygunluğunu kontrol et
 
 # Sektör karşılaştırması
 Bankacılık sektöründeki ana oyuncuları karşılaştır: GARAN, AKBNK, YKBNK
+
+# US hisse analizi
+Apple (AAPL) hissesinin son 3 aylık performansını analiz et
+
+# US finansal tablolar
+Microsoft'un son yıllık bilançosunu getir
+
+# US Buffett değer analizi
+Amazon için Buffett değer analizi yap
+
+# US endeks arama
+Teknoloji sektörü endekslerini ara
+
+# US sektör karşılaştırması
+AAPL, MSFT, GOOGL şirketlerini sektör bazında karşılaştır
+
+# US finansal sağlık analizi
+Tesla için kapsamlı finansal sağlık analizi yap
 
 # Fon arama ve analizi
 "altın" fonları ara ve en iyi performans gösteren 3 tanesini karşılaştır
