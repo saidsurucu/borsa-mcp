@@ -11,6 +11,7 @@ from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 import urllib3
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from fastmcp.server.middleware.caching import ResponseCachingMiddleware, CallToolSettings
 from pydantic import Field
 
 from borsa_client import BorsaApiClient
@@ -122,11 +123,34 @@ logger = logging.getLogger(__name__)
 
 app = FastMCP(
     name="BorsaMCP",
-    instructions="An MCP server for Borsa Istanbul (BIST) and TEFAS mutual fund data. Provides tools to search for companies (from KAP), fetch historical financial data and statements (from Yahoo Finance), and analyze Turkish mutual funds (from TEFAS).",
-    dependencies=["httpx", "pdfplumber", "yfinance", "pandas", "beautifulsoup4", "lxml", "requests"]
+    instructions="An MCP server for Borsa Istanbul (BIST) and TEFAS mutual fund data. Provides tools to search for companies (from KAP), fetch historical financial data and statements (from Yahoo Finance), and analyze Turkish mutual funds (from TEFAS)."
 )
 
 borsa_client = BorsaApiClient()
+
+# Response Caching Middleware - Cache static/semi-static data for performance
+# TTL: 1 hour (3600s) - balanced for semi-static financial data
+cache_middleware = ResponseCachingMiddleware(
+    call_tool_settings=CallToolSettings(
+        ttl=3600,  # 1 hour cache for all included tools
+        included_tools=[
+            # Static data - company/index lists
+            "find_ticker_code",
+            "get_endeks_kodu",
+            "get_endeks_sirketleri",
+            # Semi-static data - profiles and regulations
+            "get_sirket_profili",
+            "get_katilim_finans_uygunluk",
+            "get_fon_mevzuati",
+            "get_fund_detail",
+            "get_turkiye_enflasyon",
+            # Exchange info (less volatile than prices)
+            "get_kripto_exchange_info",
+            "get_coinbase_exchange_info",
+        ]
+    )
+)
+app.add_middleware(cache_middleware)
 
 # Define Literal types for yfinance periods to ensure clean schema generation
 YFinancePeriodLiteral = Literal["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "ytd", "max"]
@@ -1593,7 +1617,7 @@ async def get_fund_portfolio(
 
 
 
-@app.tool(description="Compare Turkish mutual funds: side-by-side performance analysis. FUNDS ONLY.")
+@app.tool(description="Compare Turkish mutual funds: side-by-side performance analysis. FUNDS ONLY.", task=True)
 async def compare_funds(
     fund_type: str = Field("EMK", description="Fund type: 'YAT' (Investment Funds), 'EMK' (Pension Funds), 'BYF' (ETFs), 'GYF' (REITs), 'GSYF' (Venture Capital)."),
     start_date: str = Field(None, description="Start date in DD.MM.YYYY format (e.g., '25.05.2025'). If not provided, defaults to 30 days ago."),
@@ -3385,7 +3409,8 @@ async def get_tahvil_faizleri() -> TahvilFaizleriSonucu:
         raise ToolError(f"Bond yields fetch failed: {str(e)}")
 
 @app.tool(
-    description="VALUE INVESTING: Complete Buffett value analysis (4 metrics in 1)"
+    description="VALUE INVESTING: Complete Buffett value analysis (4 metrics in 1)",
+    task=True
 )
 async def calculate_buffett_value_analysis(
     ticker_kodu: Annotated[str, Field(
@@ -3452,7 +3477,8 @@ async def calculate_buffett_value_analysis(
         raise ToolError(f"Buffett value analysis failed for {ticker_kodu}: {str(e)}")
 
 @app.tool(
-    description="VALUE INVESTING: Calculate comprehensive financial analysis (11 metrics in 4 categories)"
+    description="VALUE INVESTING: Calculate comprehensive financial analysis (11 metrics in 4 categories)",
+    task=True
 )
 async def calculate_comprehensive_analysis(
     ticker_kodu: Annotated[str, Field(
@@ -3502,7 +3528,8 @@ async def calculate_comprehensive_analysis(
 
 
 @app.tool(
-    description="FINANCIAL HEALTH: Core financial health analysis (5 metrics in 1 call)"
+    description="FINANCIAL HEALTH: Core financial health analysis (5 metrics in 1 call)",
+    task=True
 )
 async def calculate_core_financial_health(
     ticker_kodu: Annotated[str, Field(
@@ -3557,7 +3584,8 @@ async def calculate_core_financial_health(
 
 
 @app.tool(
-    description="FINANCIAL STABILITY: Advanced metrics - bankruptcy risk and real growth (2 metrics in 1 call)"
+    description="FINANCIAL STABILITY: Advanced metrics - bankruptcy risk and real growth (2 metrics in 1 call)",
+    task=True
 )
 async def calculate_advanced_metrics(
     ticker_kodu: Annotated[str, Field(
