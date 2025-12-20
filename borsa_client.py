@@ -1135,8 +1135,31 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
             market="US"
         )
         if "error" in result:
-            return {"error_message": result.get("error")}
-        return result
+            return {"error_message": result.get("error"), "ticker": ticker}
+
+        # Map Turkish field names to English for model compatibility
+        # Convert FinansalVeriNoktasi objects to USStockDataPoint dicts
+        veri_noktalari = result.get("veri_noktalari", [])
+        data_points = []
+        for vn in veri_noktalari:
+            data_points.append({
+                "date": vn.tarih,
+                "open": vn.acilis,
+                "high": vn.en_yuksek,
+                "low": vn.en_dusuk,
+                "close": vn.kapanis,
+                "volume": int(vn.hacim)
+            })
+
+        mapped_result = {
+            "ticker": ticker,
+            "period": period,
+            "start_date": start_date,
+            "end_date": end_date,
+            "data_points": data_points,
+            "total_points": len(data_points)
+        }
+        return mapped_result
 
     async def get_us_analyst_ratings(self, ticker: str) -> Dict[str, Any]:
         """Get US stock analyst recommendations and price targets."""
@@ -1167,8 +1190,43 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
         result = self.yfinance_provider.get_teknik_analiz(ticker, market="US")
         if "error" in result:
             return {"error_message": result.get("error"), "ticker": ticker}
-        result["ticker"] = ticker
-        return result
+
+        # Map Turkish field names to English for model compatibility
+        fiyat = result.get("fiyat_analizi", {})
+        trend = result.get("trend_analizi", {})
+        teknik = result.get("teknik_indiktorler", {})
+        hareketli = result.get("hareketli_ortalamalar", {})
+
+        # Build indicators dict
+        indicators = {
+            "rsi_14": teknik.get("rsi_14"),
+            "macd": teknik.get("macd"),
+            "macd_signal": teknik.get("macd_signal"),
+            "macd_histogram": teknik.get("macd_histogram"),
+            "sma_20": hareketli.get("sma_20"),
+            "sma_50": hareketli.get("sma_50"),
+            "sma_200": hareketli.get("sma_200"),
+            "ema_12": hareketli.get("ema_12"),
+            "ema_26": hareketli.get("ema_26"),
+            "bollinger_upper": teknik.get("bollinger_ust"),
+            "bollinger_middle": teknik.get("bollinger_orta"),
+            "bollinger_lower": teknik.get("bollinger_alt"),
+        }
+
+        # Determine overall trend from Turkish trend analysis
+        trend_map = {"yukselis": "bullish", "dusulis": "bearish", "yatay": "neutral"}
+        overall_trend = trend_map.get(trend.get("orta_vadeli_trend"), "neutral")
+
+        mapped_result = {
+            "ticker": ticker,
+            "analysis_date": result.get("analiz_tarihi"),
+            "current_price": fiyat.get("guncel_fiyat"),
+            "indicators": indicators,
+            "trend": overall_trend,
+            "signal": result.get("al_sat_sinyali"),
+            "signal_explanation": result.get("sinyal_aciklamasi"),
+        }
+        return mapped_result
 
     async def get_us_pivot_points(self, ticker: str) -> Dict[str, Any]:
         """Get US stock pivot points (support/resistance levels)."""
