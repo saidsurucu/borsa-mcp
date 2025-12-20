@@ -2,7 +2,7 @@
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
-Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 60 araçla kapsamlı finansal analiz.
+Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 69 araçla kapsamlı finansal analiz.
 
 ![ornek](./ornek.jpeg)
 
@@ -45,7 +45,7 @@ Bitcoin'in TRY fiyatını kontrol et
 
 ## 🎯 Temel Özellikler
 
-**60 Araç ile Kapsamlı Finansal Analiz:**
+**69 Araç ile Kapsamlı Finansal Analiz:**
 
 * 📈 **BIST Hisseleri:** 758 şirket, finansal tablolar, teknik analiz, analist raporları, KAP haberleri
 * 🇺🇸 **US Hisse Senetleri:** S&P 500, Nasdaq, Dow Jones şirketleri, finansal tablolar, Buffett analizi, sektör karşılaştırması
@@ -60,6 +60,7 @@ Bitcoin'in TRY fiyatını kontrol et
 * 📉 **TCMB Enflasyon:** TÜFE/ÜFE resmi enflasyon verileri ve hesaplama araçları
 * ☪️ **Katılım Finans:** İslami finans uygunluk verileri
 * ⚡ **LLM Optimizasyonu:** Hızlı işleme ve domain-spesifik araç seçimi
+* 🚀 **FastMCP 2.14:** Response Caching (10 araç, 1 saat TTL) ve Background Tasks (5 uzun analiz aracı)
 
 ## 📑 **İçindekiler**
 
