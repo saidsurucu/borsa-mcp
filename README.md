@@ -79,8 +79,7 @@ Bitcoin'in TRY fiyatını kontrol et
 
 **Not:** Remote MCP kullanıyorsanız bu adımları atlayabilirsiniz!
 
-<details>
-<summary><b>5ire ve Diğer MCP İstemcileri için Local Kurulum</b></summary>
+### 5ire ve Diğer MCP İstemcileri için Local Kurulum
 
 Bu bölüm, Borsa MCP'yi 5ire gibi diğer MCP istemcileriyle local olarak kullanmak isteyenler içindir.
 
@@ -103,10 +102,7 @@ Bu bölüm, Borsa MCP'yi 5ire gibi diğer MCP istemcileriyle local olarak kullan
 * Şimdi **Tools** altında **Borsa MCP**'yi görüyor olmalısınız. Üstüne geldiğinizde sağda çıkan butona tıklayıp etkinleştirin (yeşil ışık yanmalı).
 * Artık Borsa MCP ile konuşabilirsiniz.
 
-</details>
-
-<details>
-<summary><b>Claude Desktop için Local Kurulum</b></summary>
+### Claude Desktop için Local Kurulum
 
 **Not:** Remote MCP daha kolay bir seçenektir. Sadece local kurulum yapmak istiyorsanız bu adımları izleyin.
 
@@ -130,7 +126,7 @@ Bu bölüm, Borsa MCP'yi 5ire gibi diğer MCP istemcileriyle local olarak kullan
     ```
 4.  Claude Desktop'ı kapatıp yeniden başlatın.
 
-</details>
+---
 
 ## 🛠️ Kullanılabilir Araçlar (MCP Tools)
 
