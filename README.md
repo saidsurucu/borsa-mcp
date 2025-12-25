@@ -62,63 +62,16 @@ Bitcoin'in TRY fiyatını kontrol et
 * ⚡ **LLM Optimizasyonu:** Hızlı işleme ve domain-spesifik araç seçimi
 * 🚀 **FastMCP 2.14:** Response Caching (10 araç, 1 saat TTL) ve Background Tasks (5 uzun analiz aracı)
 
-## 📑 **İçindekiler**
+## 📑 İçindekiler
 
-- [🚀 5 Dakikada Başla (Remote MCP)](#-5-dakikada-başla-remote-mcp) - **Kurulum gerektirmez!**
-- [🎯 Temel Özellikler](#-temel-özellikler)
-
-<details>
-<summary><b>💻 Gelişmiş Kurulum (İsteğe Bağlı)</b></summary>
-
-- [5ire ve Diğer MCP İstemcileri](#-claude-haricindeki-modellerle-kullanmak-için-çok-kolay-kurulum-örnek-5ire-için)
-- [Claude Desktop Manuel/Local Kurulum](#️-claude-desktop-manuel-kurulumu)
-
-</details>
-
-<details>
-<summary><b>🛠️ Kullanılabilir Araçlar</b></summary>
-
-- [Temel Şirket & Finansal Veriler](#temel-şirket--finansal-veriler)
-- [Gelişmiş Analiz Araçları](#gelişmiş-analiz-araçları)
-- [KAP & Haberler](#kap--haberler)
-- [BIST Endeks Araçları](#bist-endeks-araçları)
-- [Katılım Finans](#katılım-finans)
-- [Değer Yatırımı & Finansal Sağlık](#değer-yatırımı--finansal-sağlık-araçları)
-- [US Hisse Senetleri Araçları](#us-hisse-senetleri-araçları-abd-piyasası)
-- [TEFAS Fon Araçları](#tefas-fon-araçları)
-- [BtcTurk Kripto Araçları](#btcturk-kripto-para-araçları-türk-piyasası)
-- [Coinbase Global Kripto Araçları](#coinbase-global-kripto-para-araçları-uluslararası-piyasalar)
-- [Dovizcom Döviz & Emtia Araçları](#dovizcom-döviz--emtia-araçları-türk--uluslararası-piyasalar)
-- [Ekonomik Takvim](#dovizcom-ekonomik-takvim-araçları)
-- [TCMB Enflasyon Araçları](#tcmb-enflasyon-araçları)
-
-</details>
-
-<details>
-<summary><b>🔍 Veri Kaynakları & Kapsam</b></summary>
-
-- [KAP (Kamuyu Aydınlatma Platformu)](#kap-kamuyu-aydınlatma-platformu)
-- [Yahoo Finance (BIST)](#yahoo-finance-entegrasyonu)
-- [US Stock Market](#us-stock-market-yahoo-finance)
-- [Mynet Finans](#mynet-finans-hibrit-mod)
-- [TEFAS](#tefas-türkiye-elektronik-fon-alım-satım-platformu)
-- [BtcTurk & Coinbase](#btcturk-kripto-para-borsası-türk-piyasası)
-- [Dovizcom](#dovizcom-döviz--emtia-platformu-türk--uluslararası-piyasalar)
-- [TCMB](#tcmb-enflasyon-verileri-resmi-merkez-bankası)
-
-</details>
-
-<details>
-<summary><b>📊 Örnek Kullanım</b></summary>
-
-- [Hisse Senedi Analizleri](#-örnek-kullanım)
-- [Fon Analizleri](#-örnek-kullanım)
-- [Kripto Para Analizleri](#-örnek-kullanım)
-- [Döviz & Emtia Analizleri](#-örnek-kullanım)
-- [Ekonomik Takvim](#-örnek-kullanım)
-- [Enflasyon Analizleri](#-örnek-kullanım)
-
-</details>
+| Bölüm | Açıklama |
+|-------|----------|
+| [🚀 5 Dakikada Başla](#-5-dakikada-başla-remote-mcp) | Kurulum gerektirmez - Remote MCP |
+| [🎯 Temel Özellikler](#-temel-özellikler) | 69 araç ile kapsamlı finansal analiz |
+| [💻 Gelişmiş Kurulum](#-gelişmiş-kurulum-isteğe-bağlı) | 5ire, Claude Desktop local kurulum |
+| [🛠️ Kullanılabilir Araçlar](#️-kullanılabilir-araçlar-mcp-tools) | BIST, US, Kripto, Döviz, Fon araçları |
+| [🔍 Veri Kaynakları](#-veri-kaynakları--kapsam) | KAP, Yahoo Finance, BtcTurk, Coinbase, TCMB |
+| [📊 Örnek Kullanım](#-örnek-kullanım) | Pratik sorgular ve analiz örnekleri |
 
 ---
 
