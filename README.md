@@ -132,8 +132,7 @@ Bu bölüm, Borsa MCP'yi 5ire gibi diğer MCP istemcileriyle local olarak kullan
 
 </details>
 
-<details>
-<summary><b>🛠️ Kullanılabilir Araçlar (MCP Tools)</b></summary>
+## 🛠️ Kullanılabilir Araçlar (MCP Tools)
 
 Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 
@@ -246,10 +245,9 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_turkiye_enflasyon`**: Resmi TCMB TÜFE/ÜFE enflasyon verileri - TÜFE: tüketici fiyatları (2005-2025, 245+ kayıt), ÜFE: üretici fiyatları (2014-2025, 137+ kayıt) - yıllık/aylık oranlar, tarih aralığı filtreleme, istatistiksel özet.
 * **`get_enflasyon_hesapla`**: TCMB resmi enflasyon hesaplama API'si - iki tarih arası kümülatif enflasyon hesaplama, sepet değeri analizi, satın alma gücü kaybı/kazancı, ortalama yıllık enflasyon, TÜFE endeks değerleri.
 
-</details>
+---
 
-<details>
-<summary><b>🔍 Veri Kaynakları & Kapsam</b></summary>
+## 🔍 Veri Kaynakları & Kapsam
 
 ### KAP (Kamuyu Aydınlatma Platformu)
 - **Şirketler**: 758 BIST şirketi (ticker kodları, adlar, şehirler, çoklu ticker desteği)
@@ -354,10 +352,9 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
   - **ÜFE:** %23.13 (yıllık), %2.48 (aylık)
 - **Ekonomik Analiz**: ÜFE öncü gösterge olarak TÜFE hareketlerini öngörmede kullanılır
 
-</details>
+---
 
-<details>
-<summary><b>📊 Örnek Kullanım</b></summary>
+## 📊 Örnek Kullanım
 
 ```
 # Şirket arama
@@ -516,8 +513,6 @@ Son 6 aylık enflasyon etkisini hesapla ve yıllık bazda projeksiyon yap
 # Kontrat endeksleme hesaplaması
 Kira sözleşmelerinin enflasyon ayarlaması için gerekli artış oranını hesapla
 ```
-
-</details>
 
 ---
 
