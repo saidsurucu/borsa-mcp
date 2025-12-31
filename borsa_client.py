@@ -107,6 +107,10 @@ class BorsaApiClient:
             data_provider=self  # Use BorsaClient which has İş Yatırım integration
         )
 
+        # Import YFScreenProvider for US securities screening
+        from providers.yfscreen_provider import YFScreenProvider
+        self.yfscreen_provider = YFScreenProvider()
+
     async def close(self):
         await self._http_client.aclose()
         
@@ -1751,3 +1755,46 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
             return {"error_message": result.get('error'), **result}
 
         return result
+
+    # ==================== US SCREENER METHODS ====================
+
+    async def screen_us_securities(
+        self,
+        security_type: str = "equity",
+        preset: Optional[str] = None,
+        custom_filters: Optional[List[List[Any]]] = None,
+        limit: int = 50,
+        offset: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Screen US securities using Yahoo Finance screener.
+
+        Args:
+            security_type: Type of security (equity, etf, mutualfund, index, future)
+            preset: Preset screen name (value_stocks, growth_stocks, etc.)
+            custom_filters: Custom filter list
+            limit: Maximum results to return
+            offset: Pagination offset
+
+        Returns:
+            Screening results with metadata.
+        """
+        return await self.yfscreen_provider.screen_securities(
+            security_type=security_type,
+            preset=preset,
+            custom_filters=custom_filters,
+            limit=limit,
+            offset=offset
+        )
+
+    async def get_us_screener_presets(self) -> Dict[str, Any]:
+        """Get list of available preset screens."""
+        presets = self.yfscreen_provider.get_preset_list()
+        return {
+            "presets": presets,
+            "total_presets": len(presets)
+        }
+
+    async def get_us_screener_filter_docs(self) -> Dict[str, Any]:
+        """Get documentation for available screener filters."""
+        return self.yfscreen_provider.get_filter_documentation()

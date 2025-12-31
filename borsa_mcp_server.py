@@ -89,6 +89,10 @@ from models import (
     # US Index Models
     USIndexSearchResult,
     USIndexDetailResult,
+    # US Screener Models
+    USScreenerResult,
+    ScreenerPresetsResult,
+    ScreenerFilterDocumentation,
 )
 from models.financial_ratios_models import (
     CoreFinancialHealthAnalysis,
@@ -4508,6 +4512,140 @@ async def get_us_index_info(
         return USIndexDetailResult(**result)
     except Exception as e:
         raise ToolError(f"US Index info failed: {str(e)}")
+
+
+# ==================== US SCREENER TOOLS ====================
+
+SecurityTypeLiteral = Literal["equity", "etf", "mutualfund", "index", "future"]
+PresetScreenLiteral = Literal[
+    "value_stocks", "growth_stocks", "dividend_stocks", "large_cap", "mid_cap",
+    "small_cap", "high_volume", "momentum", "undervalued", "low_pe",
+    "high_dividend_yield", "blue_chip", "tech_sector", "healthcare_sector",
+    "financial_sector", "energy_sector", "top_gainers", "top_losers"
+]
+
+
+@app.tool(description="US SCREENER: Screen US stocks, ETFs, mutual funds with presets or custom filters")
+async def screen_us_securities(
+    security_type: Annotated[SecurityTypeLiteral, Field(
+        default="equity",
+        description="Security type: equity, etf, mutualfund, index, or future"
+    )] = "equity",
+    preset: Annotated[Optional[PresetScreenLiteral], Field(
+        default=None,
+        description="Preset screen: value_stocks, growth_stocks, dividend_stocks, large_cap, mid_cap, small_cap, high_volume, momentum, undervalued, low_pe, high_dividend_yield, blue_chip, tech_sector, healthcare_sector, financial_sector, energy_sector, top_gainers, top_losers"
+    )] = None,
+    custom_filters: Annotated[Optional[List[List[Any]]], Field(
+        default=None,
+        description="Custom filters: [['op', ['field', value]]]. Ops: eq, gt, lt, btwn. Example: [['gt', ['intradaymarketcap', 10000000000]], ['lt', ['lastclosepriceearnings.lasttwelvemonths', 15]]]"
+    )] = None,
+    limit: Annotated[int, Field(
+        default=50,
+        ge=1,
+        le=250,
+        description="Max results (1-250, default 50)"
+    )] = 50,
+    offset: Annotated[int, Field(
+        default=0,
+        ge=0,
+        description="Pagination offset (default 0)"
+    )] = 0
+) -> USScreenerResult:
+    """
+    Screen US securities using Yahoo Finance screener API.
+
+    **PRESETS** (18 available):
+    - Value: value_stocks, low_pe, undervalued
+    - Growth: growth_stocks, momentum
+    - Income: dividend_stocks, high_dividend_yield
+    - Size: large_cap, mid_cap, small_cap, blue_chip, high_volume
+    - Sectors: tech_sector, healthcare_sector, financial_sector, energy_sector
+    - Movers: top_gainers, top_losers
+
+    **SECURITY TYPES**: equity, etf, mutualfund, index, future
+
+    **CUSTOM FILTERS** (when preset=None):
+    Format: [["operator", ["field", value(s)]]]
+    Operators: eq (equals), gt (greater than), lt (less than), btwn (between)
+
+    Example - Large cap tech stocks:
+    custom_filters=[
+        ["eq", ["region", "us"]],
+        ["eq", ["sector", "Technology"]],
+        ["gt", ["intradaymarketcap", 10000000000]]
+    ]
+
+    Common fields: intradaymarketcap, dayvolume, lastclosepriceearnings.lasttwelvemonths,
+    lastclosepricebookvalue.lasttwelvemonths, dividendyield, fiftytwowkpercentchange, sector
+    """
+    try:
+        result = await borsa_client.screen_us_securities(
+            security_type=security_type,
+            preset=preset,
+            custom_filters=custom_filters,
+            limit=limit,
+            offset=offset
+        )
+        return USScreenerResult(**result)
+    except Exception as e:
+        raise ToolError(f"US securities screening failed: {str(e)}")
+
+
+@app.tool(description="US SCREENER: Get list of 18 preset screens with descriptions")
+async def get_us_screener_presets() -> ScreenerPresetsResult:
+    """
+    Get list of available preset screens for US securities screener.
+
+    Returns all 18 preset screens:
+    - value_stocks: Low P/E (<15), low P/B (<3)
+    - growth_stocks: High EPS growth (>20%), revenue growth (>15%)
+    - dividend_stocks: High yield (>3%)
+    - large_cap: Market cap >$10B
+    - mid_cap: Market cap $2B-$10B
+    - small_cap: Market cap $300M-$2B
+    - high_volume: Daily volume >5M
+    - momentum: 52-week change >20%
+    - undervalued: PEG <1, low P/B
+    - low_pe: P/E <10
+    - high_dividend_yield: Yield >5%
+    - blue_chip: >$50B, low beta, dividend
+    - tech_sector, healthcare_sector, financial_sector, energy_sector
+    - top_gainers, top_losers: Daily movers >5%
+
+    Use these preset names with screen_us_securities(preset="name")
+    """
+    try:
+        result = await borsa_client.get_us_screener_presets()
+        return ScreenerPresetsResult(**result)
+    except Exception as e:
+        raise ToolError(f"Failed to get screener presets: {str(e)}")
+
+
+@app.tool(description="US SCREENER: Get documentation for custom filter fields and operators")
+async def get_us_screener_filters() -> ScreenerFilterDocumentation:
+    """
+    Get documentation for US securities screener custom filters.
+
+    Returns:
+    - Filter categories: valuation, market, performance, fundamentals, dividend, risk, classification
+    - Operators: eq (equals), gt (greater than), lt (less than), btwn (between range)
+    - Example filter configurations
+    - Available sector values
+
+    Use this to understand available fields before creating custom screens.
+
+    Example fields:
+    - Valuation: lastclosepriceearnings.lasttwelvemonths, pegratio_5y
+    - Market: intradaymarketcap, dayvolume, percentchange
+    - Performance: fiftytwowkpercentchange, oneyearpercentchange
+    - Fundamentals: epsgrowth.lasttwelvemonths, returnonequity.lasttwelvemonths
+    - Dividend: dividendyield, forward_dividend_yield
+    """
+    try:
+        result = await borsa_client.get_us_screener_filter_docs()
+        return ScreenerFilterDocumentation(**result)
+    except Exception as e:
+        raise ToolError(f"Failed to get filter documentation: {str(e)}")
 
 
 def main():

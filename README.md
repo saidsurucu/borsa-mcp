@@ -2,7 +2,7 @@
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
-Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 69 araçla kapsamlı finansal analiz.
+Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 72 araçla kapsamlı finansal analiz.
 
 ![ornek](./ornek.jpeg)
 
@@ -45,10 +45,11 @@ Bitcoin'in TRY fiyatını kontrol et
 
 ## 🎯 Temel Özellikler
 
-**69 Araç ile Kapsamlı Finansal Analiz:**
+**72 Araç ile Kapsamlı Finansal Analiz:**
 
 * 📈 **BIST Hisseleri:** 758 şirket, finansal tablolar, teknik analiz, analist raporları, KAP haberleri
 * 🇺🇸 **US Hisse Senetleri:** S&P 500, Nasdaq, Dow Jones şirketleri, finansal tablolar, Buffett analizi, sektör karşılaştırması
+* 🔍 **US Stock Screener:** 23 hazır preset ile ABD hisse, ETF ve yatırım fonu tarama (large_cap, growth_stocks, dividend_stocks vb.)
 * 🆕 **Tarih Aralığı:** Belirli tarihler arası geçmiş veri sorgulaması (örn: "2024-01-01" - "2024-12-31")
 * 🎯 **Pivot Points:** 3 direnç & 3 destek seviyesi hesaplama (klasik pivot formülü)
 * 📊 **BIST Endeksleri:** XU100, XBANK, XK100 ve tüm endeksler için tam destek
@@ -67,7 +68,7 @@ Bitcoin'in TRY fiyatını kontrol et
 | Bölüm | Açıklama |
 |-------|----------|
 | [🚀 5 Dakikada Başla](#-5-dakikada-başla-remote-mcp) | Kurulum gerektirmez - Remote MCP |
-| [🎯 Temel Özellikler](#-temel-özellikler) | 69 araç ile kapsamlı finansal analiz |
+| [🎯 Temel Özellikler](#-temel-özellikler) | 72 araç ile kapsamlı finansal analiz |
 | [💻 Gelişmiş Kurulum](#-gelişmiş-kurulum-isteğe-bağlı) | 5ire, Claude Desktop local kurulum |
 | [🛠️ Kullanılabilir Araçlar](#️-kullanılabilir-araçlar-mcp-tools) | BIST, US, Kripto, Döviz, Fon araçları |
 | [🔍 Veri Kaynakları](#-veri-kaynakları--kapsam) | KAP, Yahoo Finance, BtcTurk, Coinbase, TCMB |
@@ -201,6 +202,23 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 * **`get_us_index_search`**: 28 US endeksi arama (S&P 500, Nasdaq-100, Dow Jones, Russell vb.)
 * **`get_us_index_info`**: US endeks detayları ve performans verileri
 
+**🆕 US Stock Screener Araçları (ABD Hisse Tarama):**
+* **`screen_us_securities`**: ABD hisse, ETF ve yatırım fonu tarama - 23 hazır preset veya özel filtreler ile kapsamlı tarama
+* **`get_us_screener_presets`**: Mevcut 23 preset listesi ve açıklamaları (large_cap, growth_stocks, dividend_stocks, tech_sector vb.)
+* **`get_us_screener_filters`**: Özel filtre alanları ve operatörlerin dokümantasyonu
+
+**Mevcut Screener Presetleri:**
+| Kategori | Presetler |
+|----------|-----------|
+| **Değer Yatırımı** | value_stocks, low_pe, undervalued |
+| **Büyüme** | growth_stocks, momentum |
+| **Temettü** | dividend_stocks, high_dividend_yield |
+| **Piyasa Değeri** | large_cap, mid_cap, small_cap, blue_chip |
+| **Sektörler** | tech_sector, healthcare_sector, financial_sector, energy_sector |
+| **Performans** | top_gainers, top_losers, high_volume |
+| **ETF'ler** | large_etfs, top_performing_etfs, low_expense_etfs |
+| **Yatırım Fonları** | large_mutual_funds, top_performing_funds |
+
 ### TEFAS Fon Araçları
 * **`search_funds`**: Türk yatırım fonları arama (kategori filtreleme ve performans metrikleri ile).
 * **`get_fund_detail`**: Kapsamlı fon bilgileri ve analitiği.
@@ -266,6 +284,15 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Finansal Tablolar**: Quarterly ve annual balance sheet, income statement, cash flow
 - **Değer Analizi**: Buffett analizi için US 10Y Treasury (^TNX) ve Fed %2.5 enflasyon hedefi
 - **Güncelleme**: Gerçek zamanlı piyasa verileri
+
+### US Stock Screener (yfscreen paketi)
+- **Varlık Türleri**: Hisse senedi (equity), ETF ve yatırım fonları (mutual funds)
+- **Preset Sayısı**: 23 hazır tarama şablonu (18 hisse + 3 ETF + 2 yatırım fonu)
+- **Filtre Alanları**: 96+ hisse senedi, 29 ETF, 28 yatırım fonu filtre alanı
+- **Operatörler**: eq (eşit), gt (büyük), lt (küçük), btwn (arasında)
+- **Özel Filtreler**: Kullanıcı tanımlı filtreler ile gelişmiş tarama
+- **Sayfalama**: Offset/limit ile büyük sonuç setlerinde navigasyon
+- **Performans**: Yahoo Finance screener API entegrasyonu, hızlı sonuçlar
 
 ### Mynet Finans (Hibrit Mod)
 - **Türk Özel Verileri**: Kurumsal yönetim, ortaklık yapısı, bağlı şirketler
@@ -394,6 +421,24 @@ AAPL, MSFT, GOOGL şirketlerini sektör bazında karşılaştır
 
 # US finansal sağlık analizi
 Tesla için kapsamlı finansal sağlık analizi yap
+
+# US hisse tarama (screener) - YENİ!
+Büyük piyasa değerli (large cap) ABD hisselerini listele
+
+# US değer hisseleri tarama
+Düşük F/K oranına sahip (P/E < 15) değer hisselerini bul
+
+# US yüksek temettü hisseleri
+%5'ten fazla temettü veren ABD hisselerini ara
+
+# US sektör bazlı tarama
+Teknoloji sektöründeki büyük cap hisseleri listele
+
+# US ETF tarama
+10 milyar dolardan fazla AUM'a sahip büyük ETF'leri göster
+
+# US özel filtre taraması
+Piyasa değeri 100 milyar dolar üstü ve ROE > %20 olan hisseleri bul
 
 # Fon arama ve analizi
 "altın" fonları ara ve en iyi performans gösteren 3 tanesini karşılaştır

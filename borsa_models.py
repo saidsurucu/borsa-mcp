@@ -2016,3 +2016,111 @@ class USIndexDetailResult(BaseModel):
     fifty_two_week_high: Optional[float] = Field(None, description="52-week high")
     fifty_two_week_low: Optional[float] = Field(None, description="52-week low")
     error: Optional[str] = Field(None, description="Error message if failed")
+
+
+# ============================================================================
+# US SCREENER MODELS
+# ============================================================================
+
+class SecurityTypeEnum(str, Enum):
+    """Supported security types for screening."""
+    EQUITY = "equity"
+    ETF = "etf"
+    MUTUALFUND = "mutualfund"
+    INDEX = "index"
+    FUTURE = "future"
+
+
+class PresetScreenEnum(str, Enum):
+    """Available preset screening templates."""
+    # Equity presets
+    VALUE_STOCKS = "value_stocks"
+    GROWTH_STOCKS = "growth_stocks"
+    DIVIDEND_STOCKS = "dividend_stocks"
+    LARGE_CAP = "large_cap"
+    MID_CAP = "mid_cap"
+    SMALL_CAP = "small_cap"
+    HIGH_VOLUME = "high_volume"
+    MOMENTUM = "momentum"
+    UNDERVALUED = "undervalued"
+    LOW_PE = "low_pe"
+    HIGH_DIVIDEND_YIELD = "high_dividend_yield"
+    BLUE_CHIP = "blue_chip"
+    TECH_SECTOR = "tech_sector"
+    HEALTHCARE_SECTOR = "healthcare_sector"
+    FINANCIAL_SECTOR = "financial_sector"
+    ENERGY_SECTOR = "energy_sector"
+    TOP_GAINERS = "top_gainers"
+    TOP_LOSERS = "top_losers"
+    # ETF presets
+    LARGE_ETFS = "large_etfs"
+    TOP_PERFORMING_ETFS = "top_performing_etfs"
+    LOW_EXPENSE_ETFS = "low_expense_etfs"
+    # Mutual Fund presets
+    LARGE_MUTUAL_FUNDS = "large_mutual_funds"
+    TOP_PERFORMING_FUNDS = "top_performing_funds"
+
+
+class ScreenedSecurity(BaseModel):
+    """Individual security from screening results."""
+    ticker: Optional[str] = Field(None, description="Stock ticker symbol")
+    name: Optional[str] = Field(None, description="Company/security name")
+    sector: Optional[str] = Field(None, description="GICS sector")
+    industry: Optional[str] = Field(None, description="Industry classification")
+    market_cap: Optional[float] = Field(None, description="Market capitalization in USD")
+    price: Optional[float] = Field(None, description="Current price")
+    change_percent: Optional[float] = Field(None, description="Daily change percentage")
+    volume: Optional[int] = Field(None, description="Trading volume")
+    avg_volume_3m: Optional[int] = Field(None, description="3-month average volume")
+    pe_ratio: Optional[float] = Field(None, description="P/E ratio (trailing)")
+    forward_pe: Optional[float] = Field(None, description="Forward P/E ratio")
+    peg_ratio: Optional[float] = Field(None, description="PEG ratio")
+    price_to_book: Optional[float] = Field(None, description="Price to book ratio")
+    dividend_yield: Optional[float] = Field(None, description="Dividend yield percentage")
+    beta: Optional[float] = Field(None, description="Beta coefficient")
+    fifty_two_week_change: Optional[float] = Field(None, alias="52w_change", description="52-week price change %")
+    fifty_two_week_high: Optional[float] = Field(None, alias="52w_high", description="52-week high price")
+    fifty_two_week_low: Optional[float] = Field(None, alias="52w_low", description="52-week low price")
+    eps_ttm: Optional[float] = Field(None, description="Trailing twelve months EPS")
+    eps_forward: Optional[float] = Field(None, description="Forward EPS estimate")
+    book_value: Optional[float] = Field(None, description="Book value per share")
+    exchange: Optional[str] = Field(None, description="Stock exchange")
+    analyst_rating: Optional[str] = Field(None, description="Average analyst rating")
+    currency: Optional[str] = Field(None, description="Currency (default USD)")
+
+
+class USScreenerResult(BaseModel):
+    """Complete US securities screening result."""
+    security_type: str = Field(description="Security type screened (equity, etf, mutualfund, index, future)")
+    preset_used: Optional[str] = Field(None, description="Preset screen name if used")
+    filter_description: Optional[str] = Field(None, description="Human-readable filter description")
+    filters_applied: Optional[List[List[Any]]] = Field(None, description="Filters applied in yfscreen format")
+    total_results: int = Field(description="Total matching securities found")
+    returned_count: int = Field(description="Number of results returned (after pagination)")
+    offset: int = Field(default=0, description="Pagination offset")
+    limit: int = Field(default=50, description="Pagination limit")
+    results: List[Dict[str, Any]] = Field(default_factory=list, description="List of screened securities")
+    query_timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Query timestamp")
+    error_message: Optional[str] = Field(None, description="Error message if screening failed")
+
+
+class ScreenerPresetInfo(BaseModel):
+    """Information about a preset screen."""
+    name: str = Field(description="Preset name")
+    description: str = Field(description="Preset description")
+    security_type: str = Field(description="Default security type for this preset")
+
+
+class ScreenerPresetsResult(BaseModel):
+    """List of available preset screens."""
+    presets: List[ScreenerPresetInfo] = Field(description="Available preset screens")
+    total_presets: int = Field(description="Total number of presets")
+
+
+class ScreenerFilterDocumentation(BaseModel):
+    """Documentation for available screener filters."""
+    categories: Dict[str, List[str]] = Field(description="Filter categories and field names")
+    operators: Dict[str, str] = Field(description="Available operators and their usage")
+    examples: Dict[str, List[List[Any]]] = Field(description="Example filter configurations")
+    sectors: List[str] = Field(description="Available sector values")
+    security_types: List[str] = Field(description="Available security types")
