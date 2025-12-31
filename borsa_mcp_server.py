@@ -4518,10 +4518,15 @@ async def get_us_index_info(
 
 SecurityTypeLiteral = Literal["equity", "etf", "mutualfund", "index", "future"]
 PresetScreenLiteral = Literal[
+    # Equity presets
     "value_stocks", "growth_stocks", "dividend_stocks", "large_cap", "mid_cap",
     "small_cap", "high_volume", "momentum", "undervalued", "low_pe",
     "high_dividend_yield", "blue_chip", "tech_sector", "healthcare_sector",
-    "financial_sector", "energy_sector", "top_gainers", "top_losers"
+    "financial_sector", "energy_sector", "top_gainers", "top_losers",
+    # ETF presets
+    "large_etfs", "top_performing_etfs", "low_expense_etfs",
+    # Mutual Fund presets
+    "large_mutual_funds", "top_performing_funds"
 ]
 
 
@@ -4533,7 +4538,7 @@ async def screen_us_securities(
     )] = "equity",
     preset: Annotated[Optional[PresetScreenLiteral], Field(
         default=None,
-        description="Preset screen: value_stocks, growth_stocks, dividend_stocks, large_cap, mid_cap, small_cap, high_volume, momentum, undervalued, low_pe, high_dividend_yield, blue_chip, tech_sector, healthcare_sector, financial_sector, energy_sector, top_gainers, top_losers"
+        description="Preset: Equity (value_stocks, growth_stocks, dividend_stocks, large_cap, mid_cap, small_cap, high_volume, momentum, undervalued, low_pe, high_dividend_yield, blue_chip, tech_sector, healthcare_sector, financial_sector, energy_sector, top_gainers, top_losers), ETF (large_etfs, top_performing_etfs, low_expense_etfs), Mutual Fund (large_mutual_funds, top_performing_funds)"
     )] = None,
     custom_filters: Annotated[Optional[List[List[Any]]], Field(
         default=None,
