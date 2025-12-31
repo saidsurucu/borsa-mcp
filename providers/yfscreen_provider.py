@@ -383,20 +383,16 @@ class YFScreenProvider:
         security_type: str
     ) -> List[List[Any]]:
         """
-        Convert filter fields for ETF/mutualfund security types.
-        Maps equity field names to their ETF/fund equivalents.
-        Also ensures region=us filter is present.
+        Convert filter fields and ensure region=us filter is present.
+        For ETF/mutualfund, also maps equity field names to their equivalents.
 
         Args:
             filters: Original filter list
             security_type: Target security type
 
         Returns:
-            Converted filter list with mapped field names
+            Converted filter list with mapped field names and region=us
         """
-        if security_type not in ["etf", "mutualfund"]:
-            return filters
-
         converted_filters = []
         has_region_filter = False
 
@@ -413,8 +409,8 @@ class YFScreenProvider:
                     if field_name == "region":
                         has_region_filter = True
 
-                    # Map field name if needed
-                    if field_name in self.EQUITY_TO_ETF_FIELD_MAP:
+                    # Map field name if needed (only for ETF/mutualfund)
+                    if security_type in ["etf", "mutualfund"] and field_name in self.EQUITY_TO_ETF_FIELD_MAP:
                         mapped_field = self.EQUITY_TO_ETF_FIELD_MAP[field_name]
                         logger.info(f"Auto-converted field '{field_name}' → '{mapped_field}' for {security_type}")
                         converted_filters.append([operator, [mapped_field] + values])
@@ -425,7 +421,7 @@ class YFScreenProvider:
             else:
                 converted_filters.append(filter_item)
 
-        # Auto-add region=us if not present
+        # Auto-add region=us if not present (for all security types)
         if not has_region_filter:
             logger.info(f"Auto-added region=us filter for {security_type}")
             converted_filters.insert(0, ["eq", ["region", "us"]])
@@ -519,8 +515,8 @@ class YFScreenProvider:
             if security_type not in valid_types:
                 raise ValueError(f"Invalid security_type. Must be one of: {valid_types}")
 
-            # Convert filter fields for ETF/mutualfund if needed
-            if security_type in ["etf", "mutualfund"] and filters:
+            # Convert filter fields and ensure region=us is present for all security types
+            if filters:
                 filters = self._convert_filters_for_security_type(filters, security_type)
 
             # Limit validation
