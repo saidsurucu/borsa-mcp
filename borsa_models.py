@@ -2119,7 +2119,8 @@ class ScreenerPresetsResult(BaseModel):
 
 class ScreenerFilterDocumentation(BaseModel):
     """Documentation for available screener filters."""
-    categories: Dict[str, List[str]] = Field(description="Filter categories and field names")
+    equity_filters: Dict[str, List[str]] = Field(description="Equity filter categories and field names")
+    etf_mutualfund_filters: Dict[str, List[str]] = Field(description="ETF/Mutual fund filter categories and field names")
     operators: Dict[str, str] = Field(description="Available operators and their usage")
     examples: Dict[str, List[List[Any]]] = Field(description="Example filter configurations")
     sectors: List[str] = Field(description="Available sector values")
