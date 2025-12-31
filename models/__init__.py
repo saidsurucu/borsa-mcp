@@ -169,6 +169,12 @@ from borsa_models import (
     USIndexInfo, USIndexSearchResult, USIndexDetailResult
 )
 
+# US Stock Screener Models from borsa_models
+from borsa_models import (
+    SecurityTypeEnum, PresetScreenEnum, ScreenedSecurity,
+    USScreenerResult, ScreenerPresetInfo, ScreenerPresetsResult, ScreenerFilterDocumentation
+)
+
 # Export all models for backward compatibility
 __all__ = [
     # Base enums
@@ -272,5 +278,8 @@ __all__ = [
     "USBalanceSheetResult", "USIncomeStatementResult", "USCashFlowResult",
     "MultiUSBalanceSheetResult", "MultiUSIncomeStatementResult", "MultiUSCashFlowResult",
     # US Index Models
-    "USIndexInfo", "USIndexSearchResult", "USIndexDetailResult"
+    "USIndexInfo", "USIndexSearchResult", "USIndexDetailResult",
+    # US Stock Screener Models
+    "SecurityTypeEnum", "PresetScreenEnum", "ScreenedSecurity",
+    "USScreenerResult", "ScreenerPresetInfo", "ScreenerPresetsResult", "ScreenerFilterDocumentation"
 ]
