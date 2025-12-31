@@ -219,6 +219,10 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 | **ETF'ler** | large_etfs, top_performing_etfs, low_expense_etfs |
 | **Yatırım Fonları** | large_mutual_funds, top_performing_funds |
 
+**Akıllı Filtre Özellikleri:**
+- 🔄 **Otomatik Alan Dönüşümü**: ETF/yatırım fonu taramalarında equity alanları otomatik dönüştürülür (`intradaymarketcap` → `fundnetassets`, `sector` → `primary_sector`)
+- 🇺🇸 **Otomatik Region Filtresi**: Custom filter kullanırken `region=us` otomatik eklenir
+
 ### TEFAS Fon Araçları
 * **`search_funds`**: Türk yatırım fonları arama (kategori filtreleme ve performans metrikleri ile).
 * **`get_fund_detail`**: Kapsamlı fon bilgileri ve analitiği.
@@ -291,6 +295,8 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Filtre Alanları**: 96+ hisse senedi, 29 ETF, 28 yatırım fonu filtre alanı
 - **Operatörler**: eq (eşit), gt (büyük), lt (küçük), btwn (arasında)
 - **Özel Filtreler**: Kullanıcı tanımlı filtreler ile gelişmiş tarama
+- **Akıllı Alan Dönüşümü**: ETF/fund taramalarında equity alanları otomatik dönüştürülür
+- **Otomatik Region**: Custom filter kullanırken `region=us` otomatik eklenir
 - **Sayfalama**: Offset/limit ile büyük sonuç setlerinde navigasyon
 - **Performans**: Yahoo Finance screener API entegrasyonu, hızlı sonuçlar
 
