@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Optional
 # Assuming provider files are in a 'providers' directory
 from providers.kap_provider import KAPProvider
 from providers.yfinance_provider import YahooFinanceProvider
+from providers.borsapy_provider import BorsapyProvider
 # from providers.mynet_provider import MynetProvider # Mynet provider is now fully replaced
 from models import (
     YFinancePeriodEnum,
@@ -60,6 +61,7 @@ class BorsaApiClient:
         # Initialize all data providers
         self.kap_provider = KAPProvider(self._http_client)
         self.yfinance_provider = YahooFinanceProvider()
+        self.borsapy_provider = BorsapyProvider()  # For BIST stocks
         # Import MynetProvider for hybrid approach
         from providers.mynet_provider import MynetProvider
         self.mynet_provider = MynetProvider(self._http_client)
@@ -297,7 +299,7 @@ class BorsaApiClient:
             logger.error(f"Error in direct company fetching from {endeks_url}: {e}")
             return []
 
-    # --- YFinance Provider Methods ---
+    # --- BIST Provider Methods (using borsapy) ---
     async def get_finansal_veri(
         self,
         ticker_kodu: str,
@@ -305,7 +307,7 @@ class BorsaApiClient:
         start_date: str = None,
         end_date: str = None
     ) -> Dict[str, Any]:
-        """Delegates historical data fetching to YahooFinanceProvider.
+        """Delegates historical data fetching to BorsapyProvider for BIST stocks.
 
         Args:
             ticker_kodu: Stock ticker symbol
@@ -313,13 +315,13 @@ class BorsaApiClient:
             start_date: Start date in YYYY-MM-DD format (optional)
             end_date: End date in YYYY-MM-DD format (optional)
         """
-        return await self.yfinance_provider.get_finansal_veri(
+        return await self.borsapy_provider.get_finansal_veri(
             ticker_kodu, zaman_araligi, start_date, end_date
         )
         
     async def get_sirket_bilgileri_yfinance(self, ticker_kodu: str) -> Dict[str, Any]:
-        """Delegates company info fetching to YahooFinanceProvider."""
-        return await self.yfinance_provider.get_sirket_bilgileri(ticker_kodu)
+        """Delegates company info fetching to BorsapyProvider for BIST stocks."""
+        return await self.borsapy_provider.get_sirket_bilgileri(ticker_kodu)
     
     async def get_sirket_bilgileri_mynet(self, ticker_kodu: str) -> Dict[str, Any]:
         """Delegates company info fetching to MynetProvider."""
@@ -335,12 +337,12 @@ class BorsaApiClient:
     
     async def get_sirket_bilgileri_hibrit(self, ticker_kodu: str) -> Dict[str, Any]:
         """
-        Fetches comprehensive company information from both Yahoo Finance and Mynet.
-        Combines international financial data with Turkish-specific company details.
+        Fetches comprehensive company information from both borsapy and Mynet.
+        Combines financial data with Turkish-specific company details.
         """
         try:
-            # Get Yahoo Finance data (financial metrics, ratios, market data)
-            yahoo_result = await self.yfinance_provider.get_sirket_bilgileri(ticker_kodu)
+            # Get borsapy data (financial metrics, ratios, market data)
+            yahoo_result = await self.borsapy_provider.get_sirket_bilgileri(ticker_kodu)
             
             # Get Mynet data (Turkish-specific company details)
             mynet_result = await self.mynet_provider.get_sirket_bilgileri(ticker_kodu)
@@ -434,36 +436,36 @@ class BorsaApiClient:
         return await self.yfinance_provider.get_nakit_akisi(ticker_kodu, period_type)
     
     async def get_analist_verileri_yfinance(self, ticker_kodu: str) -> Dict[str, Any]:
-        """Delegates analyst data fetching to YahooFinanceProvider."""
-        return await self.yfinance_provider.get_analist_verileri(ticker_kodu)
-    
+        """Delegates analyst data fetching to BorsapyProvider for BIST stocks."""
+        return await self.borsapy_provider.get_analist_verileri(ticker_kodu)
+
     async def get_temettu_ve_aksiyonlar_yfinance(self, ticker_kodu: str) -> Dict[str, Any]:
-        """Delegates dividend and corporate actions fetching to YahooFinanceProvider."""
-        return await self.yfinance_provider.get_temettu_ve_aksiyonlar(ticker_kodu)
+        """Delegates dividend and corporate actions fetching to BorsapyProvider for BIST stocks."""
+        return await self.borsapy_provider.get_temettu_ve_aksiyonlar(ticker_kodu)
     
     async def get_hizli_bilgi(self, ticker_kodu: str) -> Dict[str, Any]:
-        """Delegates fast info fetching to YahooFinanceProvider."""
-        return await self.yfinance_provider.get_hizli_bilgi(ticker_kodu)
+        """Delegates fast info fetching to BorsapyProvider for BIST stocks."""
+        return await self.borsapy_provider.get_hizli_bilgi(ticker_kodu)
 
     async def get_hizli_bilgi_yfinance(self, ticker_kodu: str) -> Dict[str, Any]:
-        """Delegates fast info fetching to YahooFinanceProvider (explicit)."""
-        return await self.yfinance_provider.get_hizli_bilgi(ticker_kodu)
+        """Delegates fast info fetching to BorsapyProvider (explicit)."""
+        return await self.borsapy_provider.get_hizli_bilgi(ticker_kodu)
 
     async def get_kazanc_takvimi_yfinance(self, ticker_kodu: str) -> Dict[str, Any]:
-        """Delegates earnings calendar fetching to YahooFinanceProvider."""
-        return await self.yfinance_provider.get_kazanc_takvimi(ticker_kodu)
-    
+        """Delegates earnings calendar fetching to BorsapyProvider for BIST stocks."""
+        return await self.borsapy_provider.get_kazanc_takvimi(ticker_kodu)
+
     async def get_teknik_analiz_yfinance(self, ticker_kodu: str) -> Dict[str, Any]:
-        """Delegates technical analysis to YahooFinanceProvider."""
-        return self.yfinance_provider.get_teknik_analiz(ticker_kodu)
+        """Delegates technical analysis to BorsapyProvider for BIST stocks."""
+        return self.borsapy_provider.get_teknik_analiz(ticker_kodu)
 
     async def get_pivot_points(self, ticker_kodu: str) -> Dict[str, Any]:
-        """Delegates pivot points calculation to YahooFinanceProvider."""
-        return await self.yfinance_provider.get_pivot_points(ticker_kodu)
+        """Delegates pivot points calculation to BorsapyProvider for BIST stocks."""
+        return await self.borsapy_provider.get_pivot_points(ticker_kodu)
 
     async def get_sektor_karsilastirmasi_yfinance(self, ticker_listesi: List[str]) -> Dict[str, Any]:
-        """Delegates sector analysis to YahooFinanceProvider."""
-        return self.yfinance_provider.get_sektor_karsilastirmasi(ticker_listesi)
+        """Delegates sector analysis to BorsapyProvider for BIST stocks."""
+        return self.borsapy_provider.get_sektor_karsilastirmasi(ticker_listesi)
         
     # --- Mynet Provider Methods (Permanently Disabled as per migration to yfinance) ---
     async def get_hisse_detayi(self, ticker_kodu: str) -> Dict[str, Any]:
@@ -1003,24 +1005,24 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
         return await self.financial_ratios_provider.calculate_advanced_metrics(ticker_kodu)
 
     # ============================================================================
-    # MULTI-TICKER DELEGATION METHODS (Phase 1: Yahoo Finance Tools)
+    # MULTI-TICKER DELEGATION METHODS (Phase 1: BIST via borsapy)
     # ============================================================================
 
     async def get_hizli_bilgi_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
-        """Delegates multi-ticker fast info fetching to YahooFinanceProvider."""
-        return await self.yfinance_provider.get_hizli_bilgi_multi(ticker_kodlari)
+        """Delegates multi-ticker fast info fetching to BorsapyProvider."""
+        return await self.borsapy_provider.get_hizli_bilgi_multi(ticker_kodlari)
 
     async def get_temettu_ve_aksiyonlar_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
-        """Delegates multi-ticker dividends fetching to YahooFinanceProvider."""
-        return await self.yfinance_provider.get_temettu_ve_aksiyonlar_multi(ticker_kodlari)
+        """Delegates multi-ticker dividends fetching to BorsapyProvider."""
+        return await self.borsapy_provider.get_temettu_ve_aksiyonlar_multi(ticker_kodlari)
 
     async def get_analist_verileri_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
-        """Delegates multi-ticker analyst data fetching to YahooFinanceProvider."""
-        return await self.yfinance_provider.get_analist_verileri_multi(ticker_kodlari)
+        """Delegates multi-ticker analyst data fetching to BorsapyProvider."""
+        return await self.borsapy_provider.get_analist_verileri_multi(ticker_kodlari)
 
     async def get_kazanc_takvimi_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
-        """Delegates multi-ticker earnings calendar fetching to YahooFinanceProvider."""
-        return await self.yfinance_provider.get_kazanc_takvimi_multi(ticker_kodlari)
+        """Delegates multi-ticker earnings calendar fetching to BorsapyProvider."""
+        return await self.borsapy_provider.get_kazanc_takvimi_multi(ticker_kodlari)
 
     # ============================================================================
     # MULTI-TICKER DELEGATION METHODS (Phase 2: İş Yatırım Financial Statements)
