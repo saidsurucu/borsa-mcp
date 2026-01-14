@@ -34,6 +34,29 @@ Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve 
 4. **Add** butonuna tıklayın
 5. Hemen kullanmaya başlayın! 🎉
 
+### Google Antigravity ile Kullanım
+
+1. Agent session açın ve editörün yan panelindeki "…" dropdown menüsüne tıklayın
+2. **MCP Servers** seçeneğini seçin - MCP Store açılacak
+3. Üstteki **Manage MCP Servers** butonuna tıklayın
+4. **View raw config** seçeneğine tıklayın
+5. `mcp_config.json` dosyasına aşağıdaki yapılandırmayı ekleyin:
+
+```json
+{
+  "mcpServers": {
+    "borsa-mcp": {
+      "serverUrl": "https://borsamcp.fastmcp.app/mcp",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  }
+}
+```
+
+💡 **İpucu:** Remote MCP sayesinde Python, uv veya herhangi bir kurulum yapmadan doğrudan Google Antigravity üzerinden Türk finans piyasalarına erişebilirsiniz!
+
 **Örnek Sorular:**
 ```
 GARAN hissesinin son 1 aylık performansını analiz et
