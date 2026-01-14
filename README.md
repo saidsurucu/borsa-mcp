@@ -2,7 +2,7 @@
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
-Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 72 araçla kapsamlı finansal analiz.
+Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, Doviz.com ve TCMB gibi kaynaklardan 75 araçla kapsamlı finansal analiz.
 
 ![ornek](./ornek.jpeg)
 
@@ -45,9 +45,10 @@ Bitcoin'in TRY fiyatını kontrol et
 
 ## 🎯 Temel Özellikler
 
-**72 Araç ile Kapsamlı Finansal Analiz:**
+**75 Araç ile Kapsamlı Finansal Analiz:**
 
 * 📈 **BIST Hisseleri:** 758 şirket, finansal tablolar, teknik analiz, analist raporları, KAP haberleri
+* 🆕 **BIST Hisse Tarayıcı:** 15 hazır preset ve 50+ filtre kriteri ile BIST hisse tarama (high_dividend, low_pe, high_roe vb.)
 * 🇺🇸 **US Hisse Senetleri:** S&P 500, Nasdaq, Dow Jones şirketleri, finansal tablolar, Buffett analizi, sektör karşılaştırması
 * 🔍 **US Stock Screener:** 23 hazır preset ile ABD hisse, ETF ve yatırım fonu tarama (large_cap, growth_stocks, dividend_stocks vb.)
 * 🆕 **Tarih Aralığı:** Belirli tarihler arası geçmiş veri sorgulaması (örn: "2024-01-01" - "2024-12-31")
@@ -157,6 +158,39 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 ### BIST Endeks Araçları
 * **`get_endeks_kodu`**: Güncel BIST endeks listesinde endeks kodu arama.
 * **`get_endeks_sirketleri`**: Belirli endeksteki şirketlerin listesi.
+
+### 🆕 BIST Hisse Tarayıcı Araçları (Borsa İstanbul Tarama)
+* **`screen_bist_stocks`**: BIST hisselerini filtrele - 15 hazır preset veya 50+ özel filtre kriteri ile kapsamlı tarama
+* **`get_bist_screener_presets`**: Mevcut 15 preset listesi ve açıklamaları (high_dividend, low_pe, high_roe vb.)
+* **`get_bist_screener_filters`**: Özel filtre alanları ve operatörlerin dokümantasyonu
+
+**Mevcut BIST Screener Presetleri:**
+| Kategori | Presetler |
+|----------|-----------|
+| **Piyasa Değeri** | small_cap, mid_cap, large_cap |
+| **Değer Yatırımı** | low_pe, high_roe, high_net_margin |
+| **Temettü** | high_dividend |
+| **Momentum** | high_upside, low_upside, high_return |
+| **Hacim** | high_volume, low_volume |
+| **Yabancı** | high_foreign_ownership |
+| **Analist** | buy_recommendation, sell_recommendation |
+
+**50+ Filtre Kriteri (13 Kategori):**
+| Kategori | Filtreler |
+|----------|-----------|
+| **Değerleme (Güncel)** | pe, pb, ev_ebitda, ev_sales |
+| **Değerleme (2025)** | pe_2025, pb_2025, ev_ebitda_2025 |
+| **Değerleme (Tarihsel)** | pe_hist_avg, pb_hist_avg |
+| **Kârlılık (Güncel)** | roe, roa, net_margin, ebitda_margin |
+| **Kârlılık (2025)** | roe_2025, roa_2025 |
+| **Temettü** | dividend_yield, dividend_yield_2025, dividend_yield_5y_avg |
+| **Getiri (Göreceli)** | return_1d, return_1w, return_1m, return_1y, return_ytd |
+| **Getiri (TL Bazlı)** | return_1d_tl, return_1w_tl, return_1m_tl, return_1y_tl, return_ytd_tl |
+| **Piyasa** | price, market_cap, market_cap_usd, float_ratio, float_market_cap, volume_3m, volume_12m |
+| **Yabancı** | foreign_ratio, foreign_ratio_1w_change, foreign_ratio_1m_change |
+| **Analist** | target_price, upside_potential |
+| **Endeks** | bist30_weight, bist50_weight, bist100_weight |
+| **Sınıflandırma** | sector, index, recommendation |
 
 ### Katılım Finans
 * **`get_katilim_finans_uygunluk`**: KAP Katılım finans uygunluk verileri ve katılım endeksi üyeliği.
@@ -300,6 +334,17 @@ Bu FastMCP sunucusu LLM modelleri için aşağıdaki araçları sunar:
 - **Sayfalama**: Offset/limit ile büyük sonuç setlerinde navigasyon
 - **Performans**: Yahoo Finance screener API entegrasyonu, hızlı sonuçlar
 
+### BIST Hisse Tarayıcı (borsapy paketi)
+- **Veri Kaynağı**: İş Yatırım gelişmiş hisse arama (borsapy kütüphanesi)
+- **Preset Sayısı**: 15 hazır tarama şablonu (piyasa değeri, değer, temettü, momentum, hacim, yabancı, analist)
+- **Filtre Kriteri**: 50+ filtre (13 kategori: değerleme, kârlılık, temettü, getiri, piyasa, yabancı, analist, endeks)
+- **Operatörler**: min (minimum), max (maximum) ile aralık filtreleme
+- **Özel Filtreler**: Kullanıcı tanımlı filtreler ile gelişmiş tarama
+- **Otomatik Birim Dönüşümü**: Piyasa değeri ve hacim için TL → milyon TL otomatik dönüşüm
+- **Sayfalama**: Offset/limit ile büyük sonuç setlerinde navigasyon
+- **Performans**: İş Yatırım API entegrasyonu, hızlı sonuçlar
+- **Güncelleme**: Gerçek zamanlı BIST verileri
+
 ### Mynet Finans (Hibrit Mod)
 - **Türk Özel Verileri**: Kurumsal yönetim, ortaklık yapısı, bağlı şirketler
 - **KAP Haberleri**: Gerçek zamanlı resmi duyuru akışı
@@ -428,7 +473,7 @@ AAPL, MSFT, GOOGL şirketlerini sektör bazında karşılaştır
 # US finansal sağlık analizi
 Tesla için kapsamlı finansal sağlık analizi yap
 
-# US hisse tarama (screener) - YENİ!
+# US hisse tarama (screener)
 Büyük piyasa değerli (large cap) ABD hisselerini listele
 
 # US değer hisseleri tarama
@@ -445,6 +490,27 @@ Teknoloji sektöründeki büyük cap hisseleri listele
 
 # US özel filtre taraması
 Piyasa değeri 100 milyar dolar üstü ve ROE > %20 olan hisseleri bul
+
+# BIST hisse tarama (screener) - YENİ!
+Yüksek temettü veren BIST hisselerini listele
+
+# BIST düşük F/K tarama
+F/K oranı 10'dan düşük BIST hisselerini bul
+
+# BIST yüksek ROE tarama
+ROE oranı %15'ten yüksek şirketleri ara
+
+# BIST yabancı favorileri
+Yabancı yatırımcı oranı %40'tan fazla olan hisseleri göster
+
+# BIST momentum tarama
+Yükseliş potansiyeli %20'den fazla olan hisseleri listele
+
+# BIST özel filtre taraması
+Piyasa değeri 10 milyar TL üstü ve temettü verimi %3'ten fazla olan hisseleri bul
+
+# BIST analist tavsiyeleri
+AL önerisi alan BIST hisselerini listele
 
 # Fon arama ve analizi
 "altın" fonları ara ve en iyi performans gösteren 3 tanesini karşılaştır
