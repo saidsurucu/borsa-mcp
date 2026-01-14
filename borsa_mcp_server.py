@@ -93,6 +93,10 @@ from models import (
     USScreenerResult,
     ScreenerPresetsResult,
     ScreenerFilterDocumentation,
+    # BIST Screener Models
+    BistScreenerResult,
+    BistScreenerPresetsResult,
+    BistScreenerFilterDocumentation,
 )
 from models.financial_ratios_models import (
     CoreFinancialHealthAnalysis,
@@ -4651,6 +4655,158 @@ async def get_us_screener_filters() -> ScreenerFilterDocumentation:
         return ScreenerFilterDocumentation(**result)
     except Exception as e:
         raise ToolError(f"Failed to get filter documentation: {str(e)}")
+
+
+# ==================== BIST SCREENER TOOLS ====================
+
+BistPresetLiteral = Literal[
+    "small_cap", "mid_cap", "large_cap",
+    "high_dividend", "low_pe", "high_roe", "high_net_margin",
+    "high_upside", "low_upside", "high_return",
+    "high_volume", "low_volume",
+    "high_foreign_ownership",
+    "buy_recommendation", "sell_recommendation"
+]
+
+
+@app.tool(description="BIST SCREENER: BIST hisselerini filtrele - 15 hazır şablon veya 50+ özel filtre")
+async def screen_bist_stocks(
+    preset: Annotated[Optional[BistPresetLiteral], Field(
+        default=None,
+        description="Preset: small_cap, mid_cap, large_cap, high_dividend, low_pe, high_roe, high_net_margin, high_upside, low_upside, high_return, high_volume, low_volume, high_foreign_ownership, buy_recommendation, sell_recommendation"
+    )] = None,
+    custom_filters: Annotated[Optional[Dict[str, Any]], Field(
+        default=None,
+        description="Özel filtreler: {'field': {'min': value, 'max': value}}. Örnek: {'pe': {'max': 10}, 'roe': {'min': 15}}"
+    )] = None,
+    limit: Annotated[int, Field(
+        default=50,
+        ge=1,
+        le=250,
+        description="Max sonuç sayısı (1-250, varsayılan 50)"
+    )] = 50,
+    offset: Annotated[int, Field(
+        default=0,
+        ge=0,
+        description="Pagination offset (varsayılan 0)"
+    )] = 0
+) -> BistScreenerResult:
+    """
+    BIST hisselerini borsapy Screener ile filtrele.
+
+    **PRESET ŞABLONLAR** (15 adet):
+    - Büyüklük: small_cap, mid_cap, large_cap
+    - Değerleme: high_dividend, low_pe, high_roe, high_net_margin
+    - Momentum: high_upside, low_upside, high_return
+    - Hacim: high_volume, low_volume
+    - Yabancı: high_foreign_ownership
+    - Analist: buy_recommendation, sell_recommendation
+
+    **ÖZEL FİLTRELER** (preset=None ise):
+    Format: {"field": {"min": value, "max": value}}
+
+    Örnek - Değer hisseleri:
+    custom_filters={
+        "pe": {"max": 10},
+        "pb": {"max": 1.5},
+        "dividend_yield": {"min": 3}
+    }
+
+    **FİLTRE ALANLARI**:
+    - Değerleme: pe, pb, ev_ebitda, ev_sales, pe_2025, pb_2025
+    - Kârlılık: roe, roa, net_margin, ebitda_margin
+    - Temettü: dividend_yield, dividend_yield_2025, dividend_yield_5y_avg
+    - Getiri: return_1d, return_1w, return_1m, return_1y, return_ytd
+    - Piyasa: price, market_cap, market_cap_usd, volume_3m, volume_12m
+    - Yabancı: foreign_ratio, foreign_ratio_1w_change, foreign_ratio_1m_change
+    - Analist: target_price, upside_potential
+    - Endeks: bist30_weight, bist50_weight, bist100_weight
+    """
+    try:
+        result = await borsa_client.screen_bist_stocks(
+            preset=preset,
+            custom_filters=custom_filters,
+            limit=limit,
+            offset=offset
+        )
+
+        if result.get("error_message"):
+            raise ToolError(f"BIST screening failed: {result['error_message']}")
+
+        return BistScreenerResult(**result)
+
+    except ToolError:
+        raise
+    except Exception as e:
+        logger.exception("Error in BIST screening")
+        raise ToolError(f"BIST screening failed: {str(e)}")
+
+
+@app.tool(description="BIST SCREENER: 15 hazır şablon listesi")
+async def get_bist_screener_presets() -> BistScreenerPresetsResult:
+    """
+    BIST screener için mevcut preset şablonlarını listele.
+
+    **15 PRESET ŞABLON**:
+    - small_cap: Küçük şirketler (piyasa değeri < 5 milyar TL)
+    - mid_cap: Orta ölçekli şirketler (5-25 milyar TL)
+    - large_cap: Büyük şirketler (piyasa değeri > 25 milyar TL)
+    - high_dividend: Yüksek temettü verimi (> 3%)
+    - low_pe: Düşük F/K oranı (< 10)
+    - high_roe: Yüksek özkaynak kârlılığı (> 15%)
+    - high_net_margin: Yüksek net kâr marjı (> 15%)
+    - high_upside: Yüksek yükseliş potansiyeli (> 20%)
+    - low_upside: Düşük yükseliş potansiyeli (< 0%)
+    - high_return: Yüksek yıllık getiri (> 50%)
+    - high_volume: Yüksek işlem hacmi
+    - low_volume: Düşük işlem hacmi
+    - high_foreign_ownership: Yabancı favorileri (yabancı oranı > 40%)
+    - buy_recommendation: Analist AL önerisi
+    - sell_recommendation: Analist SAT önerisi
+    """
+    try:
+        result = await borsa_client.get_bist_screener_presets()
+        return BistScreenerPresetsResult(**result)
+    except Exception as e:
+        raise ToolError(f"BIST preset listesi alınamadı: {str(e)}")
+
+
+@app.tool(description="BIST SCREENER: 50+ filtre dokümantasyonu")
+async def get_bist_screener_filters() -> BistScreenerFilterDocumentation:
+    """
+    BIST screener için filtre dokümantasyonunu al.
+
+    **FİLTRE KATEGORİLERİ**:
+    - valuation_current: pe, pb, ev_ebitda, ev_sales
+    - valuation_forward: pe_2025, pb_2025, ev_ebitda_2025
+    - valuation_historical: pe_hist_avg, pb_hist_avg
+    - profitability_current: roe, roa, net_margin, ebitda_margin
+    - profitability_forward: roe_2025, roa_2025
+    - dividend: dividend_yield, dividend_yield_2025, dividend_yield_5y_avg
+    - returns_relative: return_1d, return_1w, return_1m, return_1y, return_ytd
+    - returns_tl: return_1d_tl, return_1w_tl, return_1m_tl, return_1y_tl, return_ytd_tl
+    - market: price, market_cap, market_cap_usd, float_ratio, float_market_cap, volume_3m, volume_12m
+    - foreign: foreign_ratio, foreign_ratio_1w_change, foreign_ratio_1m_change
+    - analyst: target_price, upside_potential
+    - index: bist30_weight, bist50_weight, bist100_weight
+    - classification: sector, index, recommendation
+
+    **OPERATÖRLER**:
+    - min: Minimum değer (örn: {"pe": {"min": 5}})
+    - max: Maksimum değer (örn: {"pe": {"max": 15}})
+    - min_max: Aralık (örn: {"pe": {"min": 5, "max": 15}})
+    - direct: Direkt değer - sector, index, recommendation için
+
+    **ÖRNEK FİLTRELER**:
+    - Değer taraması: {"pe": {"max": 10}, "pb": {"max": 1.5}, "dividend_yield": {"min": 3}}
+    - Büyüme taraması: {"roe": {"min": 20}, "return_1m": {"min": 5}}
+    - Yabancı taraması: {"foreign_ratio": {"min": 40}, "foreign_ratio_1m_change": {"min": 1}}
+    """
+    try:
+        result = await borsa_client.get_bist_screener_filter_docs()
+        return BistScreenerFilterDocumentation(**result)
+    except Exception as e:
+        raise ToolError(f"BIST filtre dokümantasyonu alınamadı: {str(e)}")
 
 
 def main():

@@ -2,6 +2,7 @@
 Borsapy Provider
 This module handles all BIST stock data via the borsapy library.
 Replaces yfinance for Turkish market data.
+Includes BIST stock screener functionality.
 """
 import borsapy as bp
 import logging
@@ -12,7 +13,7 @@ import asyncio
 
 from models import (
     FinansalVeriNoktasi, YFinancePeriodEnum, SirketProfiliYFinance,
-    AnalistTavsiyesi, AnalistFiyatHedefi, TavsiyeOzeti,
+    AnalistFiyatHedefi, TavsiyeOzeti,
     Temettu, HisseBolunmesi, KurumsalAksiyon, HizliBilgi,
     KazancTarihi, KazancTakvimi, KazancBuyumeVerileri
 )
@@ -489,9 +490,6 @@ class BorsapyProvider:
 
             # Calculate technical indicators
             close = hist['Close']
-            high = hist['High']
-            low = hist['Low']
-            volume = hist['Volume']
 
             # Current price
             current_price = close.iloc[-1] if len(close) > 0 else None
@@ -954,3 +952,487 @@ class BorsapyProvider:
         except Exception as e:
             logger.exception("Error in multi-ticker earnings calendar")
             return {"error": str(e)}
+
+    # =========================================================================
+    # BIST STOCK SCREENER METHODS
+    # =========================================================================
+
+    # Preset filter definitions (15 presets - borsapy native)
+    PRESET_FILTERS: Dict[str, Dict[str, Any]] = {
+        "small_cap": {
+            "description": "Küçük şirketler (piyasa değeri < 5 milyar TL)",
+            "filters": {"market_cap": {"max": 5_000_000_000}}
+        },
+        "mid_cap": {
+            "description": "Orta ölçekli şirketler (5-25 milyar TL)",
+            "filters": {"market_cap": {"min": 5_000_000_000, "max": 25_000_000_000}}
+        },
+        "large_cap": {
+            "description": "Büyük şirketler (piyasa değeri > 25 milyar TL)",
+            "filters": {"market_cap": {"min": 25_000_000_000}}
+        },
+        "high_dividend": {
+            "description": "Yüksek temettü verimi (> 3%)",
+            "filters": {"dividend_yield": {"min": 3}}
+        },
+        "low_pe": {
+            "description": "Düşük F/K oranı (< 10)",
+            "filters": {"pe": {"max": 10}}
+        },
+        "high_roe": {
+            "description": "Yüksek özkaynak kârlılığı (> 15%)",
+            "filters": {"roe": {"min": 15}}
+        },
+        "high_net_margin": {
+            "description": "Yüksek net kâr marjı (> 15%)",
+            "filters": {"net_margin": {"min": 15}}
+        },
+        "high_upside": {
+            "description": "Yüksek yükseliş potansiyeli (> 20%)",
+            "filters": {"upside_potential": {"min": 20}}
+        },
+        "low_upside": {
+            "description": "Düşük yükseliş potansiyeli (< 0%)",
+            "filters": {"upside_potential": {"max": 0}}
+        },
+        "high_return": {
+            "description": "Yüksek yıllık getiri (> 50%)",
+            "filters": {"return_1y": {"min": 50}}
+        },
+        "high_volume": {
+            "description": "Yüksek işlem hacmi",
+            "filters": {"volume_3m": {"min": 10_000_000}}
+        },
+        "low_volume": {
+            "description": "Düşük işlem hacmi",
+            "filters": {"volume_3m": {"max": 1_000_000}}
+        },
+        "high_foreign_ownership": {
+            "description": "Yabancı favorileri (yabancı oranı > 40%)",
+            "filters": {"foreign_ratio": {"min": 40}}
+        },
+        "buy_recommendation": {
+            "description": "Analist AL önerisi",
+            "filters": {"recommendation": "AL"}
+        },
+        "sell_recommendation": {
+            "description": "Analist SAT önerisi",
+            "filters": {"recommendation": "SAT"}
+        }
+    }
+
+    # Available filter fields by category (50+ criteria)
+    AVAILABLE_FILTERS: Dict[str, List[str]] = {
+        "valuation_current": ["pe", "pb", "ev_ebitda", "ev_sales"],
+        "valuation_forward": ["pe_2025", "pb_2025", "ev_ebitda_2025"],
+        "valuation_historical": ["pe_hist_avg", "pb_hist_avg"],
+        "profitability_current": ["roe", "roa", "net_margin", "ebitda_margin"],
+        "profitability_forward": ["roe_2025", "roa_2025"],
+        "dividend": ["dividend_yield", "dividend_yield_2025", "dividend_yield_5y_avg"],
+        "returns_relative": ["return_1d", "return_1w", "return_1m", "return_1y", "return_ytd"],
+        "returns_tl": ["return_1d_tl", "return_1w_tl", "return_1m_tl", "return_1y_tl", "return_ytd_tl"],
+        "market": ["price", "market_cap", "market_cap_usd", "float_ratio", "float_market_cap", "volume_3m", "volume_12m"],
+        "foreign": ["foreign_ratio", "foreign_ratio_1w_change", "foreign_ratio_1m_change"],
+        "analyst": ["target_price", "upside_potential"],
+        "index": ["bist30_weight", "bist50_weight", "bist100_weight"],
+        "classification": ["sector", "index", "recommendation"]
+    }
+
+    async def screen_stocks(
+        self,
+        preset: Optional[str] = None,
+        custom_filters: Optional[Dict[str, Any]] = None,
+        limit: int = 50,
+        offset: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Screen BIST stocks using borsapy Screener.
+
+        Args:
+            preset: Preset screen name (high_dividend, low_pe, etc.)
+            custom_filters: Custom filter dict with field names and min/max values
+            limit: Maximum results to return (default 50, max 250)
+            offset: Offset for pagination
+
+        Returns:
+            Dict containing screening results with metadata.
+        """
+        filter_description = None
+        filters_applied = None
+
+        try:
+            screener = bp.Screener()
+
+            # Determine filters to use
+            if preset and preset in self.PRESET_FILTERS:
+                preset_config = self.PRESET_FILTERS[preset]
+                filters_applied = preset_config["filters"]
+                filter_description = preset_config["description"]
+
+                # Apply preset filters
+                for field, constraints in filters_applied.items():
+                    if isinstance(constraints, dict):
+                        # Convert units for specific fields (borsapy uses millions)
+                        converted = self._convert_filter_units(field, constraints)
+                        screener.add_filter(
+                            field,
+                            min=converted.get("min"),
+                            max=converted.get("max")
+                        )
+                    else:
+                        # Direct value (e.g., recommendation="AL")
+                        if field == "recommendation":
+                            screener.set_recommendation(constraints)
+                        elif field == "sector":
+                            screener.set_sector(constraints)
+                        elif field == "index":
+                            screener.set_index(constraints)
+
+            elif custom_filters:
+                filters_applied = custom_filters
+                filter_description = "Özel filtreler"
+
+                # Apply custom filters
+                for field, constraints in custom_filters.items():
+                    if isinstance(constraints, dict):
+                        # Convert units for specific fields (borsapy uses millions)
+                        converted = self._convert_filter_units(field, constraints)
+                        screener.add_filter(
+                            field,
+                            min=converted.get("min"),
+                            max=converted.get("max")
+                        )
+                    else:
+                        if field == "recommendation":
+                            screener.set_recommendation(constraints)
+                        elif field == "sector":
+                            screener.set_sector(constraints)
+                        elif field == "index":
+                            screener.set_index(constraints)
+
+            else:
+                # Default: All BIST 100 stocks
+                screener.set_index("XU100")
+                filter_description = "Varsayılan: BIST 100 hisseleri"
+                filters_applied = {"index": "XU100"}
+
+            # Limit validation
+            limit = min(limit, 250)
+
+            # Run screening in executor (borsapy Screener.run() is synchronous)
+            loop = asyncio.get_event_loop()
+            data = await loop.run_in_executor(None, screener.run)
+
+            # Process results
+            total_results = len(data) if data is not None and not data.empty else 0
+            results = self._process_screening_results(data, limit, offset, filters_applied)
+
+            return {
+                "preset_used": preset,
+                "filter_description": filter_description,
+                "filters_applied": filters_applied,
+                "total_results": total_results,
+                "returned_count": len(results),
+                "offset": offset,
+                "limit": limit,
+                "results": results,
+                "query_timestamp": datetime.datetime.now().isoformat(),
+                "error_message": None
+            }
+
+        except Exception as e:
+            logger.exception(f"BIST screening failed: {e}")
+            return {
+                "preset_used": preset,
+                "filter_description": filter_description,
+                "filters_applied": filters_applied,
+                "total_results": 0,
+                "returned_count": 0,
+                "offset": offset,
+                "limit": limit,
+                "results": [],
+                "query_timestamp": datetime.datetime.now().isoformat(),
+                "error_message": str(e)
+            }
+
+    # Fields that need unit conversion (borsapy uses millions)
+    MILLION_UNIT_FIELDS = {
+        "market_cap",       # TL → millions TL
+        "market_cap_usd",   # USD → millions USD
+        "float_market_cap", # TL → millions TL
+        "volume_3m",        # volume → millions
+        "volume_12m",       # volume → millions
+    }
+
+    def _convert_filter_units(
+        self,
+        field: str,
+        constraints: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Convert filter values to borsapy's expected units.
+
+        borsapy uses millions for market_cap, volume fields.
+        User provides actual values (e.g., 10_000_000_000 for 10B TL).
+        We convert to millions (e.g., 10000 for 10B TL).
+        """
+        if field not in self.MILLION_UNIT_FIELDS:
+            return constraints
+
+        converted = {}
+        for key, value in constraints.items():
+            if value is not None and isinstance(value, (int, float)):
+                # Convert to millions
+                converted[key] = value / 1_000_000
+            else:
+                converted[key] = value
+
+        return converted
+
+    def _process_screening_results(
+        self,
+        data: Any,
+        limit: int,
+        offset: int,
+        filters_applied: Dict[str, Any] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Process and format screening results from borsapy.
+
+        Args:
+            data: Raw DataFrame from borsapy screener
+            limit: Maximum results to return
+            offset: Offset for pagination
+            filters_applied: Filters that were applied (to map criteria columns)
+
+        Returns:
+            List of formatted result dictionaries.
+        """
+        if data is None or (hasattr(data, 'empty') and data.empty):
+            return []
+
+        # Convert DataFrame to list of dicts
+        if hasattr(data, 'to_dict'):
+            records = data.to_dict('records')
+        elif isinstance(data, list):
+            records = data
+        else:
+            records = list(data)
+
+        # Detect criteria columns and map them to filter names
+        criteria_mapping = self._detect_criteria_columns(data, filters_applied)
+
+        # Apply pagination
+        paginated = records[offset:offset + limit]
+
+        # Format each result
+        formatted_results = []
+        for record in paginated:
+            formatted = self._format_screened_stock(record, criteria_mapping)
+            formatted_results.append(formatted)
+
+        return formatted_results
+
+    def _detect_criteria_columns(
+        self,
+        data: Any,
+        filters_applied: Dict[str, Any] = None
+    ) -> Dict[str, str]:
+        """
+        Detect criteria_* columns in DataFrame and map them to filter names.
+
+        Borsapy returns columns like 'criteria_33' for the filter values.
+        This method maps them to actual field names based on filters_applied.
+        """
+        mapping = {}
+
+        if not hasattr(data, 'columns'):
+            return mapping
+
+        # Find criteria columns
+        criteria_cols = [col for col in data.columns if col.startswith('criteria_')]
+
+        # If we have filters, try to map criteria columns to filter names
+        if filters_applied and criteria_cols:
+            filter_names = list(filters_applied.keys())
+            for i, col in enumerate(criteria_cols):
+                if i < len(filter_names):
+                    mapping[col] = filter_names[i]
+
+        return mapping
+
+    def _safe_get_screen(self, record: Dict[str, Any], *keys, default=None) -> Any:
+        """Safely get a value from screening record, trying multiple key variants."""
+        for key in keys:
+            if key in record:
+                val = record[key]
+                # Handle NaN values
+                if pd.isna(val):
+                    continue
+                return val
+        return default
+
+    def _format_screened_stock(
+        self,
+        record: Dict[str, Any],
+        criteria_mapping: Dict[str, str] = None
+    ) -> Dict[str, Any]:
+        """
+        Format a single screened stock record for output.
+
+        Args:
+            record: Raw record from screening
+            criteria_mapping: Mapping from criteria_* columns to filter names
+
+        Returns:
+            Formatted record dictionary.
+
+        Note:
+            borsapy returns limited data: symbol, name, and criteria values.
+            The criteria values are mapped to their respective fields.
+        """
+        # Base result with symbol and name
+        result = {
+            "ticker": self._safe_get_screen(record, "symbol", "ticker", "Sembol"),
+            "name": self._safe_get_screen(record, "name", "shortName", "Şirket"),
+            "sector": self._safe_get_screen(record, "sector", "Sektör"),
+            "price": self._safe_get_screen(record, "price", "Fiyat", "last_price"),
+            "market_cap": self._safe_get_screen(record, "market_cap", "Piyasa Değeri", "marketCap"),
+            "market_cap_usd": self._safe_get_screen(record, "market_cap_usd", "Piyasa Değeri (USD)"),
+            "pe_ratio": self._safe_get_screen(record, "pe", "F/K", "pe_ratio"),
+            "pb_ratio": self._safe_get_screen(record, "pb", "PD/DD", "pb_ratio"),
+            "roe": self._safe_get_screen(record, "roe", "ROE", "return_on_equity"),
+            "roa": self._safe_get_screen(record, "roa", "ROA"),
+            "net_margin": self._safe_get_screen(record, "net_margin", "Net Kar Marjı"),
+            "ebitda_margin": self._safe_get_screen(record, "ebitda_margin", "FAVÖK Marjı"),
+            "dividend_yield": self._safe_get_screen(record, "dividend_yield", "Temettü Verimi"),
+            "return_1d": self._safe_get_screen(record, "return_1d", "Günlük Getiri"),
+            "return_1w": self._safe_get_screen(record, "return_1w", "Haftalık Getiri"),
+            "return_1m": self._safe_get_screen(record, "return_1m", "Aylık Getiri"),
+            "return_1y": self._safe_get_screen(record, "return_1y", "Yıllık Getiri"),
+            "return_ytd": self._safe_get_screen(record, "return_ytd", "YTD Getiri"),
+            "volume_3m": self._safe_get_screen(record, "volume_3m", "3A Ort. Hacim"),
+            "foreign_ratio": self._safe_get_screen(record, "foreign_ratio", "Yabancı Oranı"),
+            "foreign_ratio_1m_change": self._safe_get_screen(record, "foreign_ratio_1m_change", "Yabancı 1A Değişim"),
+            "target_price": self._safe_get_screen(record, "target_price", "Hedef Fiyat"),
+            "upside_potential": self._safe_get_screen(record, "upside_potential", "Yükseliş Potansiyeli"),
+            "recommendation": self._safe_get_screen(record, "recommendation", "Öneri"),
+            "bist30_weight": self._safe_get_screen(record, "bist30_weight", "BIST30 Ağırlık"),
+            "bist50_weight": self._safe_get_screen(record, "bist50_weight", "BIST50 Ağırlık"),
+            "bist100_weight": self._safe_get_screen(record, "bist100_weight", "BIST100 Ağırlık")
+        }
+
+        # Map criteria_* columns to their respective fields
+        if criteria_mapping:
+            field_to_result_key = {
+                "pe": "pe_ratio",
+                "pb": "pb_ratio",
+                "roe": "roe",
+                "roa": "roa",
+                "net_margin": "net_margin",
+                "ebitda_margin": "ebitda_margin",
+                "dividend_yield": "dividend_yield",
+                "return_1d": "return_1d",
+                "return_1w": "return_1w",
+                "return_1m": "return_1m",
+                "return_1y": "return_1y",
+                "return_ytd": "return_ytd",
+                "market_cap": "market_cap",
+                "volume_3m": "volume_3m",
+                "foreign_ratio": "foreign_ratio",
+                "upside_potential": "upside_potential",
+                "ev_ebitda": "ev_ebitda",
+                "ev_sales": "ev_sales",
+                "bist30_weight": "bist30_weight",
+                "bist50_weight": "bist50_weight",
+                "bist100_weight": "bist100_weight",
+            }
+
+            for criteria_col, filter_name in criteria_mapping.items():
+                if criteria_col in record:
+                    value = record[criteria_col]
+                    if not pd.isna(value):
+                        # Map filter name to result key
+                        result_key = field_to_result_key.get(filter_name, filter_name)
+                        if result_key in result:
+                            result[result_key] = value
+
+        return result
+
+    def get_preset_list(self) -> List[Dict[str, str]]:
+        """
+        Get list of available preset screens.
+
+        Returns:
+            List of preset configurations with name and description.
+        """
+        return [
+            {
+                "name": name,
+                "description": config["description"]
+            }
+            for name, config in self.PRESET_FILTERS.items()
+        ]
+
+    def get_filter_documentation(self) -> Dict[str, Any]:
+        """
+        Get documentation for available filters.
+
+        Returns:
+            Dict with filter categories, operators, and examples.
+        """
+        return {
+            "available_filters": self.AVAILABLE_FILTERS,
+            "operators": {
+                "min": "Minimum değer (e.g., {'pe': {'min': 5}})",
+                "max": "Maksimum değer (e.g., {'pe': {'max': 15}})",
+                "min_max": "Aralık (e.g., {'pe': {'min': 5, 'max': 15}})",
+                "direct": "Direkt değer - sector, index, recommendation için"
+            },
+            "examples": {
+                "value_screen": {
+                    "pe": {"max": 10},
+                    "pb": {"max": 1.5},
+                    "dividend_yield": {"min": 3}
+                },
+                "growth_screen": {
+                    "roe": {"min": 20},
+                    "return_1m": {"min": 5}
+                },
+                "foreign_screen": {
+                    "foreign_ratio": {"min": 40},
+                    "foreign_ratio_1m_change": {"min": 1}
+                },
+                "sector_screen": {
+                    "sector": "Bankacılık"
+                },
+                "index_screen": {
+                    "index": "XU030"
+                }
+            },
+            "available_sectors": [
+                "Bankacılık", "Holding ve Yatırım", "Demir Çelik", "Otomotiv",
+                "Gıda", "Tekstil", "İnşaat", "Enerji", "Telekomünikasyon",
+                "Perakende", "Teknoloji", "Sağlık", "Turizm", "Ulaştırma",
+                "Kimya", "Madencilik", "Sigorta", "GYO", "Elektrik"
+            ],
+            "available_indices": [
+                "XU030", "XU050", "XU100", "XBANK", "XHOLD", "XSGRT",
+                "XUSIN", "XUHIZ", "XUTEK", "XGIDA", "XTEKS", "XMANA"
+            ],
+            "filter_categories": {
+                "valuation": "F/K, PD/DD, EV/EBITDA gibi değerleme metrikleri",
+                "profitability": "ROE, ROA, kar marjları",
+                "dividend": "Temettü verimi ve geçmiş temettüler",
+                "returns": "Günlük, haftalık, aylık, yıllık getiriler",
+                "market": "Fiyat, piyasa değeri, hacim",
+                "foreign": "Yabancı sahiplik oranı ve değişimleri",
+                "analyst": "Hedef fiyat ve analist önerileri",
+                "index": "Endeks ağırlıkları"
+            },
+            "notes": {
+                "tr": "Tüm değerler TRY bazındadır",
+                "percentage": "Yüzde değerler 0-100 arasındadır (örn: ROE=15 demek %15)",
+                "market_cap": "Piyasa değeri TRY cinsindendir"
+            }
+        }

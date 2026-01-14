@@ -1800,3 +1800,45 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
     async def get_us_screener_filter_docs(self) -> Dict[str, Any]:
         """Get documentation for available screener filters."""
         return self.yfscreen_provider.get_filter_documentation()
+
+    # ============================================================================
+    # BIST STOCK SCREENER METHODS
+    # ============================================================================
+
+    async def screen_bist_stocks(
+        self,
+        preset: Optional[str] = None,
+        custom_filters: Optional[Dict[str, Any]] = None,
+        limit: int = 50,
+        offset: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Screen BIST stocks using borsapy Screener.
+
+        Args:
+            preset: Preset screen name (high_dividend, low_pe, etc.)
+            custom_filters: Custom filter dict with field names and min/max values
+            limit: Maximum results to return
+            offset: Pagination offset
+
+        Returns:
+            Screening results with metadata.
+        """
+        return await self.borsapy_provider.screen_stocks(
+            preset=preset,
+            custom_filters=custom_filters,
+            limit=limit,
+            offset=offset
+        )
+
+    async def get_bist_screener_presets(self) -> Dict[str, Any]:
+        """Get list of available BIST preset screens."""
+        presets = self.borsapy_provider.get_preset_list()
+        return {
+            "presets": presets,
+            "total_presets": len(presets)
+        }
+
+    async def get_bist_screener_filter_docs(self) -> Dict[str, Any]:
+        """Get documentation for available BIST screener filters."""
+        return self.borsapy_provider.get_filter_documentation()

@@ -12,4 +12,4 @@ requests
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.0
 yfscreen>=0.1.1
-borsapy>=0.3.3
+borsapy>=0.4.0

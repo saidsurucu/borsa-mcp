@@ -175,6 +175,12 @@ from borsa_models import (
     USScreenerResult, ScreenerPresetInfo, ScreenerPresetsResult, ScreenerFilterDocumentation
 )
 
+# BIST Screener Models from borsa_models
+from borsa_models import (
+    BistScreenedStock, BistScreenerResult, BistScreenerPresetInfo,
+    BistScreenerPresetsResult, BistScreenerFilterDocumentation
+)
+
 # Export all models for backward compatibility
 __all__ = [
     # Base enums
@@ -281,5 +287,8 @@ __all__ = [
     "USIndexInfo", "USIndexSearchResult", "USIndexDetailResult",
     # US Stock Screener Models
     "SecurityTypeEnum", "PresetScreenEnum", "ScreenedSecurity",
-    "USScreenerResult", "ScreenerPresetInfo", "ScreenerPresetsResult", "ScreenerFilterDocumentation"
+    "USScreenerResult", "ScreenerPresetInfo", "ScreenerPresetsResult", "ScreenerFilterDocumentation",
+    # BIST Screener Models
+    "BistScreenedStock", "BistScreenerResult", "BistScreenerPresetInfo",
+    "BistScreenerPresetsResult", "BistScreenerFilterDocumentation"
 ]

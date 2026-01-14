@@ -2125,3 +2125,76 @@ class ScreenerFilterDocumentation(BaseModel):
     examples: Dict[str, List[List[Any]]] = Field(description="Example filter configurations")
     sectors: List[str] = Field(description="Available sector values")
     security_types: List[str] = Field(description="Available security types")
+
+
+# =====================================================================
+# BIST STOCK SCREENER MODELS
+# =====================================================================
+
+
+class BistScreenedStock(BaseModel):
+    """Single screened BIST stock."""
+    ticker: Optional[str] = Field(None, description="Hisse kodu")
+    name: Optional[str] = Field(None, description="Şirket adı")
+    sector: Optional[str] = Field(None, description="Sektör")
+    price: Optional[float] = Field(None, description="Güncel fiyat (TRY)")
+    market_cap: Optional[float] = Field(None, description="Piyasa değeri (TRY)")
+    market_cap_usd: Optional[float] = Field(None, description="Piyasa değeri (USD)")
+    pe_ratio: Optional[float] = Field(None, description="F/K oranı")
+    pb_ratio: Optional[float] = Field(None, description="PD/DD oranı")
+    roe: Optional[float] = Field(None, description="Özkaynak kârlılığı (%)")
+    roa: Optional[float] = Field(None, description="Aktif kârlılığı (%)")
+    net_margin: Optional[float] = Field(None, description="Net kâr marjı (%)")
+    ebitda_margin: Optional[float] = Field(None, description="FAVÖK marjı (%)")
+    dividend_yield: Optional[float] = Field(None, description="Temettü verimi (%)")
+    return_1d: Optional[float] = Field(None, description="Günlük getiri (%)")
+    return_1w: Optional[float] = Field(None, description="Haftalık getiri (%)")
+    return_1m: Optional[float] = Field(None, description="Aylık getiri (%)")
+    return_1y: Optional[float] = Field(None, description="Yıllık getiri (%)")
+    return_ytd: Optional[float] = Field(None, description="Yılbaşından bugüne getiri (%)")
+    volume_3m: Optional[float] = Field(None, description="3 aylık ortalama hacim")
+    foreign_ratio: Optional[float] = Field(None, description="Yabancı oranı (%)")
+    foreign_ratio_1m_change: Optional[float] = Field(None, description="1 aylık yabancı değişimi (bps)")
+    target_price: Optional[float] = Field(None, description="Analist hedef fiyat")
+    upside_potential: Optional[float] = Field(None, description="Yükseliş potansiyeli (%)")
+    recommendation: Optional[str] = Field(None, description="Analist önerisi (AL/TUT/SAT)")
+    bist30_weight: Optional[float] = Field(None, description="BIST 30 ağırlığı (%)")
+    bist50_weight: Optional[float] = Field(None, description="BIST 50 ağırlığı (%)")
+    bist100_weight: Optional[float] = Field(None, description="BIST 100 ağırlığı (%)")
+
+
+class BistScreenerResult(BaseModel):
+    """Complete BIST stock screening result."""
+    preset_used: Optional[str] = Field(None, description="Kullanılan preset adı")
+    filter_description: Optional[str] = Field(None, description="Filtre açıklaması")
+    filters_applied: Optional[Dict[str, Any]] = Field(None, description="Uygulanan filtreler")
+    total_results: int = Field(description="Toplam bulunan hisse sayısı")
+    returned_count: int = Field(description="Döndürülen hisse sayısı (pagination sonrası)")
+    offset: int = Field(default=0, description="Pagination offset")
+    limit: int = Field(default=50, description="Pagination limit")
+    results: List[Dict[str, Any]] = Field(default_factory=list, description="Taranan hisseler")
+    query_timestamp: str = Field(description="Sorgu zamanı")
+    error_message: Optional[str] = Field(None, description="Hata mesajı")
+
+
+class BistScreenerPresetInfo(BaseModel):
+    """Information about a BIST preset screen."""
+    name: str = Field(description="Preset adı")
+    description: str = Field(description="Preset açıklaması")
+
+
+class BistScreenerPresetsResult(BaseModel):
+    """List of available BIST preset screens."""
+    presets: List[BistScreenerPresetInfo] = Field(description="Mevcut preset taramaları")
+    total_presets: int = Field(description="Toplam preset sayısı")
+
+
+class BistScreenerFilterDocumentation(BaseModel):
+    """Documentation for BIST screener filters."""
+    available_filters: Dict[str, List[str]] = Field(description="Filtre kategorileri ve alan adları")
+    operators: Dict[str, str] = Field(description="Operatörler ve kullanımları")
+    examples: Dict[str, Dict[str, Any]] = Field(description="Örnek filtre yapılandırmaları")
+    available_sectors: List[str] = Field(description="Mevcut sektörler")
+    available_indices: List[str] = Field(description="Mevcut endeksler")
+    filter_categories: Dict[str, str] = Field(description="Filtre kategorileri açıklamaları")
+    notes: Dict[str, str] = Field(description="Notlar")
