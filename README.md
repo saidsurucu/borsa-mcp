@@ -24,7 +24,7 @@ Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve 
 
 🔗 **Remote MCP Adresi:** https://borsamcp.fastmcp.app/mcp
 
-### Claude Desktop ile Kullanım
+### Claude Desktop ile Kullanım (Ücretli abonelik gerekir)
 
 1. **Claude Desktop**'ı açın
 2. **Settings** → **Connectors** → **Add Custom Connector**
