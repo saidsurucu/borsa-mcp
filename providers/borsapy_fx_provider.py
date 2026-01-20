@@ -104,10 +104,9 @@ class BorsapyFXProvider:
             # Validate asset
             if asset not in self.SUPPORTED_ASSETS:
                 return DovizcomGuncelSonucu(
-                    asset=asset,
+                    varlik_adi=asset,
                     guncel_deger=None,
-                    guncelleme_tarihi=None,
-                    cached=False,
+                    son_guncelleme=None,
                     error_message=f"Unsupported asset: {asset}. Supported: {list(self.SUPPORTED_ASSETS.keys())}"
                 )
 
@@ -131,85 +130,64 @@ class BorsapyFXProvider:
                 value = float(current_data) if current_data else None
                 update_time = None
 
+            # Determine category based on asset type
+            if asset in ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD"]:
+                kategori = "doviz"
+                birim = "TRY"
+            elif asset in ["gram-altin", "gumus", "ons", "XAG-USD", "XPT-USD", "XPD-USD"]:
+                kategori = "emtia"
+                birim = "TRY" if asset in ["gram-altin", "gumus"] else "USD"
+            elif asset in ["BRENT", "WTI"]:
+                kategori = "emtia"
+                birim = "USD"
+            else:
+                kategori = "yakit"
+                birim = "TRY"
+
             return DovizcomGuncelSonucu(
-                asset=asset,
+                varlik_adi=asset,
                 guncel_deger=value,
-                guncelleme_tarihi=update_time if update_time else datetime.now(),
-                cached=False,
+                son_guncelleme=update_time if update_time else datetime.now(),
+                birim=birim,
+                kategori=kategori,
                 error_message=None
             )
 
         except Exception as e:
             logger.error(f"Error fetching current data for {asset}: {e}")
             return DovizcomGuncelSonucu(
-                asset=asset,
+                varlik_adi=asset,
                 guncel_deger=None,
-                guncelleme_tarihi=None,
-                cached=False,
+                son_guncelleme=None,
                 error_message=str(e)
             )
 
     async def get_asset_daily(self, asset: str, limit: int = 60) -> DovizcomDakikalikSonucu:
         """
         Get minute-by-minute data for an asset (up to 60 data points).
-        Uses borsapy history with interval="1m" for most assets.
+        Note: borsapy doesn't support intraday intervals, so we use legacy provider.
         """
         try:
             # Validate asset
             if asset not in self.SUPPORTED_ASSETS:
                 return DovizcomDakikalikSonucu(
-                    asset=asset,
+                    varlik_adi=asset,
                     veri_noktalari=[],
-                    toplam_veri=0,
-                    limit=limit,
+                    veri_sayisi=0,
                     error_message=f"Unsupported asset: {asset}"
                 )
 
-            # Use legacy provider for fallback assets
-            if asset in self.FALLBACK_ASSETS:
-                logger.info(f"Using legacy provider for {asset} daily data")
-                return await self._get_legacy_provider().get_asset_daily(asset, limit)
-
-            # Use borsapy history with 1-minute interval
-            borsapy_asset = self._get_borsapy_asset(asset)
-            logger.info(f"Fetching {asset} minute data via borsapy")
-
-            fx = bp.FX(borsapy_asset)
-            # Get intraday data - borsapy supports 1m interval for up to 1 day
-            df = fx.history(period="1g", interval="1m")
-
-            if df is None or df.empty:
-                return DovizcomDakikalikSonucu(
-                    asset=asset,
-                    veri_noktalari=[],
-                    toplam_veri=0,
-                    limit=limit,
-                    error_message="No minute data available"
-                )
-
-            # Convert to our model format
-            data_points = []
-            for idx, row in df.tail(limit).iterrows():
-                data_points.append(DovizcomVarligi(
-                    close=float(row['Close']),
-                    update_date=idx.to_pydatetime() if hasattr(idx, 'to_pydatetime') else idx
-                ))
-
-            return DovizcomDakikalikSonucu(
-                asset=asset,
-                veri_noktalari=data_points,
-                toplam_veri=len(data_points),
-                limit=limit,
-                error_message=None
-            )
+            # borsapy FX.history() doesn't support minute intervals
+            # Use legacy provider for all minute-by-minute data
+            logger.info(f"Using legacy provider for {asset} minute data (borsapy doesn't support intraday)")
+            return await self._get_legacy_provider().get_asset_daily(asset, limit)
 
         except Exception as e:
             logger.error(f"Error fetching minute data for {asset}: {e}")
             return DovizcomDakikalikSonucu(
-                asset=asset,
+                varlik_adi=asset,
                 veri_noktalari=[],
-                toplam_veri=0,
-                limit=limit,
+                veri_sayisi=0,
                 error_message=str(e)
             )
 
@@ -224,14 +202,19 @@ class BorsapyFXProvider:
         Uses borsapy history with date range for most assets.
         """
         try:
+            # Parse dates
+            from datetime import datetime as dt_module
+            start_dt = dt_module.strptime(start_date, "%Y-%m-%d").date()
+            end_dt = dt_module.strptime(end_date, "%Y-%m-%d").date()
+
             # Validate asset
             if asset not in self.SUPPORTED_ASSETS:
                 return DovizcomArsivSonucu(
-                    asset=asset,
+                    varlik_adi=asset,
+                    baslangic_tarihi=start_dt,
+                    bitis_tarihi=end_dt,
                     ohlc_verileri=[],
-                    toplam_veri=0,
-                    start_date=start_date,
-                    end_date=end_date,
+                    veri_sayisi=0,
                     error_message=f"Unsupported asset: {asset}"
                 )
 
@@ -249,44 +232,96 @@ class BorsapyFXProvider:
 
             if df is None or df.empty:
                 return DovizcomArsivSonucu(
-                    asset=asset,
+                    varlik_adi=asset,
+                    baslangic_tarihi=start_dt,
+                    bitis_tarihi=end_dt,
                     ohlc_verileri=[],
-                    toplam_veri=0,
-                    start_date=start_date,
-                    end_date=end_date,
+                    veri_sayisi=0,
                     error_message="No historical data available for the specified date range"
                 )
 
-            # Convert to our model format
+            # Convert to our model format (Turkish field names)
             ohlc_data = []
             for idx, row in df.iterrows():
+                # Extract date from index
+                if hasattr(idx, 'to_pydatetime'):
+                    dt = idx.to_pydatetime()
+                    tarih = dt.date() if hasattr(dt, 'date') else dt
+                elif hasattr(idx, 'date'):
+                    tarih = idx.date()
+                else:
+                    tarih = idx
+
                 ohlc_data.append(DovizcomOHLCVarligi(
-                    update_date=idx.to_pydatetime() if hasattr(idx, 'to_pydatetime') else idx,
-                    open=float(row['Open']) if 'Open' in row else 0.0,
-                    high=float(row['High']) if 'High' in row else 0.0,
-                    low=float(row['Low']) if 'Low' in row else 0.0,
-                    close=float(row['Close']) if 'Close' in row else 0.0,
-                    close_try=float(row['Close']) if 'Close' in row else 0.0,  # Same as close for TRY assets
-                    close_usd=0.0,  # Not available from borsapy
-                    volume=float(row['Volume']) if 'Volume' in row else 0.0
+                    tarih=tarih,
+                    acilis=float(row['Open']) if 'Open' in row else 0.0,
+                    en_yuksek=float(row['High']) if 'High' in row else 0.0,
+                    en_dusuk=float(row['Low']) if 'Low' in row else 0.0,
+                    kapanis=float(row['Close']) if 'Close' in row else 0.0
                 ))
 
+            # Calculate technical analysis metrics
+            if ohlc_data:
+                closes = [d.kapanis for d in ohlc_data]
+                highs = [d.en_yuksek for d in ohlc_data]
+                lows = [d.en_dusuk for d in ohlc_data]
+
+                en_yuksek_fiyat = max(highs) if highs else None
+                en_dusuk_fiyat = min(lows) if lows else None
+
+                # Calculate return
+                if closes[0] and closes[-1]:
+                    toplam_getiri = ((closes[-1] - closes[0]) / closes[0]) * 100
+                else:
+                    toplam_getiri = None
+
+                # Determine trend
+                if toplam_getiri:
+                    if toplam_getiri > 1:
+                        trend_yonu = "yukselis"
+                    elif toplam_getiri < -1:
+                        trend_yonu = "dusulis"
+                    else:
+                        trend_yonu = "yatay"
+                else:
+                    trend_yonu = None
+
+                # Determine market type
+                if asset in ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD"]:
+                    piyasa_tipi = "doviz"
+                elif asset in ["gram-altin", "gumus", "ons", "XAG-USD", "XPT-USD", "XPD-USD"]:
+                    piyasa_tipi = "kiymetli_maden"
+                elif asset in ["BRENT", "WTI"]:
+                    piyasa_tipi = "enerji"
+                else:
+                    piyasa_tipi = "yakit"
+            else:
+                en_yuksek_fiyat = None
+                en_dusuk_fiyat = None
+                toplam_getiri = None
+                trend_yonu = None
+                piyasa_tipi = None
+
             return DovizcomArsivSonucu(
-                asset=asset,
+                varlik_adi=asset,
+                baslangic_tarihi=start_dt,
+                bitis_tarihi=end_dt,
                 ohlc_verileri=ohlc_data,
-                toplam_veri=len(ohlc_data),
-                start_date=start_date,
-                end_date=end_date,
+                veri_sayisi=len(ohlc_data),
+                trend_yonu=trend_yonu,
+                en_yuksek_fiyat=en_yuksek_fiyat,
+                en_dusuk_fiyat=en_dusuk_fiyat,
+                toplam_getiri=toplam_getiri,
+                piyasa_tipi=piyasa_tipi,
+                referans_para_birimi="TRY",
                 error_message=None
             )
 
         except Exception as e:
             logger.error(f"Error fetching historical data for {asset}: {e}")
             return DovizcomArsivSonucu(
-                asset=asset,
+                varlik_adi=asset,
                 ohlc_verileri=[],
-                toplam_veri=0,
-                start_date=start_date,
-                end_date=end_date,
+                veri_sayisi=0,
                 error_message=str(e)
             )
