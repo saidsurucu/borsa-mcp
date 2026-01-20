@@ -162,10 +162,18 @@ class BorsapyFXProvider:
                 error_message=str(e)
             )
 
+    # Assets that support intraday data via TradingView (borsapy 0.5.3+)
+    INTRADAY_ASSETS = {
+        "USD", "EUR", "GBP", "JPY",  # Major FX pairs with TRY
+        "ons", "XAG-USD", "XPT-USD", "XPD-USD",  # Precious metals
+        "BRENT", "WTI"  # Energy
+    }
+
     async def get_asset_daily(self, asset: str, limit: int = 60) -> DovizcomDakikalikSonucu:
         """
         Get minute-by-minute data for an asset (up to 60 data points).
-        Note: borsapy doesn't support intraday intervals, so we use legacy provider.
+        Uses borsapy TradingView integration for supported assets (USD, EUR, GBP, JPY, metals, energy).
+        Falls back to legacy provider for other assets.
         """
         try:
             # Validate asset
@@ -177,10 +185,68 @@ class BorsapyFXProvider:
                     error_message=f"Unsupported asset: {asset}"
                 )
 
-            # borsapy FX.history() doesn't support minute intervals
-            # Use legacy provider for all minute-by-minute data
-            logger.info(f"Using legacy provider for {asset} minute data (borsapy doesn't support intraday)")
-            return await self._get_legacy_provider().get_asset_daily(asset, limit)
+            # Use legacy provider for fallback assets (fuel prices)
+            if asset in self.FALLBACK_ASSETS:
+                logger.info(f"Using legacy provider for {asset} (fallback asset)")
+                return await self._get_legacy_provider().get_asset_daily(asset, limit)
+
+            # Check if asset supports intraday via TradingView
+            if asset not in self.INTRADAY_ASSETS:
+                # Assets like CHF, CAD, AUD don't have TRY pairs on TradingView
+                logger.info(f"Asset {asset} doesn't support intraday, using legacy provider")
+                return await self._get_legacy_provider().get_asset_daily(asset, limit)
+
+            # Use borsapy with interval parameter (TradingView data)
+            borsapy_asset = self._get_borsapy_asset(asset)
+            logger.info(f"Fetching {asset} minute data via borsapy TradingView (mapped to: {borsapy_asset})")
+
+            fx = bp.FX(borsapy_asset)
+            # Get intraday data - borsapy 0.5.3+ supports interval parameter
+            df = fx.history(period="1g", interval="1m")
+
+            if df is None or df.empty:
+                return DovizcomDakikalikSonucu(
+                    varlik_adi=asset,
+                    veri_noktalari=[],
+                    veri_sayisi=0,
+                    error_message="No minute data available"
+                )
+
+            # Convert to our model format (Turkish field names)
+            data_points = []
+            for idx, row in df.tail(limit).iterrows():
+                # Handle timezone-aware timestamps
+                if hasattr(idx, 'to_pydatetime'):
+                    dt = idx.to_pydatetime()
+                    # Remove timezone info if present for consistency
+                    if dt.tzinfo is not None:
+                        dt = dt.replace(tzinfo=None)
+                else:
+                    dt = idx
+
+                data_points.append(DovizcomVarligi(
+                    tarih=dt,
+                    deger=float(row['Close'])
+                ))
+
+            # Calculate analysis metrics
+            values = [dp.deger for dp in data_points]
+            en_yuksek = max(values) if values else None
+            en_dusuk = min(values) if values else None
+            ortalama = sum(values) / len(values) if values else None
+
+            return DovizcomDakikalikSonucu(
+                varlik_adi=asset,
+                zaman_araligi=f"Son {len(data_points)} dakika",
+                veri_noktalari=data_points,
+                veri_sayisi=len(data_points),
+                baslangic_tarihi=data_points[0].tarih if data_points else None,
+                bitis_tarihi=data_points[-1].tarih if data_points else None,
+                en_yuksek_deger=en_yuksek,
+                en_dusuk_deger=en_dusuk,
+                ortalama_deger=ortalama,
+                error_message=None
+            )
 
         except Exception as e:
             logger.error(f"Error fetching minute data for {asset}: {e}")
