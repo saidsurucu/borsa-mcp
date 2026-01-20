@@ -74,18 +74,18 @@ class BorsaApiClient:
         # Import CoinbaseProvider for global crypto data
         from providers.coinbase_provider import CoinbaseProvider
         self.coinbase_provider = CoinbaseProvider(self._http_client)
-        # Import DovizcomProvider for currency and commodities data
-        from providers.dovizcom_provider import DovizcomProvider
-        self.dovizcom_provider = DovizcomProvider(self._http_client)
-        # Import DovizcomCalendarProvider for Turkish economic calendar data
-        from providers.dovizcom_calendar_provider import DovizcomCalendarProvider
-        self.dovizcom_calendar_provider = DovizcomCalendarProvider(self._http_client)
+        # Import BorsapyFXProvider for currency and commodities data (replaces DovizcomProvider)
+        from providers.borsapy_fx_provider import BorsapyFXProvider
+        self.dovizcom_provider = BorsapyFXProvider(self._http_client)
+        # Import BorsapyCalendarProvider for Turkish economic calendar data (replaces DovizcomCalendarProvider)
+        from providers.borsapy_calendar_provider import BorsapyCalendarProvider
+        self.dovizcom_calendar_provider = BorsapyCalendarProvider()
         # Import TcmbProvider for Turkish inflation data
         from providers.tcmb_provider import TcmbProvider
         self.tcmb_provider = TcmbProvider(self._http_client)
-        # Import DovizcomTahvilProvider for bond yields
-        from providers.dovizcom_tahvil_provider import DovizcomTahvilProvider
-        self.tahvil_provider = DovizcomTahvilProvider(self._http_client)
+        # Import BorsapyBondProvider for bond yields (replaces DovizcomTahvilProvider)
+        from providers.borsapy_bond_provider import BorsapyBondProvider
+        self.tahvil_provider = BorsapyBondProvider()
         # Import WorldBankProvider for GDP growth data
         from providers.worldbank_provider import WorldBankProvider
         self.worldbank_provider = WorldBankProvider(self._http_client)
@@ -846,28 +846,28 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
         """Get comprehensive technical analysis for Coinbase crypto pairs."""
         return await self.coinbase_provider.get_coinbase_teknik_analiz(product_id, granularity)
     
-    # --- Dovizcom Provider Methods ---
+    # --- FX Provider Methods (borsapy - replaces Dovizcom) ---
     async def get_dovizcom_guncel_kur(self, asset: str) -> "DovizcomGuncelSonucu":
-        """Get current exchange rate or commodity price from doviz.com."""
+        """Get current exchange rate or commodity price via borsapy (65 currencies, metals, commodities)."""
         return await self.dovizcom_provider.get_asset_current(asset)
-    
+
     async def get_dovizcom_dakikalik_veri(self, asset: str, limit: int = 60) -> "DovizcomDakikalikSonucu":
-        """Get minute-by-minute data from doviz.com."""
+        """Get minute-by-minute data via borsapy (supports 1m,3m,5m,15m,30m,45m,1h intervals)."""
         return await self.dovizcom_provider.get_asset_daily(asset, limit)
-    
+
     async def get_dovizcom_arsiv_veri(self, asset: str, start_date: str, end_date: str) -> "DovizcomArsivSonucu":
-        """Get historical OHLC archive data from doviz.com."""
+        """Get historical OHLC archive data via borsapy."""
         return await self.dovizcom_provider.get_asset_archive(asset, start_date, end_date)
-    
-    # --- Dovizcom Calendar Provider Methods ---
+
+    # --- Economic Calendar Provider Methods (borsapy - replaces Dovizcom) ---
     async def get_economic_calendar(
-        self, 
-        start_date: str, 
+        self,
+        start_date: str,
         end_date: str,
         high_importance_only: bool = True,
         country_filter: Optional[str] = None
     ) -> "EkonomikTakvimSonucu":
-        """Get Turkish economic calendar events from Doviz.com."""
+        """Get economic calendar events via borsapy (TR, US, EU, DE, GB, JP, CN)."""
         return await self.dovizcom_calendar_provider.get_economic_calendar(
             start_date, end_date, high_importance_only, country_filter
         )

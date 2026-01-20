@@ -2750,7 +2750,7 @@ async def get_coinbase_teknik_analiz(
         )
 
 @app.tool(
-    description="CURRENCY & COMMODITIES: Get current exchange rate or commodity price from doviz.com.",
+    description="CURRENCY & COMMODITIES: Get current exchange rate or commodity price via borsapy (65 currencies, metals, commodities).",
     tags=["currency", "commodities", "current", "readonly", "external"]
 )
 async def get_dovizcom_guncel(
@@ -2760,10 +2760,13 @@ async def get_dovizcom_guncel(
     )]
 ) -> DovizcomGuncelSonucu:
     """
-    Get current exchange rate or commodity price from doviz.com.
+    Get current exchange rate or commodity price via borsapy library.
     
     Supports major currencies (USD, EUR, GBP), precious metals (gram-altin, ons, XAG-USD), 
     energy commodities (BRENT, WTI), and fuel prices (diesel, gasoline, lpg).
+    
+    **Data Source:** borsapy library (doviz.com backend)
+    **Legacy Fallback:** WTI, diesel, gasoline, lpg use direct doviz.com scraping
     """
     logger.info(f"Tool 'get_dovizcom_guncel' called with asset='{asset}'")
     try:
@@ -2776,7 +2779,7 @@ async def get_dovizcom_guncel(
         )
 
 @app.tool(
-    description="CURRENCY & COMMODITIES: Get minute data for currencies/metals only. DO NOT use for fuel assets (gasoline, diesel, lpg).",
+    description="CURRENCY & COMMODITIES: Get minute data for currencies/metals via borsapy. DO NOT use for fuel assets (gasoline, diesel, lpg).",
     tags=["currency", "commodities", "realtime", "readonly", "external"]
 )
 async def get_dovizcom_dakikalik(
@@ -2792,7 +2795,7 @@ async def get_dovizcom_dakikalik(
     )] = 60
 ) -> DovizcomDakikalikSonucu:
     """
-    Get minute-by-minute data from doviz.com for currencies and commodities.
+    Get minute-by-minute data via borsapy for currencies and commodities.
     
     **IMPORTANT NOTE:** Fuel assets (gasoline, diesel, lpg) typically do NOT have minute-by-minute data. 
     Fuel prices are updated less frequently (daily/weekly) unlike currencies and precious metals which have real-time updates.
@@ -2805,6 +2808,8 @@ async def get_dovizcom_dakikalik(
     **Limited/No Data For:**
     - **Fuel Prices:** gasoline, diesel, lpg - updated daily/weekly, not minute-by-minute
     - **Off-Hours:** Some assets may have gaps during non-trading hours
+    
+    **Data Source:** borsapy library (doviz.com backend)
     
     Returns up to 60 data points showing price movements over the last N minutes.
     Useful for real-time monitoring and short-term analysis of actively traded assets.
@@ -2823,7 +2828,7 @@ async def get_dovizcom_dakikalik(
         )
 
 @app.tool(
-    description="CURRENCY & COMMODITIES: Get historical OHLC data from doviz.com for custom date range.",
+    description="CURRENCY & COMMODITIES: Get historical OHLC data via borsapy for custom date range.",
     tags=["currency", "commodities", "historical", "readonly", "external", "ohlc"]
 )
 async def get_dovizcom_arsiv(
@@ -2843,10 +2848,13 @@ async def get_dovizcom_arsiv(
     )]
 ) -> DovizcomArsivSonucu:
     """
-    Get historical OHLC data from doviz.com for custom date range.
+    Get historical OHLC data via borsapy for custom date range.
     
     Returns daily OHLC (Open, High, Low, Close) data with volume information.
     Perfect for technical analysis and historical trend research.
+    
+    **Data Source:** borsapy library (doviz.com backend)
+    **Legacy Fallback:** WTI, diesel, gasoline, lpg use direct doviz.com scraping
     """
     logger.info(f"Tool 'get_dovizcom_arsiv' called with asset='{asset}', start_date='{start_date}', end_date='{end_date}'")
     try:
@@ -2863,7 +2871,7 @@ async def get_dovizcom_arsiv(
         )
 
 @app.tool(
-    description="ECONOMIC CALENDAR: Get Turkish economic events calendar from Doviz.com (unemployment, inflation, PMI data).",
+    description="ECONOMIC CALENDAR: Get economic events calendar via borsapy for TR, US, EU, DE, GB, JP, CN (unemployment, inflation, PMI data).",
     tags=["economic", "calendar", "events", "readonly", "external", "macroeconomic", "turkey"]
 )
 async def get_economic_calendar(
@@ -2882,16 +2890,22 @@ async def get_economic_calendar(
         default=True
     )] = True,
     country_filter: Annotated[str, Field(
-        description="Country filter: 'TR' (Türkiye), 'US' (ABD), 'EU' (Euro Bölgesi), 'CN' (Çin), 'DE' (Almanya), 'GB' (Birleşik Krallık), 'IT' (İtalya), 'FR' (Fransa), 'JP' (Japonya), 'KR' (Güney Kore), 'ZA' (Güney Afrika), 'BR' (Brezilya), 'AU' (Avustralya), 'CA' (Kanada), 'RU' (Rusya), 'IN' (Hindistan), or other ISO country codes.",
+        description="Country filter (borsapy supports 7 countries): 'TR' (Türkiye), 'US' (ABD), 'EU' (Euro Bölgesi), 'DE' (Almanya), 'GB' (Birleşik Krallık), 'JP' (Japonya), 'CN' (Çin). Comma-separated for multiple countries.",
         default="TR,US",
-        examples=["TR", "US", "TR,US", "EU", "CN", "DE"]
+        examples=["TR", "US", "TR,US", "EU", "CN", "DE", "GB", "JP"]
     )] = "TR,US"
 ) -> EkonomikTakvimSonucu:
     """
-    Get economic calendar events from Doviz.com for multiple countries.
+    Get economic calendar events via borsapy for multiple countries.
     
     Provides macroeconomic events like unemployment rates, inflation data, PMI indicators,
     and other market-moving economic statistics for selected countries.
+    
+    **Data Source:** borsapy library (bp.EconomicCalendar)
+    
+    **Supported Countries (7):**
+    - TR (Türkiye), US (ABD), EU (Euro Bölgesi)
+    - DE (Almanya), GB (Birleşik Krallık), JP (Japonya), CN (Çin)
     
     **Data Coverage:**
     - **Employment Data:** Unemployment rates, employment ratios, labor force participation
@@ -3401,14 +3415,24 @@ Bu, yanıt kısa olsa bile, markdown, kod içerse veya evet/hayır sorusuna ceva
 # ===========================
 
 @app.tool(
-    description="BONDS: Get current Turkish government bond yields (2Y, 5Y, 10Y) from Doviz.com"
+    description="BONDS: Get current Turkish government bond yields (2Y, 5Y, 10Y) via borsapy"
 )
 async def get_tahvil_faizleri() -> TahvilFaizleriSonucu:
     """
-    Fetch current Turkish government bond yields.
+    Fetch current Turkish government bond yields via borsapy.
     
     Returns 2-year, 5-year, and 10-year bond interest rates.
-    Data is real-time from Doviz.com.
+    
+    **Data Source:** borsapy library (bp.Bond class)
+    
+    **Available Maturities:**
+    - 2Y: T.C. Hazine Müsteşarlığı 2 Yıllık Tahvil
+    - 5Y: T.C. Hazine Müsteşarlığı 5 Yıllık Tahvil  
+    - 10Y: T.C. Hazine Müsteşarlığı 10 Yıllık Tahvil
+    
+    **Use Cases:**
+    - DCF Analysis: 10Y yield used as risk-free rate
+    - Buffett Value Investing: Auto-fetched for intrinsic value calculations
     """
     try:
         result = await borsa_client.get_tahvil_faizleri()
