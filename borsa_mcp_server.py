@@ -179,7 +179,9 @@ ScannerPresetLiteral = Literal[
     "bullish_momentum", "bearish_momentum",
     "macd_positive", "macd_negative",
     "high_volume", "big_gainers", "big_losers",
-    "oversold_high_volume", "momentum_breakout"
+    "oversold_high_volume", "momentum_breakout",
+    "bb_overbought_sell", "bb_oversold_buy",
+    "ma_squeeze_momentum", "overbought_warning"
 ]
 
 @app.tool(

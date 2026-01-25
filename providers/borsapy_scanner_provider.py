@@ -89,6 +89,29 @@ class BorsapyScannerProvider:
             "description": "Momentum kirilimi (>%2, hacim>5M)",
             "category": "momentum"
         },
+        # Bollinger Bands strategies
+        "bb_overbought_sell": {
+            "condition": "close > bb_upper and RSI < 70",
+            "description": "BB ust bant + RSI<70 (SAT sinyali)",
+            "category": "reversal"
+        },
+        "bb_oversold_buy": {
+            "condition": "close < bb_lower and RSI > 30",
+            "description": "BB alt bant + RSI>30 (AL sinyali)",
+            "category": "reversal"
+        },
+        # MA squeeze strategy
+        "ma_squeeze_momentum": {
+            "condition": "RSI > 50 and close > sma_5 and close > sma_20",
+            "description": "MA sikisma + RSI>50 (AL sinyali)",
+            "category": "momentum"
+        },
+        # Overbought warning
+        "overbought_warning": {
+            "condition": "RSI > 70",
+            "description": "RSI>70 asiri alim uyarisi",
+            "category": "reversal"
+        },
     }
 
     # Supported indices
@@ -129,7 +152,7 @@ class BorsapyScannerProvider:
             "RSI", "rsi_7", "rsi_14", "MACD.macd", "MACD.signal", "ADX", "ADX-DI", "ADX+DI",
             "AO", "Mom", "CCI", "cci_20", "Stoch.K", "Stoch.D", "Stoch.RSI.K", "Stoch.RSI.D",
             "W.R", "Ichimoku.BLine", "Ichimoku.CLine", "Ichimoku.Lead1",
-            "Ichimoku.Lead2", "VWMA", "ATR", "BB.upper", "BB.lower",
+            "Ichimoku.Lead2", "VWMA", "ATR", "bb_upper", "bb_lower",
             "Aroon.Up", "Aroon.Down", "Donchian.Width"
             # Note: Use rsi_7 not RSI7, cci_20 not CCI20
             # Not working for BIST: BBPower, UO, HullMA9
@@ -216,6 +239,8 @@ class BorsapyScannerProvider:
         "earnings_growth_yoy": "net_income_yoy_growth_ttm",
         "ebitda_growth_yoy": "ebitda_yoy_growth_ttm",
         "dividend_payout_ratio": "dividend_payout_ratio_ttm",
+        # Wrong BB formats - need underscore
+        "bb.upper": "bb_upper", "bb.lower": "bb_lower",
     }
 
     def __init__(self):
