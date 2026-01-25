@@ -4857,58 +4857,66 @@ async def get_bist_screener_filters() -> BistScreenerFilterDocumentation:
 # ============================================================================
 
 @app.tool(
-    description="BIST SCANNER: Teknik gostergelere gore hisse taramasi (RSI, MACD, hacim)",
+    description="BIST SCANNER: Scan stocks by technical indicators (RSI, MACD, Supertrend, T3)",
     tags=["scanner", "technical", "readonly"]
 )
 async def scan_bist_teknik(
     endeks: Annotated[ScannerIndexLiteral, Field(
-        description="Taranacak BIST endeksi: XU030, XU100, XBANK, XUSIN, vb.",
+        description="BIST index to scan: XU030, XU100, XBANK, XUSIN, etc.",
         examples=["XU030", "XU100", "XBANK"]
     )],
     kosul: Annotated[str, Field(
-        description="Tarama kosulu. Ornekler: 'RSI < 30', 'macd > 0', 'RSI < 40 and volume > 1000000'",
+        description="Scan condition. TradingView fields: RSI, macd, volume, change, sma_50, bb_upper. Local fields (0.6.4+): supertrend_direction (1=bullish,-1=bearish), t3",
         min_length=3,
-        examples=["RSI < 30", "RSI > 70", "macd > 0", "change > 3", "RSI < 40 and volume > 1000000"]
+        examples=["RSI < 30", "macd > 0", "supertrend_direction == 1", "close > t3", "supertrend_direction == 1 and RSI < 40"]
     )],
     zaman_araligi: Annotated[ScannerIntervalLiteral, Field(
-        description="Zaman araligi: 1d (gunluk), 1h (saatlik), 4h (4 saatlik), 1W (haftalik)",
+        description="Timeframe: 1d (daily), 1h (hourly), 4h (4-hour), 1W (weekly)",
         default="1d"
     )] = "1d"
 ) -> TeknikTaramaSonucu:
     """
-    BIST hisselerini teknik gostergelere gore tara (TradingView Scanner API).
+    Scan BIST stocks by technical indicators (TradingView Scanner API).
 
-    **KOSUL YAZIM YOLLARI** (3 farkli yontem):
+    **CONDITION SYNTAX** (3 methods):
 
-    1) KISA ISIMLER (Onerilen):
+    1) SHORT NAMES (Recommended):
        - rsi < 30, macd > 0, volume > 1000000, change > 3
        - sma_50 > sma_200, ema_12 > ema_26
 
-    2) DINAMIK PATTERN (SMA/EMA icin):
-       - sma_55 > sma_89 → Otomatik SMA55'e cevrilir
-       - ema_21 > ema_34 → Otomatik EMA21'e cevrilir
+    2) DYNAMIC PATTERN (for SMA/EMA):
+       - sma_55 > sma_89 → Auto-converts to SMA55
+       - ema_21 > ema_34 → Auto-converts to EMA21
 
-    3) DIREKT TRADINGVIEW ADI (BIST icin calisan alanlar):
+    3) DIRECT TRADINGVIEW FIELD:
        - price_earnings_ttm < 10 → P/E < 10
        - price_book_ratio < 1.5 → P/B < 1.5
-       - return_on_equity > 15 → ROE > %15
-       - market_cap > 10000000000 → Piyasa Degeri > 10B
-       NOT: Tum TradingView alanlari BIST'te calismayabilir
-       Referans: https://shner-elmo.github.io/TradingView-Screener/fields/stocks.html
+       - return_on_equity > 15 → ROE > 15%
 
-    **TEMEL GOSTERGELER**:
-    - RSI: 0-100. RSI < 30 asiri satim, RSI > 70 asiri alim
-    - macd: MACD histogram. macd > 0 yukselis
-    - volume: Hacim. volume > 10000000 yuksek hacim
-    - change: Gunluk %. change > 3 kazananlar
+    **CORE INDICATORS**:
+    - RSI: 0-100. RSI < 30 oversold, RSI > 70 overbought
+    - macd: MACD histogram. macd > 0 bullish
+    - volume: Trading volume. volume > 10000000 high volume
+    - change: Daily %. change > 3 gainers
 
-    **SMA/EMA PERIYOTLARI**:
+    **SMA/EMA PERIODS**:
     - SMA: 5,10,20,30,50,55,60,75,89,100,120,144,150,200,250,300
     - EMA: 5,10,20,21,25,26,30,34,40,50,55,60,75,89,100,120,144,150,200,250,300
 
-    **OPERATORLER**: >, <, >=, <=, and, or
+    **LOCAL INDICATORS (borsapy 0.6.4+)**:
+    - supertrend: Supertrend value
+    - supertrend_direction: 1=bullish trend, -1=bearish trend
+    - supertrend_upper, supertrend_lower: Supertrend bands
+    - t3, tilson_t3: Tilson T3 value
 
-    **NOT**: Veriler ~15 dakika gecikmeli (TradingView free tier)
+    Examples:
+    - supertrend_direction == 1 → Stocks in bullish trend
+    - close > t3 → Price above T3
+    - supertrend_direction == 1 and RSI < 40 → Bullish trend + oversold
+
+    **OPERATORS**: >, <, >=, <=, ==, and, or
+
+    **NOTE**: Data ~15 min delayed (TradingView free tier)
     """
     logger.info(f"Tool 'scan_bist_teknik' called for index: {endeks}, condition: {kosul}, interval: {zaman_araligi}")
     try:
@@ -4924,47 +4932,60 @@ async def scan_bist_teknik(
 
 
 @app.tool(
-    description="BIST SCANNER: Hazir strateji sablonlariyla tarama (oversold, momentum, vb.)",
+    description="BIST SCANNER: Scan with preset strategies (oversold, momentum, supertrend, t3)",
     tags=["scanner", "technical", "readonly"]
 )
 async def scan_bist_preset(
     endeks: Annotated[ScannerIndexLiteral, Field(
-        description="Taranacak BIST endeksi: XU030, XU100, XBANK, XUSIN, vb.",
+        description="BIST index to scan: XU030, XU100, XBANK, XUSIN, etc.",
         examples=["XU030", "XU100", "XBANK"]
     )],
     preset: Annotated[ScannerPresetLiteral, Field(
-        description="Preset strateji adi",
-        examples=["oversold", "overbought", "bullish_momentum", "big_gainers"]
+        description="Preset strategy name. New: supertrend_bullish, supertrend_bearish, t3_bullish, t3_bearish",
+        examples=["oversold", "bullish_momentum", "supertrend_bullish", "t3_bullish"]
     )],
     zaman_araligi: Annotated[ScannerIntervalLiteral, Field(
-        description="Zaman araligi: 1d (gunluk), 1h (saatlik), 4h (4 saatlik), 1W (haftalik)",
+        description="Timeframe: 1d (daily), 1h (hourly), 4h (4-hour), 1W (weekly)",
         default="1d"
     )] = "1d"
 ) -> TeknikTaramaSonucu:
     """
-    BIST hisselerini hazir strateji sablonlariyla tara.
+    Scan BIST stocks with preset strategies.
 
-    **12 PRESET STRATEJI**:
+    **22 PRESET STRATEGIES**:
 
-    **Reversal (Donus) Stratejileri**:
-    - oversold: RSI < 30 (asiri satim bolgesi)
-    - oversold_moderate: RSI < 40 (orta duzey satim)
-    - overbought: RSI > 70 (asiri alim bolgesi)
-    - oversold_high_volume: RSI < 40 and volume > 1M (asiri satim + yuksek hacim)
+    **Reversal Strategies**:
+    - oversold: RSI < 30
+    - oversold_moderate: RSI < 40
+    - overbought: RSI > 70
+    - oversold_high_volume: RSI < 40 and volume > 1M
+    - bb_overbought_sell: close > bb_upper and RSI < 70
+    - bb_oversold_buy: close < bb_lower and RSI > 30
 
-    **Momentum Stratejileri**:
-    - bullish_momentum: RSI > 50 and macd > 0 (yukselis momentumu)
-    - bearish_momentum: RSI < 50 and macd < 0 (dusus momentumu)
-    - big_gainers: change > 3 (gunun kazananlari >%3)
-    - big_losers: change < -3 (gunun kaybedenleri <%3)
+    **Momentum Strategies**:
+    - bullish_momentum: RSI > 50 and macd > 0
+    - bearish_momentum: RSI < 50 and macd < 0
+    - big_gainers: change > 3%
+    - big_losers: change < -3%
     - momentum_breakout: change > 2 and volume > 5M
+    - ma_squeeze_momentum: RSI > 50 and close > sma_5 and close > sma_20
 
-    **Trend Stratejileri**:
-    - macd_positive: macd > 0 (MACD sifir uzerinde)
-    - macd_negative: macd < 0 (MACD sifir altinda)
+    **Trend Strategies**:
+    - macd_positive: macd > 0
+    - macd_negative: macd < 0
 
-    **Hacim Stratejileri**:
-    - high_volume: volume > 10M (yuksek hacim)
+    **Supertrend Strategies (borsapy 0.6.4+)**:
+    - supertrend_bullish: supertrend_direction == 1 (bullish trend)
+    - supertrend_bearish: supertrend_direction == -1 (bearish trend)
+    - supertrend_bullish_oversold: bullish trend + RSI < 40
+
+    **Tilson T3 Strategies (borsapy 0.6.4+)**:
+    - t3_bullish: close > t3 (price above T3)
+    - t3_bearish: close < t3 (price below T3)
+    - t3_bullish_momentum: close > t3 and RSI > 50
+
+    **Volume Strategies**:
+    - high_volume: volume > 10M
     """
     logger.info(f"Tool 'scan_bist_preset' called for index: {endeks}, preset: {preset}, interval: {zaman_araligi}")
     try:
@@ -4980,22 +5001,22 @@ async def scan_bist_preset(
 
 
 @app.tool(
-    description="BIST SCANNER: Mevcut gostergeler, operatorler ve orneklerin listesi",
+    description="BIST SCANNER: Get available indicators, operators, presets and examples",
     tags=["scanner", "help", "readonly"]
 )
 async def get_scan_yardim() -> TaramaYardimSonucu:
     """
-    BIST teknik tarama icin yardim bilgilerini getir.
+    Get help information for BIST technical scanning.
 
-    **ICERIK**:
-    - Desteklenen teknik gostergeler (RSI, MACD, volume, change, vb.)
-    - Kullanilabilir operatorler (>, <, and, or, vb.)
-    - Desteklenen zaman araliklari (1d, 1h, 4h, 1W)
-    - Desteklenen BIST endeksleri (XU030, XU100, XBANK, vb.)
-    - 12 hazir preset strateji ve aciklamalari
-    - Ornek tarama kosullari
+    **CONTENTS**:
+    - Supported indicators (RSI, MACD, Supertrend, T3, volume, change)
+    - Available operators (>, <, ==, and, or)
+    - Supported timeframes (1d, 1h, 4h, 1W)
+    - Supported BIST indices (XU030, XU100, XBANK, etc.)
+    - 22 preset strategies with descriptions
+    - Example scan conditions
 
-    Bu tool, scan_bist_teknik ve scan_bist_preset toollarini etkin kullanmak icin gerekli tum bilgileri saglar.
+    Use this tool to understand scan_bist_teknik and scan_bist_preset capabilities.
     """
     logger.info("Tool 'get_scan_yardim' called")
     try:
