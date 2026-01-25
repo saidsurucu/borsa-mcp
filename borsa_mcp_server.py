@@ -4880,6 +4880,11 @@ async def scan_bist_teknik(
     - change: Gunluk degisim (%). change > 3 gunun kazananlari
     - close: Kapanis fiyati
     - market_cap: Piyasa degeri
+    - SMA/EMA: Hareketli ortalamalar (asagidaki periyotlar desteklenir)
+
+    **TRADINGVIEW DESTEKLENEN PERIYOTLAR**:
+    - SMA: 5, 10, 20, 30, 50, 55, 60, 75, 89, 100, 120, 144, 150, 200, 250, 300
+    - EMA: 5, 10, 20, 21, 25, 26, 30, 34, 40, 50, 55, 60, 75, 89, 100, 120, 144, 150, 200, 250, 300
 
     **OPERATORLER**: >, <, >=, <=, and, or
 
@@ -4889,6 +4894,8 @@ async def scan_bist_teknik(
     - MACD pozitif: macd > 0
     - Gunun kazananlari: change > 3
     - Birlesik: RSI < 40 and volume > 1000000
+    - Golden Cross benzeri: SMA20 > SMA50
+    - Fiyat 200 gunluk ustunde: close > SMA200
 
     **NOT**: Veriler ~15 dakika gecikmeli olabilir (TradingView standardi)
     """

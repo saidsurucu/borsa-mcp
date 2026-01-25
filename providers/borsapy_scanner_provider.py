@@ -102,8 +102,13 @@ class BorsapyScannerProvider:
         "momentum": ["RSI", "macd"],
         "price": ["close", "change"],
         "volume": ["volume"],
-        "market": ["market_cap"]
+        "market": ["market_cap"],
+        "moving_averages": ["SMA", "EMA"]
     }
+
+    # TradingView supported periods for moving averages
+    SMA_PERIODS = [5, 10, 20, 30, 50, 55, 60, 75, 89, 100, 120, 144, 150, 200, 250, 300]
+    EMA_PERIODS = [5, 10, 20, 21, 25, 26, 30, 34, 40, 50, 55, 60, 75, 89, 100, 120, 144, 150, 200, 250, 300]
 
     # Supported timeframes
     INTERVALS = ["1d", "1h", "4h", "1W"]
@@ -269,8 +274,17 @@ TradingView Scanner API kullanimi:
 - RSI degerleri 0-100 arasinda
 - MACD histogram degerleri pozitif/negatif olabilir
 - Volume degerleri hisse adedi olarak
-- Change degerleri yuzdel olarak (3 = %3)
+- Change degerleri yuzde olarak (3 = %3)
 - Compound sorgular 'and' ile birlestirilir
+
+TradingView Desteklenen Periyotlar:
+- SMA: 5, 10, 20, 30, 50, 55, 60, 75, 89, 100, 120, 144, 150, 200, 250, 300
+- EMA: 5, 10, 20, 21, 25, 26, 30, 34, 40, 50, 55, 60, 75, 89, 100, 120, 144, 150, 200, 250, 300
+
+Ornek SMA/EMA sorgulari:
+- SMA20 > SMA50 (Golden Cross benzeri)
+- close > SMA200 (Fiyat 200 gunluk ortalamanin uzerinde)
+- EMA12 > EMA26 (Kisa vadeli yukselis)
 """
 
         return TaramaYardimSonucu(
@@ -280,5 +294,7 @@ TradingView Scanner API kullanimi:
             supported_indices=self.SUPPORTED_INDICES,
             presets=self.get_presets(),
             examples=examples,
+            sma_periods=self.SMA_PERIODS,
+            ema_periods=self.EMA_PERIODS,
             notes=notes
         )

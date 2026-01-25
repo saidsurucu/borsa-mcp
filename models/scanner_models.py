@@ -65,6 +65,14 @@ class TaramaYardimSonucu(BaseModel):
         default_factory=list,
         description="Example condition expressions"
     )
+    sma_periods: List[int] = Field(
+        default_factory=list,
+        description="TradingView supported SMA periods"
+    )
+    ema_periods: List[int] = Field(
+        default_factory=list,
+        description="TradingView supported EMA periods"
+    )
     notes: Optional[str] = Field(
         None,
         description="Additional usage notes"
