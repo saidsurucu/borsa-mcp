@@ -181,7 +181,10 @@ ScannerPresetLiteral = Literal[
     "high_volume", "big_gainers", "big_losers",
     "oversold_high_volume", "momentum_breakout",
     "bb_overbought_sell", "bb_oversold_buy",
-    "ma_squeeze_momentum", "overbought_warning"
+    "ma_squeeze_momentum", "overbought_warning",
+    # Supertrend & Tilson T3 (borsapy 0.6.4+)
+    "supertrend_bullish", "supertrend_bearish", "supertrend_bullish_oversold",
+    "t3_bullish", "t3_bearish", "t3_bullish_momentum"
 ]
 
 @app.tool(

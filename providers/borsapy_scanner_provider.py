@@ -112,6 +112,38 @@ class BorsapyScannerProvider:
             "description": "RSI>70 asiri alim uyarisi",
             "category": "reversal"
         },
+        # Supertrend strategies (borsapy 0.6.4+ local fields)
+        "supertrend_bullish": {
+            "condition": "supertrend_direction == 1",
+            "description": "Supertrend yukselis trendi",
+            "category": "trend"
+        },
+        "supertrend_bearish": {
+            "condition": "supertrend_direction == -1",
+            "description": "Supertrend dusus trendi",
+            "category": "trend"
+        },
+        "supertrend_bullish_oversold": {
+            "condition": "supertrend_direction == 1 and RSI < 40",
+            "description": "Supertrend yukselis + RSI asiri satim (AL sinyali)",
+            "category": "reversal"
+        },
+        # Tilson T3 strategies
+        "t3_bullish": {
+            "condition": "close > t3",
+            "description": "Fiyat Tilson T3 ustunde (yukselis)",
+            "category": "trend"
+        },
+        "t3_bearish": {
+            "condition": "close < t3",
+            "description": "Fiyat Tilson T3 altinda (dusus)",
+            "category": "trend"
+        },
+        "t3_bullish_momentum": {
+            "condition": "close > t3 and RSI > 50",
+            "description": "T3 ustunde + RSI>50 (guclu yukselis)",
+            "category": "momentum"
+        },
     }
 
     # Supported indices
@@ -202,6 +234,11 @@ class BorsapyScannerProvider:
             "Candle.Engulfing.Bearish", "Candle.Engulfing.Bullish",
             "Candle.Doji", "Candle.Doji.Dragonfly", "Candle.Hammer",
             "Candle.MorningStar", "Candle.EveningStar"
+        ],
+        # Local fields (borsapy 0.6.4+ - calculated locally, not from TradingView)
+        "local_indicators": [
+            "supertrend", "supertrend_direction", "supertrend_upper", "supertrend_lower",
+            "t3", "tilson_t3", "t3_5"
         ]
     }
 
@@ -603,6 +640,18 @@ Pivot: Pivot.M.Classic.S1/S2/R1/R2/Middle
 
 Formasyonlar: Candle.AbandonedBaby.Bearish/Bullish, Candle.Engulfing.Bearish/Bullish,
   Candle.Doji, Candle.Doji.Dragonfly, Candle.Hammer, Candle.MorningStar, Candle.EveningStar
+
+LOKAL GOSTERGELER (borsapy 0.6.4+ - TradingView'dan degil, lokal hesaplama):
+
+Supertrend: supertrend, supertrend_direction (1=yukselis, -1=dusus), supertrend_upper, supertrend_lower
+Tilson T3: t3, tilson_t3, t3_5
+
+Ornekler:
+  supertrend_direction == 1              → Supertrend yukselis trendi
+  supertrend_direction == -1             → Supertrend dusus trendi
+  close > supertrend                     → Fiyat supertrend ustunde
+  close > t3                             → Fiyat Tilson T3 ustunde
+  supertrend_direction == 1 and RSI < 30 → Supertrend yukselis + RSI asiri satim
 """
 
         return TaramaYardimSonucu(
