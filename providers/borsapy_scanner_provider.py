@@ -1,0 +1,284 @@
+"""
+BIST Technical Scanner Provider using borsapy TradingView Scanner API.
+Provides technical indicator-based stock scanning for BIST indices.
+"""
+import asyncio
+import logging
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from models.scanner_models import (
+    TaramaSonucu,
+    TeknikTaramaSonucu,
+    TaramaPresetInfo,
+    TaramaYardimSonucu,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class BorsapyScannerProvider:
+    """BIST technical scanner using borsapy TradingView API."""
+
+    # Preset strategies with verified working conditions
+    PRESETS: Dict[str, Dict[str, str]] = {
+        # Reversal strategies
+        "oversold": {
+            "condition": "RSI < 30",
+            "description": "RSI asiri satim bolgesi (<30)",
+            "category": "reversal"
+        },
+        "oversold_moderate": {
+            "condition": "RSI < 40",
+            "description": "RSI orta duzey satim (<40)",
+            "category": "reversal"
+        },
+        "overbought": {
+            "condition": "RSI > 70",
+            "description": "RSI asiri alim bolgesi (>70)",
+            "category": "reversal"
+        },
+        # Momentum strategies
+        "bullish_momentum": {
+            "condition": "RSI > 50 and macd > 0",
+            "description": "Yukselis momentumu (RSI>50, MACD>0)",
+            "category": "momentum"
+        },
+        "bearish_momentum": {
+            "condition": "RSI < 50 and macd < 0",
+            "description": "Dusus momentumu (RSI<50, MACD<0)",
+            "category": "momentum"
+        },
+        # MACD strategies
+        "macd_positive": {
+            "condition": "macd > 0",
+            "description": "MACD sifir uzerinde",
+            "category": "trend"
+        },
+        "macd_negative": {
+            "condition": "macd < 0",
+            "description": "MACD sifir altinda",
+            "category": "trend"
+        },
+        # Volume strategies
+        "high_volume": {
+            "condition": "volume > 10000000",
+            "description": "Yuksek hacim (>10M)",
+            "category": "volume"
+        },
+        # Daily movers
+        "big_gainers": {
+            "condition": "change > 3",
+            "description": "Gunun kazananlari (>%3)",
+            "category": "momentum"
+        },
+        "big_losers": {
+            "condition": "change < -3",
+            "description": "Gunun kaybedenleri (<%3)",
+            "category": "momentum"
+        },
+        # Compound strategies
+        "oversold_high_volume": {
+            "condition": "RSI < 40 and volume > 1000000",
+            "description": "Asiri satim + yuksek hacim",
+            "category": "reversal"
+        },
+        "momentum_breakout": {
+            "condition": "change > 2 and volume > 5000000",
+            "description": "Momentum kirilimi (>%2, hacim>5M)",
+            "category": "momentum"
+        },
+    }
+
+    # Supported indices
+    SUPPORTED_INDICES = [
+        "XU030", "XU100", "XBANK", "XUSIN", "XUMAL",
+        "XUHIZ", "XUTEK", "XHOLD", "XGIDA", "XELKT",
+        "XILTM", "XK100", "XK050", "XK030"
+    ]
+
+    # Available indicators
+    INDICATORS = {
+        "momentum": ["RSI", "macd"],
+        "price": ["close", "change"],
+        "volume": ["volume"],
+        "market": ["market_cap"]
+    }
+
+    # Supported timeframes
+    INTERVALS = ["1d", "1h", "4h", "1W"]
+
+    # Operators
+    OPERATORS = [">", "<", ">=", "<=", "and", "or"]
+
+    def __init__(self):
+        """Initialize the scanner provider."""
+        pass
+
+    async def scan_by_condition(
+        self,
+        index: str,
+        condition: str,
+        interval: str = "1d"
+    ) -> TeknikTaramaSonucu:
+        """
+        Execute technical scan with custom condition.
+
+        Args:
+            index: BIST index code (XU030, XU100, XBANK, etc.)
+            condition: Scan condition (e.g., "RSI < 30", "macd > 0 and volume > 1000000")
+            interval: Timeframe (1d, 1h, 4h, 1W)
+
+        Returns:
+            TeknikTaramaSonucu with matching stocks
+        """
+        try:
+            import borsapy as bp
+
+            # Validate index
+            index_upper = index.upper()
+            if index_upper not in self.SUPPORTED_INDICES:
+                return TeknikTaramaSonucu(
+                    index=index_upper,
+                    condition=condition,
+                    interval=interval,
+                    result_count=0,
+                    results=[],
+                    error_message=f"Desteklenmeyen endeks: {index}. Desteklenen: {', '.join(self.SUPPORTED_INDICES)}"
+                )
+
+            # Execute scan using borsapy
+            loop = asyncio.get_event_loop()
+            df = await loop.run_in_executor(
+                None,
+                lambda: bp.scan(index_upper, condition)
+            )
+
+            # Convert DataFrame to list of TaramaSonucu
+            results = []
+            if df is not None and not df.empty:
+                for _, row in df.iterrows():
+                    result = TaramaSonucu(
+                        symbol=str(row.get("symbol", "")),
+                        name=str(row.get("name", "")),
+                        price=float(row.get("close", 0)),
+                        change_percent=float(row.get("change", 0)) if "change" in row else None,
+                        volume=int(row.get("volume", 0)) if "volume" in row else None,
+                        market_cap=float(row.get("market_cap", 0)) if "market_cap" in row else None,
+                        rsi=float(row.get("rsi", 0)) if "rsi" in row and row.get("rsi") else None,
+                        macd=float(row.get("macd", 0)) if "macd" in row and row.get("macd") else None,
+                        conditions_met=str(row.get("conditions_met", "")) if "conditions_met" in row else None
+                    )
+                    results.append(result)
+
+            return TeknikTaramaSonucu(
+                index=index_upper,
+                condition=condition,
+                interval=interval,
+                result_count=len(results),
+                results=results,
+                scan_timestamp=datetime.now().isoformat()
+            )
+
+        except ImportError as e:
+            logger.error(f"borsapy import error: {e}")
+            return TeknikTaramaSonucu(
+                index=index,
+                condition=condition,
+                interval=interval,
+                result_count=0,
+                results=[],
+                error_message=f"borsapy kutuphanesi yuklenemedi: {str(e)}. borsapy>=0.6.2 gerekli."
+            )
+        except Exception as e:
+            logger.exception(f"Scanner error for {index} with condition '{condition}': {e}")
+            return TeknikTaramaSonucu(
+                index=index,
+                condition=condition,
+                interval=interval,
+                result_count=0,
+                results=[],
+                error_message=f"Tarama hatasi: {str(e)}"
+            )
+
+    async def scan_by_preset(
+        self,
+        index: str,
+        preset: str,
+        interval: str = "1d"
+    ) -> TeknikTaramaSonucu:
+        """
+        Execute scan using a preset strategy.
+
+        Args:
+            index: BIST index code (XU030, XU100, XBANK, etc.)
+            preset: Preset name (oversold, overbought, bullish_momentum, etc.)
+            interval: Timeframe (1d, 1h, 4h, 1W)
+
+        Returns:
+            TeknikTaramaSonucu with matching stocks
+        """
+        preset_lower = preset.lower()
+
+        if preset_lower not in self.PRESETS:
+            available = ", ".join(self.PRESETS.keys())
+            return TeknikTaramaSonucu(
+                index=index,
+                condition=f"preset:{preset}",
+                interval=interval,
+                result_count=0,
+                results=[],
+                error_message=f"Bilinmeyen preset: {preset}. Mevcut presetler: {available}"
+            )
+
+        preset_config = self.PRESETS[preset_lower]
+        condition = preset_config["condition"]
+
+        return await self.scan_by_condition(index, condition, interval)
+
+    def get_presets(self) -> List[TaramaPresetInfo]:
+        """Return list of available preset strategies."""
+        presets = []
+        for name, config in self.PRESETS.items():
+            presets.append(TaramaPresetInfo(
+                name=name,
+                description=config["description"],
+                condition=config["condition"],
+                category=config["category"]
+            ))
+        return presets
+
+    def get_scan_help(self) -> TaramaYardimSonucu:
+        """Return available indicators, operators, presets, and examples."""
+        examples = [
+            "RSI < 30",
+            "RSI > 70",
+            "macd > 0",
+            "macd < 0",
+            "volume > 10000000",
+            "change > 3",
+            "change < -3",
+            "RSI < 40 and volume > 1000000",
+            "RSI > 50 and macd > 0",
+            "change > 2 and volume > 5000000"
+        ]
+
+        notes = """
+TradingView Scanner API kullanimi:
+- Veriler yaklasik 15 dakika gecikmeli olabilir (TradingView standardi)
+- RSI degerleri 0-100 arasinda
+- MACD histogram degerleri pozitif/negatif olabilir
+- Volume degerleri hisse adedi olarak
+- Change degerleri yuzdel olarak (3 = %3)
+- Compound sorgular 'and' ile birlestirilir
+"""
+
+        return TaramaYardimSonucu(
+            indicators=self.INDICATORS,
+            operators=self.OPERATORS,
+            intervals=self.INTERVALS,
+            supported_indices=self.SUPPORTED_INDICES,
+            presets=self.get_presets(),
+            examples=examples,
+            notes=notes
+        )

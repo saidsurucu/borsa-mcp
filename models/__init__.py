@@ -181,6 +181,11 @@ from borsa_models import (
     BistScreenerPresetsResult, BistScreenerFilterDocumentation
 )
 
+# BIST Technical Scanner Models (borsapy TradingView integration)
+from .scanner_models import (
+    TaramaSonucu, TeknikTaramaSonucu, TaramaPresetInfo, TaramaYardimSonucu
+)
+
 # Export all models for backward compatibility
 __all__ = [
     # Base enums
@@ -290,5 +295,7 @@ __all__ = [
     "USScreenerResult", "ScreenerPresetInfo", "ScreenerPresetsResult", "ScreenerFilterDocumentation",
     # BIST Screener Models
     "BistScreenedStock", "BistScreenerResult", "BistScreenerPresetInfo",
-    "BistScreenerPresetsResult", "BistScreenerFilterDocumentation"
+    "BistScreenerPresetsResult", "BistScreenerFilterDocumentation",
+    # BIST Technical Scanner Models
+    "TaramaSonucu", "TeknikTaramaSonucu", "TaramaPresetInfo", "TaramaYardimSonucu"
 ]

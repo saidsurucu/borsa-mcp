@@ -97,6 +97,9 @@ from models import (
     BistScreenerResult,
     BistScreenerPresetsResult,
     BistScreenerFilterDocumentation,
+    # BIST Technical Scanner Models
+    TeknikTaramaSonucu,
+    TaramaYardimSonucu,
 )
 from models.financial_ratios_models import (
     CoreFinancialHealthAnalysis,
@@ -167,6 +170,17 @@ FundCategoryLiteral = Literal["all", "debt", "variable", "basket", "guaranteed",
 CryptoCurrencyLiteral = Literal["TRY", "USDT", "BTC", "ETH", "USD", "EUR"]
 DovizcomAssetLiteral = Literal["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "gram-altin", "gumus", "ons", "XAG-USD", "XPT-USD", "XPD-USD", "BRENT", "WTI", "diesel", "gasoline", "lpg"]
 ResponseFormatLiteral = Literal["full", "compact"]
+
+# Scanner Literal types
+ScannerIndexLiteral = Literal["XU030", "XU100", "XBANK", "XUSIN", "XUMAL", "XUHIZ", "XUTEK", "XHOLD", "XGIDA", "XELKT", "XILTM", "XK100", "XK050", "XK030"]
+ScannerIntervalLiteral = Literal["1d", "1h", "4h", "1W"]
+ScannerPresetLiteral = Literal[
+    "oversold", "oversold_moderate", "overbought",
+    "bullish_momentum", "bearish_momentum",
+    "macd_positive", "macd_negative",
+    "high_volume", "big_gainers", "big_losers",
+    "oversold_high_volume", "momentum_breakout"
+]
 
 @app.tool(
     description="BIST STOCKS: Search companies by name to find ticker codes. STOCKS ONLY - use get_kripto_exchange_info for crypto.",
@@ -4831,6 +4845,146 @@ async def get_bist_screener_filters() -> BistScreenerFilterDocumentation:
         return BistScreenerFilterDocumentation(**result)
     except Exception as e:
         raise ToolError(f"BIST filtre dokümantasyonu alınamadı: {str(e)}")
+
+
+# ============================================================================
+# BIST TECHNICAL SCANNER TOOLS (borsapy TradingView integration)
+# ============================================================================
+
+@app.tool(
+    description="BIST SCANNER: Teknik gostergelere gore hisse taramasi (RSI, MACD, hacim)",
+    tags=["scanner", "technical", "readonly"]
+)
+async def scan_bist_teknik(
+    endeks: Annotated[ScannerIndexLiteral, Field(
+        description="Taranacak BIST endeksi: XU030, XU100, XBANK, XUSIN, vb.",
+        examples=["XU030", "XU100", "XBANK"]
+    )],
+    kosul: Annotated[str, Field(
+        description="Tarama kosulu. Ornekler: 'RSI < 30', 'macd > 0', 'RSI < 40 and volume > 1000000'",
+        min_length=3,
+        examples=["RSI < 30", "RSI > 70", "macd > 0", "change > 3", "RSI < 40 and volume > 1000000"]
+    )],
+    zaman_araligi: Annotated[ScannerIntervalLiteral, Field(
+        description="Zaman araligi: 1d (gunluk), 1h (saatlik), 4h (4 saatlik), 1W (haftalik)",
+        default="1d"
+    )] = "1d"
+) -> TeknikTaramaSonucu:
+    """
+    BIST hisselerini teknik gostergelere gore tara (TradingView Scanner API).
+
+    **DESTEKLENEN GOSTERGELER**:
+    - RSI: 0-100 arasi. RSI < 30 asiri satim, RSI > 70 asiri alim
+    - macd: MACD histogram. macd > 0 yukselis trendi
+    - volume: Hacim (hisse adedi). volume > 10000000 yuksek hacim
+    - change: Gunluk degisim (%). change > 3 gunun kazananlari
+    - close: Kapanis fiyati
+    - market_cap: Piyasa degeri
+
+    **OPERATORLER**: >, <, >=, <=, and, or
+
+    **ORNEK SORGULAR**:
+    - Asiri satim: RSI < 30
+    - Asiri alim: RSI > 70
+    - MACD pozitif: macd > 0
+    - Gunun kazananlari: change > 3
+    - Birlesik: RSI < 40 and volume > 1000000
+
+    **NOT**: Veriler ~15 dakika gecikmeli olabilir (TradingView standardi)
+    """
+    logger.info(f"Tool 'scan_bist_teknik' called for index: {endeks}, condition: {kosul}, interval: {zaman_araligi}")
+    try:
+        result = await borsa_client.scan_bist_teknik(endeks, kosul, zaman_araligi)
+        if result.error_message:
+            raise ToolError(f"Tarama hatasi: {result.error_message}")
+        return result
+    except ToolError:
+        raise
+    except Exception as e:
+        logger.exception(f"Error in scan_bist_teknik for {endeks}")
+        raise ToolError(f"Teknik tarama hatasi: {str(e)}")
+
+
+@app.tool(
+    description="BIST SCANNER: Hazir strateji sablonlariyla tarama (oversold, momentum, vb.)",
+    tags=["scanner", "technical", "readonly"]
+)
+async def scan_bist_preset(
+    endeks: Annotated[ScannerIndexLiteral, Field(
+        description="Taranacak BIST endeksi: XU030, XU100, XBANK, XUSIN, vb.",
+        examples=["XU030", "XU100", "XBANK"]
+    )],
+    preset: Annotated[ScannerPresetLiteral, Field(
+        description="Preset strateji adi",
+        examples=["oversold", "overbought", "bullish_momentum", "big_gainers"]
+    )],
+    zaman_araligi: Annotated[ScannerIntervalLiteral, Field(
+        description="Zaman araligi: 1d (gunluk), 1h (saatlik), 4h (4 saatlik), 1W (haftalik)",
+        default="1d"
+    )] = "1d"
+) -> TeknikTaramaSonucu:
+    """
+    BIST hisselerini hazir strateji sablonlariyla tara.
+
+    **12 PRESET STRATEJI**:
+
+    **Reversal (Donus) Stratejileri**:
+    - oversold: RSI < 30 (asiri satim bolgesi)
+    - oversold_moderate: RSI < 40 (orta duzey satim)
+    - overbought: RSI > 70 (asiri alim bolgesi)
+    - oversold_high_volume: RSI < 40 and volume > 1M (asiri satim + yuksek hacim)
+
+    **Momentum Stratejileri**:
+    - bullish_momentum: RSI > 50 and macd > 0 (yukselis momentumu)
+    - bearish_momentum: RSI < 50 and macd < 0 (dusus momentumu)
+    - big_gainers: change > 3 (gunun kazananlari >%3)
+    - big_losers: change < -3 (gunun kaybedenleri <%3)
+    - momentum_breakout: change > 2 and volume > 5M
+
+    **Trend Stratejileri**:
+    - macd_positive: macd > 0 (MACD sifir uzerinde)
+    - macd_negative: macd < 0 (MACD sifir altinda)
+
+    **Hacim Stratejileri**:
+    - high_volume: volume > 10M (yuksek hacim)
+    """
+    logger.info(f"Tool 'scan_bist_preset' called for index: {endeks}, preset: {preset}, interval: {zaman_araligi}")
+    try:
+        result = await borsa_client.scan_bist_preset(endeks, preset, zaman_araligi)
+        if result.error_message:
+            raise ToolError(f"Preset tarama hatasi: {result.error_message}")
+        return result
+    except ToolError:
+        raise
+    except Exception as e:
+        logger.exception(f"Error in scan_bist_preset for {endeks}")
+        raise ToolError(f"Preset tarama hatasi: {str(e)}")
+
+
+@app.tool(
+    description="BIST SCANNER: Mevcut gostergeler, operatorler ve orneklerin listesi",
+    tags=["scanner", "help", "readonly"]
+)
+async def get_scan_yardim() -> TaramaYardimSonucu:
+    """
+    BIST teknik tarama icin yardim bilgilerini getir.
+
+    **ICERIK**:
+    - Desteklenen teknik gostergeler (RSI, MACD, volume, change, vb.)
+    - Kullanilabilir operatorler (>, <, and, or, vb.)
+    - Desteklenen zaman araliklari (1d, 1h, 4h, 1W)
+    - Desteklenen BIST endeksleri (XU030, XU100, XBANK, vb.)
+    - 12 hazir preset strateji ve aciklamalari
+    - Ornek tarama kosullari
+
+    Bu tool, scan_bist_teknik ve scan_bist_preset toollarini etkin kullanmak icin gerekli tum bilgileri saglar.
+    """
+    logger.info("Tool 'get_scan_yardim' called")
+    try:
+        return await borsa_client.get_scan_yardim()
+    except Exception as e:
+        logger.exception("Error in get_scan_yardim")
+        raise ToolError(f"Yardim bilgisi alinamadi: {str(e)}")
 
 
 def main():

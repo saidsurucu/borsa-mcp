@@ -47,6 +47,9 @@ from models import (
     DovizcomDakikalikSonucu,
     DovizcomArsivSonucu,
     EkonomikTakvimSonucu,
+    # Scanner models
+    TeknikTaramaSonucu,
+    TaramaYardimSonucu,
 )
 from models.tcmb_models import EnflasyonHesaplamaSonucu, TcmbEnflasyonSonucu
 
@@ -112,6 +115,10 @@ class BorsaApiClient:
         # Import YFScreenProvider for US securities screening
         from providers.yfscreen_provider import YFScreenProvider
         self.yfscreen_provider = YFScreenProvider()
+
+        # Import BorsapyScannerProvider for BIST technical scanning
+        from providers.borsapy_scanner_provider import BorsapyScannerProvider
+        self.scanner_provider = BorsapyScannerProvider()
 
     async def close(self):
         await self._http_client.aclose()
@@ -1842,3 +1849,54 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
     async def get_bist_screener_filter_docs(self) -> Dict[str, Any]:
         """Get documentation for available BIST screener filters."""
         return self.borsapy_provider.get_filter_documentation()
+
+    # ============================================================================
+    # BIST TECHNICAL SCANNER METHODS (borsapy TradingView integration)
+    # ============================================================================
+
+    async def scan_bist_teknik(
+        self,
+        index: str,
+        condition: str,
+        interval: str = "1d"
+    ) -> "TeknikTaramaSonucu":
+        """
+        Scan BIST stocks by technical indicators using TradingView Scanner API.
+
+        Args:
+            index: BIST index to scan (XU030, XU100, XBANK, XUSIN, etc.)
+            condition: Scan condition (e.g., "RSI < 30", "macd > 0 and volume > 1000000")
+            interval: Timeframe (1d, 1h, 4h, 1W)
+
+        Returns:
+            TeknikTaramaSonucu with matching stocks
+        """
+        return await self.scanner_provider.scan_by_condition(index, condition, interval)
+
+    async def scan_bist_preset(
+        self,
+        index: str,
+        preset: str,
+        interval: str = "1d"
+    ) -> "TeknikTaramaSonucu":
+        """
+        Scan BIST stocks using preset strategies.
+
+        Args:
+            index: BIST index to scan (XU030, XU100, XBANK, XUSIN, etc.)
+            preset: Preset name (oversold, overbought, bullish_momentum, etc.)
+            interval: Timeframe (1d, 1h, 4h, 1W)
+
+        Returns:
+            TeknikTaramaSonucu with matching stocks
+        """
+        return await self.scanner_provider.scan_by_preset(index, preset, interval)
+
+    async def get_scan_yardim(self) -> "TaramaYardimSonucu":
+        """
+        Get available indicators, operators, presets, and examples for technical scanning.
+
+        Returns:
+            TaramaYardimSonucu with comprehensive help information
+        """
+        return self.scanner_provider.get_scan_help()
