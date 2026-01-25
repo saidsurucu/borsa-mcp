@@ -4873,31 +4873,37 @@ async def scan_bist_teknik(
     """
     BIST hisselerini teknik gostergelere gore tara (TradingView Scanner API).
 
-    **DESTEKLENEN GOSTERGELER**:
-    - RSI: 0-100 arasi. RSI < 30 asiri satim, RSI > 70 asiri alim
-    - macd: MACD histogram. macd > 0 yukselis trendi
-    - volume: Hacim (hisse adedi). volume > 10000000 yuksek hacim
-    - change: Gunluk degisim (%). change > 3 gunun kazananlari
-    - close: Kapanis fiyati
-    - market_cap: Piyasa degeri
-    - SMA/EMA: Hareketli ortalamalar (asagidaki periyotlar desteklenir)
+    **KOSUL YAZIM YOLLARI** (3 farkli yontem):
 
-    **TRADINGVIEW DESTEKLENEN PERIYOTLAR**:
-    - SMA: 5, 10, 20, 30, 50, 55, 60, 75, 89, 100, 120, 144, 150, 200, 250, 300
-    - EMA: 5, 10, 20, 21, 25, 26, 30, 34, 40, 50, 55, 60, 75, 89, 100, 120, 144, 150, 200, 250, 300
+    1) KISA ISIMLER (Onerilen):
+       - rsi < 30, macd > 0, volume > 1000000, change > 3
+       - sma_50 > sma_200, ema_12 > ema_26
+
+    2) DINAMIK PATTERN (SMA/EMA icin):
+       - sma_55 > sma_89 → Otomatik SMA55'e cevrilir
+       - ema_21 > ema_34 → Otomatik EMA21'e cevrilir
+
+    3) DIREKT TRADINGVIEW ADI (BIST icin calisan alanlar):
+       - price_earnings_ttm < 10 → P/E < 10
+       - price_book_ratio < 1.5 → P/B < 1.5
+       - return_on_equity > 15 → ROE > %15
+       - market_cap > 10000000000 → Piyasa Degeri > 10B
+       NOT: Tum TradingView alanlari BIST'te calismayabilir
+       Referans: https://shner-elmo.github.io/TradingView-Screener/fields/stocks.html
+
+    **TEMEL GOSTERGELER**:
+    - RSI: 0-100. RSI < 30 asiri satim, RSI > 70 asiri alim
+    - macd: MACD histogram. macd > 0 yukselis
+    - volume: Hacim. volume > 10000000 yuksek hacim
+    - change: Gunluk %. change > 3 kazananlar
+
+    **SMA/EMA PERIYOTLARI**:
+    - SMA: 5,10,20,30,50,55,60,75,89,100,120,144,150,200,250,300
+    - EMA: 5,10,20,21,25,26,30,34,40,50,55,60,75,89,100,120,144,150,200,250,300
 
     **OPERATORLER**: >, <, >=, <=, and, or
 
-    **ORNEK SORGULAR**:
-    - Asiri satim: RSI < 30
-    - Asiri alim: RSI > 70
-    - MACD pozitif: macd > 0
-    - Gunun kazananlari: change > 3
-    - Birlesik: RSI < 40 and volume > 1000000
-    - Golden Cross benzeri: SMA20 > SMA50
-    - Fiyat 200 gunluk ustunde: close > SMA200
-
-    **NOT**: Veriler ~15 dakika gecikmeli olabilir (TradingView standardi)
+    **NOT**: Veriler ~15 dakika gecikmeli (TradingView free tier)
     """
     logger.info(f"Tool 'scan_bist_teknik' called for index: {endeks}, condition: {kosul}, interval: {zaman_araligi}")
     try:

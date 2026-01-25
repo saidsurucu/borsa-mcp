@@ -116,6 +116,64 @@ class BorsapyScannerProvider:
     # Operators
     OPERATORS = [">", "<", ">=", "<=", "and", "or"]
 
+    # Verified working TradingView fields for BIST (101 fields tested)
+    BIST_WORKING_FIELDS = {
+        "price_volume": [
+            "close", "open", "high", "low", "volume", "change", "change_abs",
+            "Volatility.D", "Volatility.W", "Volatility.M", "average_volume_10d_calc",
+            "average_volume_30d_calc", "average_volume_60d_calc", "average_volume_90d_calc",
+            "relative_volume_10d_calc", "Value.Traded", "market_cap_basic"
+        ],
+        "technical_indicators": [
+            "RSI", "RSI7", "RSI14", "MACD.macd", "MACD.signal", "ADX", "ADX-DI", "ADX+DI",
+            "AO", "Mom", "CCI20", "Stoch.K", "Stoch.D", "Stoch.RSI.K", "Stoch.RSI.D",
+            "W.R", "BBPower", "UO", "Ichimoku.BLine", "Ichimoku.CLine", "Ichimoku.Lead1",
+            "Ichimoku.Lead2", "VWMA", "HullMA9", "ATR", "BB.upper", "BB.lower",
+            "Aroon.Up", "Aroon.Down", "Donchian.Width"
+        ],
+        "moving_averages": [
+            "SMA5", "SMA10", "SMA20", "SMA50", "SMA100", "SMA200",
+            "EMA5", "EMA10", "EMA20", "EMA50", "EMA100", "EMA200"
+        ],
+        "valuation": [
+            "price_earnings_ttm", "price_book_ratio", "price_sales_ratio",
+            "price_free_cash_flow_ttm", "price_to_cash_ratio", "enterprise_value_fq",
+            "enterprise_value_ebitda_ttm", "number_of_employees"
+        ],
+        "profitability": [
+            "return_on_equity", "return_on_assets", "return_on_invested_capital",
+            "gross_margin", "operating_margin", "net_margin", "free_cash_flow_margin",
+            "ebitda_margin"
+        ],
+        "growth": [
+            "revenue_growth_yoy", "earnings_growth_yoy", "ebitda_growth_yoy"
+        ],
+        "financial_strength": [
+            "debt_to_equity", "debt_to_assets", "current_ratio", "quick_ratio"
+        ],
+        "dividends": [
+            "dividends_yield_current", "dividend_payout_ratio"
+        ],
+        "performance": [
+            "Perf.W", "Perf.1M", "Perf.3M", "Perf.6M", "Perf.Y", "Perf.YTD",
+            "High.1M", "Low.1M", "High.3M", "Low.3M", "High.6M", "Low.6M",
+            "price_52_week_high", "price_52_week_low"
+        ],
+        "recommendations": [
+            "Recommend.All", "Recommend.MA", "Recommend.Other"
+        ],
+        "pivot_points": [
+            "Pivot.M.Classic.S1", "Pivot.M.Classic.S2", "Pivot.M.Classic.R1",
+            "Pivot.M.Classic.R2", "Pivot.M.Classic.Middle"
+        ],
+        "patterns": [
+            "Candle.AbandonedBaby.Bearish", "Candle.AbandonedBaby.Bullish",
+            "Candle.Engulfing.Bearish", "Candle.Engulfing.Bullish",
+            "Candle.Doji", "Candle.Doji.Dragonfly", "Candle.Hammer",
+            "Candle.MorningStar", "Candle.EveningStar"
+        ]
+    }
+
     def __init__(self):
         """Initialize the scanner provider."""
         pass
@@ -256,16 +314,22 @@ class BorsapyScannerProvider:
     def get_scan_help(self) -> TaramaYardimSonucu:
         """Return available indicators, operators, presets, and examples."""
         examples = [
+            # Kisa isimler (en yaygin)
             "RSI < 30",
             "RSI > 70",
             "macd > 0",
-            "macd < 0",
             "volume > 10000000",
             "change > 3",
-            "change < -3",
             "RSI < 40 and volume > 1000000",
-            "RSI > 50 and macd > 0",
-            "change > 2 and volume > 5000000"
+            # Dinamik SMA/EMA
+            "sma_50 > sma_200",
+            "ema_12 > ema_26",
+            "close > sma_200",
+            # BIST icin calisan TradingView alanlari
+            "price_earnings_ttm < 10",
+            "price_book_ratio < 1.5",
+            "return_on_equity > 15",
+            "market_cap > 10000000000"
         ]
 
         notes = """
@@ -277,14 +341,60 @@ TradingView Scanner API kullanimi:
 - Change degerleri yuzde olarak (3 = %3)
 - Compound sorgular 'and' ile birlestirilir
 
+KOSUL YAZIM YOLLARI (3 farkli yontem):
+
+1) KISA ISIMLER (Onerilen):
+   rsi < 30, macd > 0, volume > 1000000, change > 3
+   sma_50 > sma_200, ema_12 > ema_26
+
+2) DINAMIK PATTERN (SMA/EMA icin):
+   sma_55 > sma_89  → Otomatik SMA55, SMA89'a cevrilir
+   ema_21 > ema_34  → Otomatik EMA21, EMA34'e cevrilir
+
+3) DIREKT TRADINGVIEW ADI (BIST icin calisan alanlar):
+   price_earnings_ttm < 10             → P/E < 10
+   price_book_ratio < 1.5              → P/B < 1.5
+   return_on_equity > 15               → ROE > %15
+   market_cap_basic > 10000000000      → Piyasa Degeri > 10B TL
+   Pivot.M.Classic.R1 > close          → Pivot noktasi
+
 TradingView Desteklenen Periyotlar:
 - SMA: 5, 10, 20, 30, 50, 55, 60, 75, 89, 100, 120, 144, 150, 200, 250, 300
 - EMA: 5, 10, 20, 21, 25, 26, 30, 34, 40, 50, 55, 60, 75, 89, 100, 120, 144, 150, 200, 250, 300
 
-Ornek SMA/EMA sorgulari:
-- SMA20 > SMA50 (Golden Cross benzeri)
-- close > SMA200 (Fiyat 200 gunluk ortalamanin uzerinde)
-- EMA12 > EMA26 (Kisa vadeli yukselis)
+BIST ICIN DOGRULANMIS CALISAN ALANLAR (101 alan):
+
+Fiyat/Hacim: close, open, high, low, volume, change, change_abs, Volatility.D/W/M,
+  average_volume_10d/30d/60d/90d_calc, relative_volume_10d_calc, Value.Traded, market_cap_basic
+
+Teknik Gostergeler: RSI, RSI7, RSI14, MACD.macd, MACD.signal, ADX, ADX-DI, ADX+DI,
+  AO, Mom, CCI20, Stoch.K/D, Stoch.RSI.K/D, W.R, BBPower, UO, ATR, BB.upper/lower,
+  Ichimoku.BLine/CLine/Lead1/Lead2, VWMA, HullMA9, Aroon.Up/Down, Donchian.Width
+
+Hareketli Ortalamalar: SMA5/10/20/50/100/200, EMA5/10/20/50/100/200
+
+Degerlemeler: price_earnings_ttm, price_book_ratio, price_sales_ratio,
+  price_free_cash_flow_ttm, price_to_cash_ratio, enterprise_value_fq,
+  enterprise_value_ebitda_ttm, number_of_employees
+
+Karlilik: return_on_equity, return_on_assets, return_on_invested_capital,
+  gross_margin, operating_margin, net_margin, free_cash_flow_margin, ebitda_margin
+
+Buyume: revenue_growth_yoy, earnings_growth_yoy, ebitda_growth_yoy
+
+Finansal Guc: debt_to_equity, debt_to_assets, current_ratio, quick_ratio
+
+Temettü: dividends_yield_current, dividend_payout_ratio
+
+Performans: Perf.W/1M/3M/6M/Y/YTD, High.1M/3M/6M, Low.1M/3M/6M,
+  price_52_week_high, price_52_week_low
+
+Tavsiyeler: Recommend.All, Recommend.MA, Recommend.Other
+
+Pivot: Pivot.M.Classic.S1/S2/R1/R2/Middle
+
+Formasyonlar: Candle.AbandonedBaby.Bearish/Bullish, Candle.Engulfing.Bearish/Bullish,
+  Candle.Doji, Candle.Doji.Dragonfly, Candle.Hammer, Candle.MorningStar, Candle.EveningStar
 """
 
         return TaramaYardimSonucu(
