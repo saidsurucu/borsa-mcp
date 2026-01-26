@@ -5,7 +5,7 @@ Includes legacy fallback for assets not available in borsapy (WTI, diesel, gasol
 """
 import logging
 import httpx
-from typing import Dict, Any, Optional
+from typing import Optional
 from datetime import datetime
 import borsapy as bp
 

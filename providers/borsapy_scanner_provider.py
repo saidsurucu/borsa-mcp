@@ -6,7 +6,7 @@ import asyncio
 import logging
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from models.scanner_models import (
     TaramaSonucu,

@@ -4,99 +4,140 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a comprehensive MCP (Model Context Protocol) server for Istanbul Stock Exchange (BIST), US stock markets, and cryptocurrency data. It provides extensive tools for searching companies, fetching financial data, analyst recommendations, dividends, technical analysis, sector comparisons, and cryptocurrency trading data. The server is optimized for LLM interaction with domain-specific tool separation and concise descriptions.
+This is a **unified MCP (Model Context Protocol) server** for BIST (Istanbul Stock Exchange), US stocks, cryptocurrencies, mutual funds, and FX data. The server consolidates 81 legacy tools into **26 unified, function-based tools** with market routing.
 
-**MAJOR UPDATES:**
-- **⭐ US Stock Market Support (NEW)**: Complete Yahoo Finance integration for NYSE/NASDAQ stocks
-  - 10 US stock tools with multi-ticker parallel execution support
-  - Works with individual stocks (AAPL, MSFT) and ETFs (SPY, QQQ, VOO)
-  - Same features as BIST: quick info, analyst ratings, dividends, earnings, technicals, pivots
-- **⭐ US Stock Screener (NEW)**: Yahoo Finance screener via yfscreen package
-  - 23 preset screens: 18 equity + 3 ETF + 2 mutual fund presets
-  - Custom filter system with eq/gt/lt/btwn operators
-  - Supports all security types: equities, ETFs, mutual funds, indices, futures
-- **⭐ Multi-Ticker Parallel Execution (Phase 1 & 2)**: 7 tools support batch queries with 60-75% performance improvement
-  - Phase 1: 4 Yahoo Finance tools (fast info, dividends, analyst data, earnings)
-  - Phase 2: 3 İş Yatırım financial statement tools (balance sheet, income, cash flow)
-- **Financial Ratios Consolidation**: 2 consolidated tools (replacing 7 individual tools) for 75-85% performance improvement
-- **Buffett Value Investing Tools**: Complete Warren Buffett analysis suite with dynamic parameters
-- **Turkish Bond Yields**: Real-time government bond data via borsapy (2Y, 5Y, 10Y)
-- **World Bank Integration**: GDP growth data for terminal value calculations
-- **Fisher Effect DCF**: Inflation-adjusted intrinsic value with auto-fetched parameters
-- **Hybrid Growth Logic**: Smart selection between analyst forecasts and GDP growth
-- **Historical Date Range Support**: BIST stocks now support specific date queries (e.g., "2024-01-01" to "2024-12-31")
-- **⭐ borsapy Integration (NEW)**: FX, bonds, economic calendar via borsapy library (65 currencies, metals, commodities)
-- **Real-time Exchange Rates**: Live currency data with minute-by-minute precision
-- **Crypto Technical Analysis**: RSI, MACD, Bollinger Bands for both Turkish and global markets
-- **FastMCP Schema Optimization**: Advanced parameter validation with Literal constraints
-- **LLM Optimization Suite**: Domain-specific prefixes, concise descriptions, tool separation
-- **BtcTurk & Coinbase Integration**: Complete crypto coverage for Turkish and global markets
-- **TEFAS Fund Tools**: Comprehensive mutual fund analysis with official APIs
-- **Multi-Ticker Support**: KAP companies with multiple share classes
-- **Clean Data Architecture**: Live data fetching, removed hardcoded samples
+**⭐ MAJOR CONSOLIDATION (v0.9.0):**
+- **81 tools → 26 unified tools** (68% reduction)
+- **Market-based routing**: Single tool handles BIST, US, crypto via `market` parameter
+- **Multi-ticker parallel execution**: 75% faster batch queries
+- **Unified response models**: Consistent data structures across all markets
+- **NEW**: News detail support, Islamic finance compliance, fund comparison
+- **NEW**: Macro inflation data, screener/scanner help tools
+
+**Key Features:**
+- **Stocks (BIST + US)**: Search, profile, quick info, technicals, financials, analysts, dividends, earnings
+- **Crypto (BtcTurk + Coinbase)**: Ticker, orderbook, trades, OHLC, technical analysis
+- **Funds (TEFAS)**: 836+ Turkish mutual funds with portfolio, performance, and comparison
+- **FX (borsapy)**: 65 currencies, precious metals, commodities
+- **Macro**: Economic calendar (7 countries), bond yields, inflation data, sector comparisons
+- **Help**: Screener presets/filters, scanner indicators/presets, fund regulations
 
 ## Architecture
 
-The project follows a modular provider pattern:
+The project follows a **unified router pattern** with market-based routing:
 
-- **borsa_mcp_server.py**: FastMCP server with 63 comprehensive financial tools
-- **borsa_client.py**: Orchestrator/service layer that delegates calls
-- **borsa_models.py**: Comprehensive Pydantic models for all data types
+### Core Files
+- **unified_mcp_server.py**: Main FastMCP server with 26 unified tools (v0.9.0+)
+- **providers/market_router.py**: Market routing layer that dispatches to providers
+- **models/unified_base.py**: Unified response models and enums (84 exports)
+- **borsa_mcp_server.py**: Legacy server with 81 tools (kept as fallback)
+
+### Provider Layer
 - **providers/**: Data provider modules
   - `kap_provider.py`: 758 BIST companies with multi-ticker support
-  - `yfinance_provider.py`: Complete financial data provider
-  - `mynet_provider.py`: Turkish-specific data provider
+  - `yfinance_provider.py`: Complete financial data (BIST + US)
+  - `isyatirim_provider.py`: İş Yatırım financial statements and ratios
   - `tefas_provider.py`: TEFAS mutual fund data provider
   - `btcturk_provider.py`: BtcTurk cryptocurrency provider
   - `coinbase_provider.py`: Coinbase global crypto provider
-  - `borsapy_fx_provider.py`: Currency and commodities via borsapy (with legacy fallback)
-  - `borsapy_calendar_provider.py`: Economic calendar via borsapy (TR, US, EU, DE, GB, JP, CN)
-  - `borsapy_bond_provider.py`: Turkish government bond yields via borsapy
-  - `dovizcom_legacy_provider.py`: Legacy fallback for WTI, diesel, gasoline, lpg
-  - `worldbank_provider.py`: World Bank GDP growth data
-  - `buffett_analyzer_provider.py`: Warren Buffett value investing calculations
-  - `financial_ratios_provider.py`: Financial ratio calculations (ROE, ROIC, debt, FCF, earnings quality)
-  - `yfscreen_provider.py`: US securities screener using yfscreen package
+  - `borsapy_fx_provider.py`: Currency and commodities via borsapy
+  - `borsapy_calendar_provider.py`: Economic calendar (TR, US, EU, DE, GB, JP, CN)
+  - `borsapy_bond_provider.py`: Turkish government bond yields
+  - `borsapy_scanner_provider.py`: BIST technical scanner (TradingView)
+  - `yfscreen_provider.py`: US securities screener
+  - `buffett_analyzer_provider.py`: Warren Buffett value investing
+  - `financial_ratios_provider.py`: Financial ratio calculations
 
 ## Key Development Commands
 
 ```bash
-# Run the MCP server
-uv run python borsa_mcp_server.py
+# Run the unified MCP server (22 tools)
+uv run python unified_mcp_server.py
+uv run borsa-mcp  # Entry point
 
-# Install dependencies  
+# Run legacy server (81 tools) - for backwards compatibility
+uv run python borsa_mcp_server.py
+uv run borsa-mcp-legacy
+
+# Install dependencies
 uv pip install -r requirements.txt
 
 # Build the package
 rm -rf build/ && uv build
 
-# Run as installed command
-uv run borsa-mcp
+# Test unified server
+uv run python -c "from unified_mcp_server import app; print('Server OK')"
 
-# Test functionality
+# Test legacy functionality
 uv run test_mcp_server.py
 uv run test_kap_haberleri.py
 uv run test_tefas_provider.py
-uv run test_btcturk_kripto.py
-uv run test_dovizcom_provider.py
-uv run test_pivot_points.py
-uv run test_buffett_tools.py
-uv run test_consolidated_tools.py
-uv run test_asels_validation.py
 ```
 
-## Complete Tool Interface
+## Complete Tool Interface (26 Unified Tools)
 
-### Core Company & Financial Data
+### Stock Tools (15 tools - BIST + US markets)
+| Tool | Description | Multi-ticker |
+|------|-------------|--------------|
+| `search_symbol` | Search stocks, indices, funds, crypto by name/symbol | - |
+| `get_profile` | Company profile with sector, description, financials + Islamic finance compliance (BIST) | - |
+| `get_quick_info` | Quick metrics (P/E, P/B, ROE, 52w range) | ✅ |
+| `get_historical_data` | OHLCV price data with date range support | - |
+| `get_technical_analysis` | RSI, MACD, Bollinger Bands, moving averages (BIST, US, crypto) | - |
+| `get_pivot_points` | Support/resistance levels (S1-S3, R1-R3) | - |
+| `get_analyst_data` | Analyst ratings and price targets | ✅ |
+| `get_dividends` | Dividend history, yield, payout ratio | ✅ |
+| `get_earnings` | Earnings calendar, EPS history, growth estimates | ✅ |
+| `get_financial_statements` | Balance sheet, income statement, cash flow | ✅ |
+| `get_financial_ratios` | Valuation, Buffett, health, advanced metrics | - |
+| `get_corporate_actions` | Capital increases, dividend history (BIST) | ✅ |
+| `get_news` | KAP news list or detail view with news_id (BIST) | - |
+| `screen_securities` | Screen with 23 presets or custom filters | - |
+| `scan_stocks` | Technical scanner (RSI, MACD, Supertrend, T3) | - |
+
+### Crypto Tools (1 tool - BtcTurk + Coinbase)
+| Tool | Description |
+|------|-------------|
+| `get_crypto_market` | Ticker, orderbook, trades, OHLC, exchange info |
+
+### FX & Macro Tools (5 tools)
+| Tool | Description |
+|------|-------------|
+| `get_fx_data` | 65 currencies, metals, commodities via borsapy |
+| `get_economic_calendar` | Economic events (TR, US, EU, DE, GB, JP, CN) |
+| `get_bond_yields` | Government bond yields (TR 2Y, 5Y, 10Y) |
+| `get_sector_comparison` | Sector peers and average metrics |
+| `get_macro_data` | Turkish inflation data (TÜFE/ÜFE) and inflation calculator |
+
+### Fund & Index Tools (2 tools)
+| Tool | Description |
+|------|-------------|
+| `get_fund_data` | TEFAS mutual fund data with portfolio/performance + multi-fund comparison |
+| `get_index_data` | Stock market index data with components (BIST + US) |
+
+### Help & Documentation Tools (3 tools)
+| Tool | Description |
+|------|-------------|
+| `get_screener_help` | Available presets and filter documentation for stock screener (BIST/US) |
+| `get_scanner_help` | Available indicators, operators, and presets for BIST technical scanner |
+| `get_regulations` | Turkish fund regulation documentation |
+
+---
+
+## Legacy Tool Interface (81 tools - backwards compatibility)
+
+**Use `borsa-mcp-legacy` command for legacy interface.**
+
+### Core Company & Financial Data (Legacy)
 - `find_ticker_code`: Search 793 BIST companies using KAP
 - `get_sirket_profili`: Company profile with financial metrics
 - `get_bilanco`: Balance sheet (annual/quarterly) ⭐ **Multi-ticker support**
 - `get_kar_zarar_tablosu`: Income statement ⭐ **Multi-ticker support**
 - `get_nakit_akisi_tablosu`: Cash flow statement ⭐ **Multi-ticker support**
-- `get_finansal_oranlar`: Financial ratios (F/K, FD/FAVÖK, FD/Satışlar, PD/DD) ⭐ **Multi-ticker support** ⭐ **NEW**
+- `get_finansal_oranlar`: Financial ratios (F/K, FD/FAVÖK, FD/Satışlar, PD/DD) ⭐ **Multi-ticker support**
 - `get_finansal_veri`: Historical OHLCV data
 
-### Advanced Analysis Tools
+### Advanced Analysis Tools (Legacy)
 - `get_analist_tahminleri`: Analyst recommendations and price targets ⭐ **Multi-ticker support**
 - `get_temettu_ve_aksiyonlar`: Dividends and corporate actions ⭐ **Multi-ticker support**
 - `get_hizli_bilgi`: Key metrics (P/E, P/B, ROE) ⭐ **Multi-ticker support**
@@ -486,6 +527,32 @@ logger.error("Failed operations")
 
 ## Recent Major Updates
 
+### Unified Server Feature Parity v0.9.0 (January 2026)
+- **Tool Count**: 22 → 26 unified tools (68% reduction from 81 legacy tools)
+- **New Tools**:
+  - `get_macro_data`: Turkish inflation data (TÜFE/ÜFE) and inflation calculator
+  - `get_screener_help`: Available presets and filter documentation for stock screener
+  - `get_scanner_help`: Available indicators, operators, and presets for BIST scanner
+  - `get_regulations`: Turkish fund regulation documentation
+- **Enhanced Existing Tools**:
+  - `get_news`: Now supports `news_id` parameter for fetching detailed news content
+  - `get_profile`: Now supports `include_islamic` parameter for Islamic finance compliance (BIST)
+  - `get_fund_data`: Now supports multi-symbol comparison mode with `compare_mode=True`
+  - `get_technical_analysis`: Already supports crypto markets (crypto_tr, crypto_global)
+  - `get_index_data`: Already supports US market indices
+- **New Models Added**:
+  - `NewsDetailResult`: Detailed news content with pagination
+  - `IslamicComplianceInfo`: Participation finance compatibility info
+  - `FundComparisonResult`: Multi-fund performance comparison
+  - `MacroDataResult`: Inflation data and calculations
+  - `ScreenerHelpResult`: Screener presets and filter documentation
+  - `ScannerHelpResult`: Scanner indicators and presets documentation
+  - `RegulationsResult`: Fund regulations content
+- **Files Modified**:
+  - `unified_mcp_server.py`: 4 new tools, 3 enhanced tools
+  - `providers/market_router.py`: 7 new routing methods
+  - `models/unified_base.py`: 10+ new models (84 total exports)
+
 ### İş Yatırım Corporate Actions Tools (January 2026)
 - **New Tools**: 2 tools for capital increases and dividend history from İş Yatırım
 - **API Endpoint**: `GetSermayeArttirimlari` - returns all corporate actions
@@ -781,31 +848,22 @@ logger.error("Failed operations")
 
 ## Tool Count Summary
 
-- **Total Tools**: 81
-- **BIST Stock Tools**: 21 (KAP + Yahoo Finance + İş Yatırım ratios + Corporate Actions)
-- **BIST Corporate Actions Tools**: 2 (İş Yatırım - Sermaye Artırımları & Temettü) ⭐ **NEW**
-  - `get_sermaye_artirimlari`: Capital increases history with multi-ticker support
-  - `get_isyatirim_temettu`: Dividend history with multi-ticker support
-- **BIST Technical Scanner**: 3 (borsapy TradingView integration)
-  - Custom condition scanning (RSI, MACD, volume, etc.)
-  - 12 preset strategies (oversold, momentum, etc.)
-  - 14 supported BIST indices (XU030, XU100, XBANK, etc.)
-- **US Stock Tools**: 10 (Yahoo Finance for NYSE/NASDAQ)
-  - 4 tools with multi-ticker parallel execution support
-  - Works with stocks (AAPL, MSFT) and ETFs (SPY, QQQ, VOO)
-- **US Screener Tools**: 3 (yfscreen for Yahoo Finance)
-  - 18 preset screens + custom filter system
-  - Supports equities, ETFs, mutual funds, indices, futures
-- **Crypto Tools**: 14 (7 BtcTurk + 7 Coinbase)
-- **Fund Tools**: 5 (TEFAS comprehensive)
-- **Currency Tools**: 3 (borsapy with legacy fallback)
-- **Calendar Tools**: 1 (borsapy - TR, US, EU, DE, GB, JP, CN)
-- **Regulation Tools**: 1 (Fund regulations)
-- **Bond Yields Tools**: 1 (borsapy - 2Y, 5Y, 10Y)
-- **Value Investing Tools**: 1 (consolidated Buffett analysis)
-  - ⭐ Buffett Value Analysis (4 metrics in 1 call)
-- **Financial Ratios Tools**: 3 (2 consolidated + 1 comprehensive)
-  - ⭐ Core Financial Health (5 metrics in 1 call)
-  - ⭐ Advanced Metrics (2 metrics in 1 call)
-  - Comprehensive Analysis (11 metrics in 1 call)
-  - **Performance Gain**: 75-85% faster execution vs individual tools
+### Unified Server (v0.9.0+) - 26 Tools
+| Category | Count | Description |
+|----------|-------|-------------|
+| **Stock Tools** | 15 | BIST + US market data (search, profile, financials, technicals) |
+| **Crypto Tools** | 1 | BtcTurk + Coinbase unified (ticker, orderbook, trades, OHLC) |
+| **FX & Macro** | 5 | FX rates, economic calendar, bonds, sectors, inflation data |
+| **Fund & Index** | 2 | TEFAS funds, stock market indices |
+| **Help & Docs** | 3 | Screener help, scanner help, regulations |
+| **TOTAL** | **26** | **68% reduction from 81 legacy tools** |
+
+### Key Consolidations
+- **81 → 26 tools** via market-based routing
+- **Multi-ticker support**: 7 tools with parallel batch execution
+- **Unified response models**: Consistent structure across all markets
+- **Single entry point**: `uv run borsa-mcp` for unified server
+- **Enhanced features**: Islamic finance compliance, news detail, fund comparison, macro data
+
+### Legacy Server (backwards compatibility) - 81 Tools
+Available via `uv run borsa-mcp-legacy` for backwards compatibility.

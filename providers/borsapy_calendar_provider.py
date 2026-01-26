@@ -4,8 +4,8 @@ Provides economic calendar events via borsapy EconomicCalendar class.
 Supports TR, US, EU, DE, GB, JP, CN countries with importance filtering.
 """
 import logging
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from typing import List, Dict, Optional
+from datetime import datetime
 
 import borsapy as bp
 

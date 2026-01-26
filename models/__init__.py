@@ -7,6 +7,62 @@ to maintain backward compatibility and provide a single import point.
 # Base models and enums
 from .base import YFinancePeriodEnum, ZamanAraligiEnum
 
+# Unified base models (new consolidated API)
+from .unified_base import (
+    # Enums
+    MarketType, StatementType, PeriodType, HistoricalPeriod,
+    DataType, RatioSetType, ExchangeType, ScreenPresetType,
+    SecurityType, ScanPresetType, TimeframeType,
+    # Base models
+    UnifiedMetadata, UnifiedResult, MultiResult,
+    # Symbol search
+    SymbolInfo, SymbolSearchResult,
+    # Profile
+    CompanyProfile, ProfileResult,
+    # Quick info
+    QuickInfo, QuickInfoResult,
+    # Historical data
+    OHLCVData, HistoricalDataResult,
+    # Technical analysis
+    MovingAverages, TechnicalIndicators, TechnicalSignals, TechnicalAnalysisResult,
+    # Pivot points
+    PivotLevels, PivotPointsResult as UnifiedPivotPointsResult,
+    # Analyst data
+    AnalystRating as UnifiedAnalystRating, AnalystSummary, AnalystDataResult,
+    # Dividends
+    DividendInfo, StockSplitInfo, DividendResult,
+    # Earnings
+    EarningsEvent, EarningsResult,
+    # Financial statements
+    FinancialStatement, FinancialStatementsResult,
+    # Financial ratios
+    ValuationRatios, BuffettMetrics, CoreHealthMetrics,
+    AdvancedMetrics as UnifiedAdvancedMetrics, FinancialRatiosResult,
+    # Corporate actions
+    CapitalIncrease, CorporateActionsResult,
+    # News
+    NewsItem, NewsResult,
+    # Screener
+    ScreenedStock, ScreenerResult,
+    # Scanner
+    ScannedStock, ScannerResult,
+    # Crypto
+    CryptoTicker, CryptoOrderbookLevel, CryptoOrderbook,
+    CryptoTrade, CryptoMarketResult,
+    # FX
+    FXRate, FXResult,
+    # Economic calendar
+    EconomicEvent, EconomicCalendarResult,
+    # Bonds
+    BondYield, BondYieldsResult,
+    # Funds
+    FundInfo, FundPortfolioItem, FundResult,
+    # Index
+    IndexInfo, IndexComponent, IndexResult,
+    # Sector comparison
+    SectorStock, SectorComparisonResult,
+)
+
 # KAP models (8 classes)
 from .kap_models import (
     SirketInfo, SirketAramaSonucu,
@@ -193,14 +249,45 @@ from borsa_models import (
 )
 
 # BIST Technical Scanner Models (borsapy TradingView integration)
+# Note: TaramaSonucu from scanner_models is aliased to avoid conflict with borsa_models.TaramaSonucu
 from .scanner_models import (
-    TaramaSonucu, TeknikTaramaSonucu, TaramaPresetInfo, TaramaYardimSonucu
+    TaramaSonucu as ScannerTaramaSonucu, TeknikTaramaSonucu, TaramaPresetInfo, TaramaYardimSonucu
 )
 
 # Export all models for backward compatibility
 __all__ = [
     # Base enums
     "YFinancePeriodEnum", "ZamanAraligiEnum",
+
+    # Unified base models (new consolidated API)
+    "MarketType", "StatementType", "PeriodType", "HistoricalPeriod",
+    "DataType", "RatioSetType", "ExchangeType", "ScreenPresetType",
+    "SecurityType", "ScanPresetType", "TimeframeType",
+    "UnifiedMetadata", "UnifiedResult", "MultiResult",
+    "SymbolInfo", "SymbolSearchResult",
+    "CompanyProfile", "ProfileResult",
+    "QuickInfo", "QuickInfoResult",
+    "OHLCVData", "HistoricalDataResult",
+    "MovingAverages", "TechnicalIndicators", "TechnicalSignals", "TechnicalAnalysisResult",
+    "PivotLevels", "UnifiedPivotPointsResult",
+    "UnifiedAnalystRating", "AnalystSummary", "AnalystDataResult",
+    "DividendInfo", "StockSplitInfo", "DividendResult",
+    "EarningsEvent", "EarningsResult",
+    "FinancialStatement", "FinancialStatementsResult",
+    "ValuationRatios", "BuffettMetrics", "CoreHealthMetrics",
+    "UnifiedAdvancedMetrics", "FinancialRatiosResult",
+    "CapitalIncrease", "CorporateActionsResult",
+    "NewsItem", "NewsResult",
+    "ScreenedStock", "ScreenerResult",
+    "ScannedStock", "ScannerResult",
+    "CryptoTicker", "CryptoOrderbookLevel", "CryptoOrderbook",
+    "CryptoTrade", "CryptoMarketResult",
+    "FXRate", "FXResult",
+    "EconomicEvent", "EconomicCalendarResult",
+    "BondYield", "BondYieldsResult",
+    "FundInfo", "FundPortfolioItem", "FundResult",
+    "IndexInfo", "IndexComponent", "IndexResult",
+    "SectorStock", "SectorComparisonResult",
     
     # KAP models
     "SirketInfo", "SirketAramaSonucu",
@@ -315,5 +402,5 @@ __all__ = [
     "BistScreenedStock", "BistScreenerResult", "BistScreenerPresetInfo",
     "BistScreenerPresetsResult", "BistScreenerFilterDocumentation",
     # BIST Technical Scanner Models
-    "TaramaSonucu", "TeknikTaramaSonucu", "TaramaPresetInfo", "TaramaYardimSonucu"
+    "ScannerTaramaSonucu", "TeknikTaramaSonucu", "TaramaPresetInfo", "TaramaYardimSonucu"
 ]
