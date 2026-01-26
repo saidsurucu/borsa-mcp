@@ -184,63 +184,65 @@ class MarketRouter:
             source = "yfinance"
             ticker = self._get_ticker_with_suffix(symbol, market)
             result = await self._client.get_sirket_bilgileri_yfinance(ticker)
-            if result and result.get("profil"):
-                p = result["profil"]
+            # Result is {'bilgiler': SirketProfiliYFinance(...)} - Pydantic model
+            if result and result.get("bilgiler"):
+                p = result["bilgiler"]  # SirketProfiliYFinance Pydantic model
                 profile = CompanyProfile(
-                    symbol=symbol.upper(),
-                    name=p.get("uzun_ad") or p.get("kisa_ad") or symbol,
+                    symbol=getattr(p, 'symbol', symbol.upper()),
+                    name=getattr(p, 'longName', None) or symbol.upper(),
                     market=market,
-                    description=p.get("ozet"),
-                    sector=p.get("sektor"),
-                    industry=p.get("sanayi"),
-                    country=p.get("ulke"),
-                    website=p.get("web_sitesi"),
-                    employees=p.get("calisan_sayisi"),
-                    market_cap=p.get("piyasa_degeri"),
-                    currency=p.get("para_birimi", "TRY"),
-                    exchange=p.get("borsa", "BIST"),
-                    pe_ratio=p.get("takip_eden_fk"),
-                    pb_ratio=p.get("pd_dd"),
-                    dividend_yield=p.get("temettu_orani"),
-                    beta=p.get("beta"),
-                    current_price=p.get("guncel_fiyat"),
-                    day_high=p.get("gun_yuksek"),
-                    day_low=p.get("gun_dusuk"),
-                    volume=p.get("hacim"),
-                    avg_volume=p.get("ortalama_hacim"),
-                    week_52_high=p.get("elli_iki_hafta_yuksek"),
-                    week_52_low=p.get("elli_iki_hafta_dusuk")
+                    description=getattr(p, 'longBusinessSummary', None),
+                    sector=getattr(p, 'sector', None),
+                    industry=getattr(p, 'industry', None),
+                    country=getattr(p, 'country', None),
+                    website=getattr(p, 'website', None),
+                    employees=getattr(p, 'fullTimeEmployees', None),
+                    market_cap=getattr(p, 'marketCap', None),
+                    currency=getattr(p, 'currency', 'TRY'),
+                    exchange="BIST",
+                    pe_ratio=getattr(p, 'trailingPE', None),
+                    pb_ratio=None,  # Not in SirketProfiliYFinance
+                    dividend_yield=getattr(p, 'dividendYield', None),
+                    beta=getattr(p, 'beta', None),
+                    current_price=None,  # Not in SirketProfiliYFinance
+                    day_high=None,
+                    day_low=None,
+                    volume=None,
+                    avg_volume=None,
+                    week_52_high=getattr(p, 'fiftyTwoWeekHigh', None),
+                    week_52_low=getattr(p, 'fiftyTwoWeekLow', None)
                 )
 
         elif market == MarketType.US:
             source = "yfinance"
             result = await self._client.get_us_company_profile(symbol)
-            if result and result.get("info"):
-                p = result["info"]
+            # Result is {'bilgiler': SirketProfiliYFinance(...)} - Pydantic model
+            if result and result.get("bilgiler"):
+                p = result["bilgiler"]  # SirketProfiliYFinance Pydantic model
                 profile = CompanyProfile(
-                    symbol=p.get("symbol", symbol.upper()),
-                    name=p.get("name", symbol.upper()),
+                    symbol=getattr(p, 'symbol', symbol.upper()),
+                    name=getattr(p, 'longName', None) or symbol.upper(),
                     market=market,
-                    description=p.get("description"),
-                    sector=p.get("sector"),
-                    industry=p.get("industry"),
-                    country=p.get("country"),
-                    website=p.get("website"),
-                    employees=p.get("employees"),
-                    market_cap=p.get("market_cap"),
-                    currency=p.get("currency", "USD"),
-                    exchange=p.get("exchange"),
-                    pe_ratio=p.get("pe_ratio"),
-                    pb_ratio=p.get("pb_ratio"),
-                    dividend_yield=p.get("dividend_yield"),
-                    beta=p.get("beta"),
-                    current_price=p.get("current_price"),
-                    day_high=p.get("day_high"),
-                    day_low=p.get("day_low"),
-                    volume=p.get("volume"),
-                    avg_volume=p.get("avg_volume"),
-                    week_52_high=p.get("week_52_high"),
-                    week_52_low=p.get("week_52_low")
+                    description=getattr(p, 'longBusinessSummary', None),
+                    sector=getattr(p, 'sector', None),
+                    industry=getattr(p, 'industry', None),
+                    country=getattr(p, 'country', None),
+                    website=getattr(p, 'website', None),
+                    employees=getattr(p, 'fullTimeEmployees', None),
+                    market_cap=getattr(p, 'marketCap', None),
+                    currency=getattr(p, 'currency', 'USD'),
+                    exchange="US",
+                    pe_ratio=getattr(p, 'trailingPE', None),
+                    pb_ratio=None,
+                    dividend_yield=getattr(p, 'dividendYield', None),
+                    beta=getattr(p, 'beta', None),
+                    current_price=None,
+                    day_high=None,
+                    day_low=None,
+                    volume=None,
+                    avg_volume=None,
+                    week_52_high=getattr(p, 'fiftyTwoWeekHigh', None),
+                    week_52_low=getattr(p, 'fiftyTwoWeekLow', None)
                 )
 
         elif market == MarketType.FUND:
@@ -279,102 +281,116 @@ class MarketRouter:
             source = "yfinance"
             if is_multi:
                 result = await self._client.get_hizli_bilgi_multi(symbol_list)
-                if result and result.get("data"):
-                    for item in result["data"]:
-                        if item.get("bilgi"):
-                            b = item["bilgi"]
+                # Multi-ticker returns a dict, not Pydantic model
+                data_list = result.get("data") if isinstance(result, dict) else (result.data if hasattr(result, 'data') else None)
+                if result and data_list:
+                    for item in data_list:
+                        # item is dict with hizli_bilgi key or Pydantic model
+                        if isinstance(item, dict):
+                            b = item.get("hizli_bilgi")
+                        else:
+                            b = item.hizli_bilgi if hasattr(item, 'hizli_bilgi') else item
+                        if b:
                             results.append(QuickInfo(
-                                symbol=b.get("sembol", ""),
-                                name=b.get("sirket_adi") or b.get("sembol", ""),
+                                symbol=getattr(b, 'symbol', ''),
+                                name=getattr(b, 'long_name', None) or getattr(b, 'symbol', ''),
                                 market=market,
-                                currency="TRY",
-                                current_price=b.get("guncel_fiyat"),
-                                change_percent=b.get("degisim_yuzdesi"),
-                                volume=b.get("hacim"),
-                                market_cap=b.get("piyasa_degeri"),
-                                pe_ratio=b.get("fk_orani"),
-                                pb_ratio=b.get("pd_dd"),
-                                roe=b.get("oz_sermaye_karliligi"),
-                                dividend_yield=b.get("temettu_verimi"),
-                                week_52_high=b.get("elli_iki_hafta_yuksek"),
-                                week_52_low=b.get("elli_iki_hafta_dusuk"),
-                                avg_volume=b.get("ortalama_hacim"),
-                                beta=b.get("beta")
+                                currency=getattr(b, 'currency', 'TRY'),
+                                current_price=getattr(b, 'last_price', None),
+                                change_percent=None,
+                                volume=getattr(b, 'volume', None),
+                                market_cap=getattr(b, 'market_cap', None),
+                                pe_ratio=getattr(b, 'pe_ratio', None),
+                                pb_ratio=getattr(b, 'price_to_book', None),
+                                roe=getattr(b, 'return_on_equity', None),
+                                dividend_yield=getattr(b, 'dividend_yield', None),
+                                week_52_high=getattr(b, 'fifty_two_week_high', None),
+                                week_52_low=getattr(b, 'fifty_two_week_low', None),
+                                avg_volume=getattr(b, 'average_volume', None),
+                                beta=getattr(b, 'beta', None)
                             ))
-                    warnings = result.get("warnings", [])
+                    warnings = result.get("warnings", []) if isinstance(result, dict) else (result.warnings if hasattr(result, 'warnings') else [])
             else:
                 result = await self._client.get_hizli_bilgi(symbol_list[0])
-                if result and result.get("bilgi"):
-                    b = result["bilgi"]
+                # Result is {'hizli_bilgi': HizliBilgi(...)}
+                if result and result.get("hizli_bilgi"):
+                    b = result["hizli_bilgi"]  # HizliBilgi Pydantic model
                     results.append(QuickInfo(
-                        symbol=b.get("sembol", symbol_list[0]),
-                        name=b.get("sirket_adi") or b.get("sembol", symbol_list[0]),
+                        symbol=getattr(b, 'symbol', symbol_list[0]),
+                        name=getattr(b, 'long_name', None) or getattr(b, 'symbol', symbol_list[0]),
                         market=market,
-                        currency="TRY",
-                        current_price=b.get("guncel_fiyat"),
-                        change_percent=b.get("degisim_yuzdesi"),
-                        volume=b.get("hacim"),
-                        market_cap=b.get("piyasa_degeri"),
-                        pe_ratio=b.get("fk_orani"),
-                        pb_ratio=b.get("pd_dd"),
-                        roe=b.get("oz_sermaye_karliligi"),
-                        dividend_yield=b.get("temettu_verimi"),
-                        week_52_high=b.get("elli_iki_hafta_yuksek"),
-                        week_52_low=b.get("elli_iki_hafta_dusuk"),
-                        avg_volume=b.get("ortalama_hacim"),
-                        beta=b.get("beta")
+                        currency=getattr(b, 'currency', 'TRY'),
+                        current_price=getattr(b, 'last_price', None),
+                        change_percent=None,
+                        volume=getattr(b, 'volume', None),
+                        market_cap=getattr(b, 'market_cap', None),
+                        pe_ratio=getattr(b, 'pe_ratio', None),
+                        pb_ratio=getattr(b, 'price_to_book', None),
+                        roe=getattr(b, 'return_on_equity', None),
+                        dividend_yield=getattr(b, 'dividend_yield', None),
+                        week_52_high=getattr(b, 'fifty_two_week_high', None),
+                        week_52_low=getattr(b, 'fifty_two_week_low', None),
+                        avg_volume=getattr(b, 'average_volume', None),
+                        beta=getattr(b, 'beta', None)
                     ))
 
         elif market == MarketType.US:
             source = "yfinance"
             if is_multi:
                 result = await self._client.get_us_quick_info_multi(symbol_list)
-                if result and result.get("data"):
-                    for item in result["data"]:
-                        if item.get("info"):
-                            i = item["info"]
+                # Multi-ticker returns a dict, not Pydantic model
+                data_list = result.get("data") if isinstance(result, dict) else (result.data if hasattr(result, 'data') else None)
+                if result and data_list:
+                    for item in data_list:
+                        # item is dict with bilgiler key or Pydantic model
+                        if isinstance(item, dict):
+                            i = item.get("bilgiler")
+                        else:
+                            i = item.bilgiler if hasattr(item, 'bilgiler') else item
+                        if i:
                             results.append(QuickInfo(
-                                symbol=i.get("symbol", ""),
-                                name=i.get("name") or i.get("symbol", ""),
+                                symbol=getattr(i, 'symbol', ''),
+                                name=getattr(i, 'long_name', None) or getattr(i, 'symbol', ''),
                                 market=market,
-                                currency=i.get("currency", "USD"),
-                                current_price=i.get("current_price"),
-                                change_percent=i.get("change_percent"),
-                                volume=i.get("volume"),
-                                market_cap=i.get("market_cap"),
-                                pe_ratio=i.get("pe_ratio"),
-                                pb_ratio=i.get("pb_ratio"),
-                                ps_ratio=i.get("ps_ratio"),
-                                roe=i.get("roe"),
-                                dividend_yield=i.get("dividend_yield"),
-                                week_52_high=i.get("week_52_high"),
-                                week_52_low=i.get("week_52_low"),
-                                avg_volume=i.get("avg_volume"),
-                                beta=i.get("beta")
+                                currency=getattr(i, 'currency', 'USD'),
+                                current_price=getattr(i, 'last_price', None),
+                                change_percent=None,
+                                volume=getattr(i, 'volume', None),
+                                market_cap=getattr(i, 'market_cap', None),
+                                pe_ratio=getattr(i, 'pe_ratio', None),
+                                pb_ratio=getattr(i, 'price_to_book', None),
+                                ps_ratio=None,
+                                roe=getattr(i, 'return_on_equity', None),
+                                dividend_yield=getattr(i, 'dividend_yield', None),
+                                week_52_high=getattr(i, 'fifty_two_week_high', None),
+                                week_52_low=getattr(i, 'fifty_two_week_low', None),
+                                avg_volume=getattr(i, 'average_volume', None),
+                                beta=getattr(i, 'beta', None)
                             ))
-                    warnings = result.get("warnings", [])
+                    warnings = result.get("warnings", []) if isinstance(result, dict) else (result.warnings if hasattr(result, 'warnings') else [])
             else:
                 result = await self._client.get_us_quick_info(symbol_list[0])
-                if result and result.get("info"):
-                    i = result["info"]
+                # Result is {'bilgiler': HizliBilgi(...), 'ticker': ...}
+                if result and result.get("bilgiler"):
+                    i = result["bilgiler"]  # HizliBilgi Pydantic model
                     results.append(QuickInfo(
-                        symbol=i.get("symbol", symbol_list[0]),
-                        name=i.get("name") or i.get("symbol", symbol_list[0]),
+                        symbol=getattr(i, 'symbol', symbol_list[0]),
+                        name=getattr(i, 'long_name', None) or getattr(i, 'symbol', symbol_list[0]),
                         market=market,
-                        currency=i.get("currency", "USD"),
-                        current_price=i.get("current_price"),
-                        change_percent=i.get("change_percent"),
-                        volume=i.get("volume"),
-                        market_cap=i.get("market_cap"),
-                        pe_ratio=i.get("pe_ratio"),
-                        pb_ratio=i.get("pb_ratio"),
-                        ps_ratio=i.get("ps_ratio"),
-                        roe=i.get("roe"),
-                        dividend_yield=i.get("dividend_yield"),
-                        week_52_high=i.get("week_52_high"),
-                        week_52_low=i.get("week_52_low"),
-                        avg_volume=i.get("avg_volume"),
-                        beta=i.get("beta")
+                        currency=getattr(i, 'currency', 'USD'),
+                        current_price=getattr(i, 'last_price', None),
+                        change_percent=None,
+                        volume=getattr(i, 'volume', None),
+                        market_cap=getattr(i, 'market_cap', None),
+                        pe_ratio=getattr(i, 'pe_ratio', None),
+                        pb_ratio=getattr(i, 'price_to_book', None),
+                        ps_ratio=None,
+                        roe=getattr(i, 'return_on_equity', None),
+                        dividend_yield=getattr(i, 'dividend_yield', None),
+                        week_52_high=getattr(i, 'fifty_two_week_high', None),
+                        week_52_low=getattr(i, 'fifty_two_week_low', None),
+                        avg_volume=getattr(i, 'average_volume', None),
+                        beta=getattr(i, 'beta', None)
                     ))
 
         data = results if is_multi else (results[0] if results else None)
@@ -412,16 +428,19 @@ class MarketRouter:
                 start_date=start_date,
                 end_date=end_date
             )
-            if result and result.get("veri_noktalari"):
-                for dp in result["veri_noktalari"]:
+            # Result has 'data' key with list of dicts
+            if result and result.get("data"):
+                for dp in result["data"]:
+                    date_val = dp.get("tarih")
+                    date_str = date_val.isoformat() if hasattr(date_val, 'isoformat') else str(date_val)
                     data_points.append(OHLCVData(
-                        date=dp.get("tarih"),
-                        open=dp.get("acilis"),
-                        high=dp.get("yuksek"),
-                        low=dp.get("dusuk"),
-                        close=dp.get("kapanis"),
-                        volume=dp.get("hacim"),
-                        adj_close=dp.get("duzeltilmis_kapanis")
+                        date=date_str,
+                        open=dp.get("acilis") or 0.0,
+                        high=dp.get("en_yuksek") or 0.0,
+                        low=dp.get("en_dusuk") or 0.0,
+                        close=dp.get("kapanis") or 0.0,
+                        volume=int(dp.get("hacim") or 0),
+                        adj_close=None
                     ))
 
         elif market == MarketType.US:
@@ -432,14 +451,17 @@ class MarketRouter:
                 start_date=start_date,
                 end_date=end_date
             )
-            if result and result.get("data"):
-                for dp in result["data"]:
+            # Result has 'data_points' key with list of dicts
+            if result and result.get("data_points"):
+                for dp in result["data_points"]:
+                    date_val = dp.get("date")
+                    date_str = date_val.isoformat() if hasattr(date_val, 'isoformat') else str(date_val)
                     data_points.append(OHLCVData(
-                        date=dp.get("date"),
-                        open=dp.get("open"),
-                        high=dp.get("high"),
-                        low=dp.get("low"),
-                        close=dp.get("close"),
+                        date=date_str,
+                        open=dp.get("open") or 0.0,
+                        high=dp.get("high") or 0.0,
+                        low=dp.get("low") or 0.0,
+                        close=dp.get("close") or 0.0,
                         volume=dp.get("volume"),
                         adj_close=dp.get("adj_close")
                     ))
@@ -502,46 +524,46 @@ class MarketRouter:
             source = "yfinance"
             ticker = self._get_ticker_with_suffix(symbol, market)
             result = await self._client.get_teknik_analiz_yfinance(ticker)
-            if result and result.get("indikatorler"):
-                ind = result["indikatorler"]
-                current_price = result.get("guncel_fiyat")
-                moving_averages = MovingAverages(
-                    sma_5=ind.get("sma_5"),
-                    sma_10=ind.get("sma_10"),
-                    sma_20=ind.get("sma_20"),
-                    sma_50=ind.get("sma_50"),
-                    sma_200=ind.get("sma_200"),
-                    ema_5=ind.get("ema_5"),
-                    ema_10=ind.get("ema_10"),
-                    ema_20=ind.get("ema_20"),
-                    ema_50=ind.get("ema_50"),
-                    ema_200=ind.get("ema_200")
-                )
-                indicators = TechnicalIndicators(
-                    rsi_14=ind.get("rsi_14"),
-                    macd=ind.get("macd"),
-                    macd_signal=ind.get("macd_sinyal"),
-                    macd_histogram=ind.get("macd_histogram"),
-                    bb_upper=ind.get("bb_ust"),
-                    bb_middle=ind.get("bb_orta"),
-                    bb_lower=ind.get("bb_alt")
-                )
-                if result.get("trend"):
-                    t = result["trend"]
-                    signals = TechnicalSignals(
-                        trend=t.get("genel_trend"),
-                        rsi_signal=t.get("rsi_sinyal"),
-                        macd_signal=t.get("macd_sinyal"),
-                        bb_signal=t.get("bollinger_pozisyonu")
+            if result:
+                # Get current price from fiyat_analizi
+                if result.get("fiyat_analizi"):
+                    current_price = result["fiyat_analizi"].get("guncel_fiyat")
+                # Get technical indicators from teknik_indiktorler
+                if result.get("teknik_indiktorler"):
+                    ind = result["teknik_indiktorler"]
+                    indicators = TechnicalIndicators(
+                        rsi_14=ind.get("rsi_14"),
+                        macd=ind.get("macd"),
+                        macd_signal=ind.get("macd_signal"),
+                        macd_histogram=ind.get("macd_histogram"),
+                        bb_upper=ind.get("bb_upper"),
+                        bb_middle=ind.get("bb_middle"),
+                        bb_lower=ind.get("bb_lower")
                     )
-                if result.get("hacim"):
-                    h = result["hacim"]
-                    volume_analysis = {
-                        "current_volume": h.get("guncel_hacim"),
-                        "average_volume": h.get("ortalama_hacim"),
-                        "volume_ratio": h.get("hacim_orani"),
-                        "volume_trend": h.get("hacim_trendi")
-                    }
+                # Get moving averages from hareketli_ortalamalar
+                if result.get("hareketli_ortalamalar"):
+                    ma = result["hareketli_ortalamalar"]
+                    moving_averages = MovingAverages(
+                        sma_5=ma.get("sma_5"),
+                        sma_10=ma.get("sma_10"),
+                        sma_20=ma.get("sma_20"),
+                        sma_50=ma.get("sma_50"),
+                        sma_200=ma.get("sma_200"),
+                        ema_5=ma.get("ema_5"),
+                        ema_10=ma.get("ema_10"),
+                        ema_20=ma.get("ema_20") or ma.get("ema_12"),
+                        ema_50=ma.get("ema_50") or ma.get("ema_26"),
+                        ema_200=ma.get("ema_200")
+                    )
+                # Get trend analysis from trend_analizi
+                if result.get("trend_analizi"):
+                    t = result["trend_analizi"]
+                    signals = TechnicalSignals(
+                        trend=t.get("kisa_vadeli_trend"),
+                        rsi_signal=result.get("al_sat_sinyali"),
+                        macd_signal=result.get("sinyal_aciklamasi"),
+                        bb_signal=None
+                    )
 
         elif market == MarketType.US:
             source = "yfinance"
@@ -674,16 +696,47 @@ class MarketRouter:
         nearest_resistance = None
 
         if market == MarketType.BIST:
-            ticker = self._get_ticker_with_suffix(symbol, market)
-            result = await self._client.get_pivot_points(ticker)
+            # API expects symbol without .IS suffix
+            result = await self._client.get_pivot_points(symbol.upper())
+            if result:
+                # Get current status from mevcut_durum
+                if result.get("mevcut_durum"):
+                    md = result["mevcut_durum"]
+                    current_price = md.get("mevcut_fiyat")
+                    position = md.get("pozisyon")
+                    nearest_support = md.get("en_yakin_destek")
+                    nearest_resistance = md.get("en_yakin_direnç") or md.get("en_yakin_direnc")
+                # Get previous day data from onceki_gun
+                if result.get("onceki_gun"):
+                    og = result["onceki_gun"]
+                    prev_high = og.get("yuksek")
+                    prev_low = og.get("dusuk")
+                    prev_close = og.get("kapanis")
+                # Get pivot levels from pivot_noktalari
+                if result.get("pivot_noktalari"):
+                    pn = result["pivot_noktalari"]
+                    levels = PivotLevels(
+                        pivot=pn.get("pp"),
+                        r1=pn.get("r1"),
+                        r2=pn.get("r2"),
+                        r3=pn.get("r3"),
+                        s1=pn.get("s1"),
+                        s2=pn.get("s2"),
+                        s3=pn.get("s3")
+                    )
+
+        elif market == MarketType.US:
+            result = await self._client.get_us_pivot_points(symbol)
             if result:
                 current_price = result.get("guncel_fiyat")
-                prev_high = result.get("onceki_yuksek")
-                prev_low = result.get("onceki_dusuk")
-                prev_close = result.get("onceki_kapanis")
-                if result.get("pivot"):
+                # US API doesn't return previous OHLC separately
+                prev_high = result.get("previous_high")
+                prev_low = result.get("previous_low")
+                prev_close = result.get("previous_close")
+                # Pivot levels are at top level
+                if result.get("pivot_point"):
                     levels = PivotLevels(
-                        pivot=result.get("pivot"),
+                        pivot=result.get("pivot_point"),
                         r1=result.get("r1"),
                         r2=result.get("r2"),
                         r3=result.get("r3"),
@@ -692,29 +745,16 @@ class MarketRouter:
                         s3=result.get("s3")
                     )
                 position = result.get("pozisyon")
-                nearest_support = result.get("en_yakin_destek")
-                nearest_resistance = result.get("en_yakin_direnc")
-
-        elif market == MarketType.US:
-            result = await self._client.get_us_pivot_points(symbol)
-            if result:
-                current_price = result.get("current_price")
-                prev_high = result.get("previous_high")
-                prev_low = result.get("previous_low")
-                prev_close = result.get("previous_close")
-                if result.get("pivot"):
-                    levels = PivotLevels(
-                        pivot=result.get("pivot"),
-                        r1=result.get("r1"),
-                        r2=result.get("r2"),
-                        r3=result.get("r3"),
-                        s1=result.get("s1"),
-                        s2=result.get("s2"),
-                        s3=result.get("s3")
-                    )
-                position = result.get("position")
-                nearest_support = result.get("nearest_support")
-                nearest_resistance = result.get("nearest_resistance")
+                # Convert level names (e.g., "S1") to actual values
+                support_level = result.get("en_yakin_destek")
+                resist_level = result.get("en_yakin_direnc")
+                level_map = {
+                    "S1": result.get("s1"), "S2": result.get("s2"), "S3": result.get("s3"),
+                    "R1": result.get("r1"), "R2": result.get("r2"), "R3": result.get("r3"),
+                    "PP": result.get("pivot_point")
+                }
+                nearest_support = level_map.get(support_level) if isinstance(support_level, str) else support_level
+                nearest_resistance = level_map.get(resist_level) if isinstance(resist_level, str) else resist_level
 
         return PivotPointsResult(
             metadata=self._create_metadata(market, symbol, source),
@@ -751,47 +791,71 @@ class MarketRouter:
             ticker = self._get_ticker_with_suffix(symbol, market)
             result = await self._client.get_analist_verileri_yfinance(ticker)
             if result:
-                current_price = result.get("guncel_fiyat")
-                if result.get("ozet"):
-                    s = result["ozet"]
+                # tavsiye_ozeti is a Pydantic model TavsiyeOzeti
+                if result.get("tavsiye_ozeti"):
+                    s = result["tavsiye_ozeti"]
+                    # Get price targets from fiyat_hedefleri (list of AnalistFiyatHedefi)
+                    mean_target = None
+                    low_target = None
+                    high_target = None
+                    if result.get("fiyat_hedefleri"):
+                        fh = result["fiyat_hedefleri"]
+                        if fh and len(fh) > 0:
+                            # fh[0] is AnalistFiyatHedefi Pydantic model
+                            mean_target = getattr(fh[0], 'ortalama', None)
+                            low_target = getattr(fh[0], 'dusuk', None)
+                            high_target = getattr(fh[0], 'yuksek', None)
+                            current_price = getattr(fh[0], 'guncel', None)
                     summary = AnalystSummary(
-                        strong_buy=s.get("guclu_al") or 0,
-                        buy=s.get("al") or 0,
-                        hold=s.get("tut") or 0,
-                        sell=s.get("sat") or 0,
-                        strong_sell=s.get("guclu_sat") or 0,
-                        mean_target=result.get("ortalama_hedef_fiyat"),
-                        low_target=result.get("en_dusuk_hedef_fiyat"),
-                        high_target=result.get("en_yuksek_hedef_fiyat"),
-                        consensus=s.get("genel_tavsiye")
+                        strong_buy=0,  # BIST doesn't have strong_buy/strong_sell
+                        buy=getattr(s, 'satin_al', 0) or 0,
+                        hold=getattr(s, 'tut', 0) or 0,
+                        sell=getattr(s, 'sat', 0) or 0,
+                        strong_sell=0,
+                        mean_target=mean_target,
+                        low_target=low_target,
+                        high_target=high_target,
+                        consensus=None
                     )
-                upside = result.get("yukselis_potansiyeli")
 
         elif market == MarketType.US:
             result = await self._client.get_us_analyst_ratings(symbol)
             if result:
-                current_price = result.get("current_price")
-                if result.get("summary"):
-                    s = result["summary"]
+                # fiyat_hedefleri is a Pydantic model AnalistFiyatHedefi
+                if result.get("fiyat_hedefleri"):
+                    fh = result["fiyat_hedefleri"]
+                    current_price = getattr(fh, 'guncel', None)
+                    mean_target = getattr(fh, 'ortalama', None)
+                    low_target = getattr(fh, 'dusuk', None)
+                    high_target = getattr(fh, 'yuksek', None)
+                    # Calculate upside potential
+                    if current_price and mean_target:
+                        upside = ((mean_target - current_price) / current_price) * 100
+                # tavsiye_ozeti is a Pydantic model TavsiyeOzeti
+                if result.get("tavsiye_ozeti"):
+                    s = result["tavsiye_ozeti"]
                     summary = AnalystSummary(
-                        strong_buy=s.get("strong_buy") or 0,
-                        buy=s.get("buy") or 0,
-                        hold=s.get("hold") or 0,
-                        sell=s.get("sell") or 0,
-                        strong_sell=s.get("strong_sell") or 0,
-                        mean_target=result.get("mean_target"),
-                        low_target=result.get("low_target"),
-                        high_target=result.get("high_target"),
-                        consensus=s.get("consensus")
+                        strong_buy=0,  # Not directly available in this API
+                        buy=getattr(s, 'satin_al', 0) + getattr(s, 'fazla_agirlik', 0),  # satin_al + fazla_agirlik
+                        hold=getattr(s, 'tut', 0) or 0,
+                        sell=getattr(s, 'sat', 0) + getattr(s, 'dusuk_agirlik', 0),  # sat + dusuk_agirlik
+                        strong_sell=0,
+                        mean_target=mean_target if 'mean_target' in dir() else None,
+                        low_target=low_target if 'low_target' in dir() else None,
+                        high_target=high_target if 'high_target' in dir() else None,
+                        consensus=None
                     )
-                upside = result.get("upside_potential")
-                if result.get("ratings"):
-                    for r in result["ratings"]:
+                # tavsiyeler is a list of AnalistTavsiyesi Pydantic models
+                if result.get("tavsiyeler"):
+                    for r in result["tavsiyeler"][:10]:  # Limit to 10 ratings
+                        date_str = getattr(r, 'tarih', None)
+                        if hasattr(date_str, 'isoformat'):
+                            date_str = date_str.isoformat()
                         ratings.append(AnalystRating(
-                            firm=r.get("firm"),
-                            rating=r.get("rating"),
-                            price_target=r.get("price_target"),
-                            date=r.get("date")
+                            firm=getattr(r, 'firma', None),
+                            rating=getattr(r, 'guncel_derece', None),
+                            price_target=None,  # Not available in this format
+                            date=str(date_str) if date_str else None
                         ))
 
         return AnalystDataResult(
@@ -827,42 +891,50 @@ class MarketRouter:
             ticker = self._get_ticker_with_suffix(symbol, market)
             result = await self._client.get_temettu_ve_aksiyonlar_yfinance(ticker)
             if result:
-                current_yield = result.get("temettu_verimi")
+                # Get dividend yield from 12-month total
+                if result.get("toplam_temettu_12ay"):
+                    annual_dividend = result["toplam_temettu_12ay"]
+                # Process Pydantic Temettu models
                 if result.get("temettuler"):
                     for t in result["temettuler"]:
+                        date_str = t.tarih.isoformat() if hasattr(t.tarih, 'isoformat') else str(t.tarih)
                         dividend_history.append(DividendInfo(
-                            ex_date=t.get("tarih"),
-                            amount=t.get("miktar"),
+                            ex_date=date_str,
+                            amount=t.miktar,
                             currency="TRY"
                         ))
+                # Process Pydantic HisseBolunmesi models
                 if result.get("bolunmeler"):
                     for s in result["bolunmeler"]:
+                        date_str = s.tarih.isoformat() if hasattr(s.tarih, 'isoformat') else str(s.tarih)
                         stock_splits.append(StockSplitInfo(
-                            date=s.get("tarih"),
-                            ratio=s.get("oran")
+                            date=date_str,
+                            ratio=str(s.oran)
                         ))
 
         elif market == MarketType.US:
             source = "yfinance"
             result = await self._client.get_us_dividends(symbol)
             if result:
-                current_yield = result.get("current_yield")
-                annual_dividend = result.get("annual_dividend")
-                ex_date = result.get("ex_dividend_date")
-                payout_ratio = result.get("payout_ratio")
-                if result.get("dividend_history"):
-                    for d in result["dividend_history"]:
+                # Same structure as BIST - uses temettuler and bolunmeler keys
+                if result.get("toplam_temettu_12ay"):
+                    annual_dividend = result["toplam_temettu_12ay"]
+                # Process Pydantic Temettu models
+                if result.get("temettuler"):
+                    for t in result["temettuler"]:
+                        date_str = t.tarih.isoformat() if hasattr(t.tarih, 'isoformat') else str(t.tarih)
                         dividend_history.append(DividendInfo(
-                            ex_date=d.get("ex_date"),
-                            payment_date=d.get("payment_date"),
-                            amount=d.get("amount"),
-                            currency=d.get("currency")
+                            ex_date=date_str,
+                            amount=t.miktar,
+                            currency="USD"
                         ))
-                if result.get("stock_splits"):
-                    for s in result["stock_splits"]:
+                # Process Pydantic HisseBolunmesi models
+                if result.get("bolunmeler"):
+                    for s in result["bolunmeler"]:
+                        date_str = s.tarih.isoformat() if hasattr(s.tarih, 'isoformat') else str(s.tarih)
                         stock_splits.append(StockSplitInfo(
-                            date=s.get("date"),
-                            ratio=s.get("ratio")
+                            date=date_str,
+                            ratio=str(s.oran)
                         ))
 
         return DividendResult(
@@ -895,42 +967,63 @@ class MarketRouter:
         if market == MarketType.BIST:
             ticker = self._get_ticker_with_suffix(symbol, market)
             result = await self._client.get_kazanc_takvimi_yfinance(ticker)
-            if result and result.get("takvim"):
-                t = result["takvim"]
-                next_date = t.get("sonraki_kazanc_tarihi")
-                if t.get("gecmis_kazanclar"):
-                    for e in t["gecmis_kazanclar"]:
+            if result:
+                # Get next earnings date from calendar or growth data
+                if result.get("kazanc_takvimi"):
+                    cal = result["kazanc_takvimi"]
+                    if hasattr(cal, 'gelecek_kazanc_tarihi') and cal.gelecek_kazanc_tarihi:
+                        next_date = cal.gelecek_kazanc_tarihi.isoformat() if hasattr(cal.gelecek_kazanc_tarihi, 'isoformat') else str(cal.gelecek_kazanc_tarihi)
+                elif result.get("buyume_verileri"):
+                    bv = result["buyume_verileri"]
+                    if hasattr(bv, 'sonraki_kazanc_tarihi') and bv.sonraki_kazanc_tarihi:
+                        next_date = bv.sonraki_kazanc_tarihi.isoformat() if hasattr(bv.sonraki_kazanc_tarihi, 'isoformat') else str(bv.sonraki_kazanc_tarihi)
+                # Process Pydantic KazancTarihi models
+                if result.get("kazanc_tarihleri"):
+                    for e in result["kazanc_tarihleri"]:
+                        date_str = e.tarih.isoformat() if hasattr(e.tarih, 'isoformat') else str(e.tarih)
                         earnings_history.append(EarningsEvent(
-                            date=e.get("tarih"),
-                            eps_estimate=e.get("beklenen_hbk"),
-                            eps_actual=e.get("gerceklesen_hbk"),
-                            surprise_percent=e.get("surpriz_yuzdesi")
+                            date=date_str,
+                            eps_estimate=e.eps_tahmini,
+                            eps_actual=e.rapor_edilen_eps,
+                            surprise_percent=e.surpriz_yuzdesi
                         ))
-                if t.get("buyume_verileri"):
-                    g = t["buyume_verileri"]
+                # Get growth estimates from buyume_verileri
+                if result.get("buyume_verileri"):
+                    bv = result["buyume_verileri"]
                     growth_estimates = {
-                        "current_qtr": g.get("mevcut_ceyrek"),
-                        "next_qtr": g.get("sonraki_ceyrek"),
-                        "current_year": g.get("mevcut_yil"),
-                        "next_year": g.get("sonraki_yil")
+                        "annual_earnings_growth": getattr(bv, 'yillik_kazanc_buyumesi', None),
+                        "quarterly_earnings_growth": getattr(bv, 'ceyreklik_kazanc_buyumesi', None)
                     }
 
         elif market == MarketType.US:
             result = await self._client.get_us_earnings(symbol)
             if result:
-                next_date = result.get("next_earnings_date")
-                if result.get("earnings_history"):
-                    for e in result["earnings_history"]:
+                # Same structure as BIST - uses kazanc_tarihleri and buyume_verileri
+                if result.get("kazanc_takvimi"):
+                    cal = result["kazanc_takvimi"]
+                    if hasattr(cal, 'gelecek_kazanc_tarihi') and cal.gelecek_kazanc_tarihi:
+                        next_date = cal.gelecek_kazanc_tarihi.isoformat() if hasattr(cal.gelecek_kazanc_tarihi, 'isoformat') else str(cal.gelecek_kazanc_tarihi)
+                elif result.get("buyume_verileri"):
+                    bv = result["buyume_verileri"]
+                    if hasattr(bv, 'sonraki_kazanc_tarihi') and bv.sonraki_kazanc_tarihi:
+                        next_date = bv.sonraki_kazanc_tarihi.isoformat() if hasattr(bv.sonraki_kazanc_tarihi, 'isoformat') else str(bv.sonraki_kazanc_tarihi)
+                # Process Pydantic KazancTarihi models
+                if result.get("kazanc_tarihleri"):
+                    for e in result["kazanc_tarihleri"]:
+                        date_str = e.tarih.isoformat() if hasattr(e.tarih, 'isoformat') else str(e.tarih)
                         earnings_history.append(EarningsEvent(
-                            date=e.get("date"),
-                            eps_estimate=e.get("eps_estimate"),
-                            eps_actual=e.get("eps_actual"),
-                            revenue_estimate=e.get("revenue_estimate"),
-                            revenue_actual=e.get("revenue_actual"),
-                            surprise_percent=e.get("surprise_percent")
+                            date=date_str,
+                            eps_estimate=e.eps_tahmini,
+                            eps_actual=e.rapor_edilen_eps,
+                            surprise_percent=e.surpriz_yuzdesi
                         ))
-                if result.get("growth_estimates"):
-                    growth_estimates = result["growth_estimates"]
+                # Get growth estimates from buyume_verileri
+                if result.get("buyume_verileri"):
+                    bv = result["buyume_verileri"]
+                    growth_estimates = {
+                        "annual_earnings_growth": getattr(bv, 'yillik_kazanc_buyumesi', None),
+                        "quarterly_earnings_growth": getattr(bv, 'ceyreklik_kazanc_buyumesi', None)
+                    }
 
         return EarningsResult(
             metadata=self._create_metadata(market, symbol_list, source),
@@ -972,14 +1065,26 @@ class MarketRouter:
             for stmt_name, fetch_func in types_to_fetch:
                 try:
                     result = await fetch_func(symbol, period_str)
-                    if result and result.get("donemler"):
+                    # Return format is {"tablo": [{"Kalem": "...", "2024-09-30": 123, ...}, ...]}
+                    if result and result.get("tablo"):
+                        tablo = result["tablo"]
+                        periods_list = []
+                        data_dict = {}
+                        if tablo:
+                            # Extract and sort periods (newest first)
+                            periods_list = sorted([k for k in tablo[0].keys() if k != "Kalem"], reverse=True)
+                            # Convert tablo to data dict: {"Current Assets": [123, 456, ...], ...}
+                            # Values are lists ordered by periods_list
+                            for row in tablo:
+                                item_name = row.get("Kalem", "Unknown")
+                                data_dict[item_name] = [row.get(p) for p in periods_list]
                         stmt_type = StatementType(stmt_name)
                         statements.append(FinancialStatement(
                             symbol=symbol.upper(),
                             statement_type=stmt_type,
                             period=period,
-                            periods=result["donemler"],
-                            data=result.get("kalemler") or {},
+                            periods=periods_list,
+                            data=data_dict,
                             currency="TRY"
                         ))
                 except Exception as e:
@@ -998,15 +1103,26 @@ class MarketRouter:
             for stmt_name, fetch_func in types_to_fetch:
                 try:
                     result = await fetch_func(symbol, period_str)
-                    if result and result.get("periods"):
+                    # Same format as BIST: {"tablo": [{"Kalem": "...", "2024-09-30": 123, ...}, ...]}
+                    if result and result.get("tablo"):
+                        tablo = result["tablo"]
+                        periods_list = []
+                        data_dict = {}
+                        if tablo:
+                            # Extract and sort periods (newest first)
+                            periods_list = sorted([k for k in tablo[0].keys() if k != "Kalem"], reverse=True)
+                            # Convert tablo to data dict: {"Current Assets": [123, 456, ...], ...}
+                            for row in tablo:
+                                item_name = row.get("Kalem", "Unknown")
+                                data_dict[item_name] = [row.get(p) for p in periods_list]
                         stmt_type = StatementType(stmt_name)
                         statements.append(FinancialStatement(
                             symbol=symbol.upper(),
                             statement_type=stmt_type,
                             period=period,
-                            periods=result["periods"],
-                            data=result.get("data") or {},
-                            currency=result.get("currency", "USD")
+                            periods=periods_list,
+                            data=data_dict,
+                            currency="USD"
                         ))
                 except Exception as e:
                     warnings.append(f"Failed to fetch {stmt_name}: {str(e)}")
@@ -1041,13 +1157,14 @@ class MarketRouter:
             if ratio_set in [RatioSetType.VALUATION, RatioSetType.COMPREHENSIVE]:
                 try:
                     result = await self._client.get_finansal_oranlar(symbol)
-                    if result and result.get("oranlar"):
-                        o = result["oranlar"]
+                    # Ratios are at top level, not nested under "oranlar"
+                    if result and not result.get("error"):
+                        current_price = result.get("kapanis_fiyati")
                         valuation = ValuationRatios(
-                            pe_ratio=o.get("fk_orani"),
-                            pb_ratio=o.get("pd_dd"),
-                            ev_ebitda=o.get("fd_favok"),
-                            ev_sales=o.get("fd_satislar")
+                            pe_ratio=result.get("fk_orani"),
+                            pb_ratio=result.get("pd_dd"),
+                            ev_ebitda=result.get("fd_favok"),
+                            ev_sales=result.get("fd_satislar")
                         )
                 except Exception as e:
                     ratio_warnings.append(f"Valuation ratios error: {str(e)}")
@@ -1103,13 +1220,14 @@ class MarketRouter:
         elif market == MarketType.US:
             source = "yfinance"
             result = await self._client.get_us_quick_info(symbol)
-            if result and result.get("info"):
-                i = result["info"]
-                current_price = i.get("current_price")
+            # Return format is {"bilgiler": HizliBilgi(...)} - a Pydantic model
+            if result and result.get("bilgiler"):
+                b = result["bilgiler"]  # HizliBilgi Pydantic model
+                current_price = getattr(b, 'last_price', None)
                 valuation = ValuationRatios(
-                    pe_ratio=i.get("pe_ratio"),
-                    pb_ratio=i.get("pb_ratio"),
-                    ps_ratio=i.get("ps_ratio")
+                    pe_ratio=getattr(b, 'pe_ratio', None),
+                    pb_ratio=getattr(b, 'price_to_book', None),
+                    ps_ratio=None  # Not available in HizliBilgi
                 )
 
         return FinancialRatiosResult(
@@ -1199,12 +1317,13 @@ class MarketRouter:
         if market == MarketType.BIST and symbol:
             source = "mynet"
             result = await self._client.get_kap_haberleri_mynet(symbol, limit=limit)
-            if result and result.get("haberler"):
-                for h in result["haberler"][:limit]:
+            # Return format is {"kap_haberleri": [...]} not {"haberler": [...]}
+            if result and result.get("kap_haberleri"):
+                for h in result["kap_haberleri"][:limit]:
                     news_items.append(NewsItem(
-                        id=h.get("id"),
+                        id=h.get("haber_id"),
                         title=h.get("baslik"),
-                        summary=h.get("ozet"),
+                        summary=h.get("title_attr"),  # Use title_attr as summary
                         source="KAP",
                         url=h.get("url"),
                         published_date=h.get("tarih"),
@@ -1237,10 +1356,11 @@ class MarketRouter:
                 custom_filters=custom_filters,
                 limit=limit
             )
-            if result and result.get("stocks"):
-                for s in result["stocks"]:
+            # Return format is {"results": [...]} with "ticker" field not "symbol"
+            if result and result.get("results"):
+                for s in result["results"]:
                     stocks.append(ScreenedStock(
-                        symbol=s.get("symbol"),
+                        symbol=s.get("ticker"),
                         name=s.get("name"),
                         market=market,
                         sector=s.get("sector"),
@@ -1260,10 +1380,11 @@ class MarketRouter:
                 custom_filters=custom_filters,
                 limit=limit
             )
-            if result and result.get("stocks"):
-                for s in result["stocks"]:
+            # Return format is {"results": [...]} with "ticker" field not "symbol"
+            if result and result.get("results"):
+                for s in result["results"]:
                     stocks.append(ScreenedStock(
-                        symbol=s.get("symbol"),
+                        symbol=s.get("ticker"),
                         name=s.get("name"),
                         market=market,
                         sector=s.get("sector"),
