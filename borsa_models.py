@@ -1648,6 +1648,54 @@ class MultiNakitAkisiTablosuSonucu(BaseModel):
 
 
 # ============================================================================
+# İŞ YATIRIM FINANCIAL RATIOS MODELS
+# ============================================================================
+
+class FinansalOranlar(BaseModel):
+    """Financial ratios calculated from İş Yatırım data."""
+    ticker_kodu: str = Field(description="BIST ticker code.")
+    sirket_adi: Optional[str] = Field(None, description="Company name.")
+    son_donem: Optional[str] = Field(None, description="Latest financial period (e.g., 9/2025).")
+    kapanis_fiyati: Optional[float] = Field(None, description="Closing/last price.")
+
+    # Core Ratios
+    fk_orani: Optional[float] = Field(None, description="F/K (P/E) - Price to Earnings ratio.")
+    fd_favok: Optional[float] = Field(None, description="FD/FAVÖK (EV/EBITDA) - Enterprise Value to EBITDA.")
+    fd_satislar: Optional[float] = Field(None, description="FD/Satışlar (EV/Sales) - Enterprise Value to Sales.")
+    pd_dd: Optional[float] = Field(None, description="PD/DD (P/B) - Price to Book Value ratio.")
+
+    # Supporting Data
+    piyasa_degeri: Optional[float] = Field(None, description="Piyasa Değeri (Market Cap) in TL.")
+    firma_degeri: Optional[float] = Field(None, description="Firma Değeri (Enterprise Value) in TL.")
+    net_borc: Optional[float] = Field(None, description="Net Borç (Net Debt) in TL.")
+    ozkaynaklar: Optional[float] = Field(None, description="Özkaynaklar (Book Value / Equity) in TL.")
+    net_kar: Optional[float] = Field(None, description="Net Kar (Net Income TTM) in TL.")
+    favok: Optional[float] = Field(None, description="FAVÖK (EBITDA) in TL.")
+    satis_gelirleri: Optional[float] = Field(None, description="Satış Gelirleri (Revenue) in TL.")
+
+    # Metadata
+    kaynak: str = Field(default="İş Yatırım", description="Data source.")
+    guncelleme_tarihi: Optional[str] = Field(None, description="Data update timestamp (ISO format).")
+
+
+class FinansalOranlarSonucu(BaseModel):
+    """Result of financial ratios query for a single ticker."""
+    ticker_kodu: str = Field(description="BIST ticker code queried.")
+    oranlar: Optional[FinansalOranlar] = Field(None, description="Financial ratios data.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+
+class MultiFinansalOranlarSonucu(BaseModel):
+    """Multi-ticker result for financial ratios query."""
+    tickers: List[str] = Field(description="List of ticker codes queried.")
+    data: List[Dict[str, Any]] = Field(description="List of financial ratio results for each ticker.")
+    successful_count: int = Field(description="Number of successful ticker queries.")
+    failed_count: int = Field(description="Number of failed ticker queries.")
+    warnings: List[str] = Field(default_factory=list, description="List of warnings/errors for failed tickers.")
+    query_timestamp: str = Field(description="Timestamp of the query (ISO format).")
+
+
+# ============================================================================
 # US STOCK MARKET MODELS
 # ============================================================================
 

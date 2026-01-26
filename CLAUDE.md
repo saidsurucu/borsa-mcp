@@ -93,6 +93,7 @@ uv run test_asels_validation.py
 - `get_bilanco`: Balance sheet (annual/quarterly) ⭐ **Multi-ticker support**
 - `get_kar_zarar_tablosu`: Income statement ⭐ **Multi-ticker support**
 - `get_nakit_akisi_tablosu`: Cash flow statement ⭐ **Multi-ticker support**
+- `get_finansal_oranlar`: Financial ratios (F/K, FD/FAVÖK, FD/Satışlar, PD/DD) ⭐ **Multi-ticker support** ⭐ **NEW**
 - `get_finansal_veri`: Historical OHLCV data
 
 ### Advanced Analysis Tools
@@ -473,6 +474,28 @@ logger.error("Failed operations")
 
 ## Recent Major Updates
 
+### İş Yatırım Financial Ratios Tool (January 2026)
+- **New Tool**: `get_finansal_oranlar` - Get valuation ratios from İş Yatırım
+- **Ratios Calculated**:
+  - F/K (P/E): Price to Earnings ratio - valuation relative to profits
+  - FD/FAVÖK (EV/EBITDA): Enterprise Value to EBITDA - takeover valuation
+  - FD/Satışlar (EV/Sales): Enterprise Value to Sales - revenue multiple
+  - PD/DD (P/B): Price to Book Value - asset-based valuation
+- **Multi-Ticker Support**: Batch queries for up to 10 tickers with parallel execution
+- **Data Source**: İş Yatırım OneEndeks API + MaliTablo API
+- **Usage Examples**:
+  ```python
+  # Single ticker
+  get_finansal_oranlar("MEGAP")
+
+  # Multi-ticker (75% faster)
+  get_finansal_oranlar(["GARAN", "AKBNK", "THYAO"])
+  ```
+- **Response Fields**:
+  - Core ratios: fk_orani, fd_favok, fd_satislar, pd_dd
+  - Supporting data: piyasa_degeri, firma_degeri, net_borc, ozkaynaklar, net_kar, favok, satis_gelirleri
+  - Metadata: kaynak, guncelleme_tarihi, son_donem
+
 ### BIST Technical Scanner (January 2026)
 - **Dependency**: `borsapy>=0.6.4` (0.6.4+ adds Supertrend and Tilson T3 local indicators)
 - **New Provider**: `providers/borsapy_scanner_provider.py` with BorsapyScannerProvider class
@@ -706,8 +729,8 @@ logger.error("Failed operations")
 
 ## Tool Count Summary
 
-- **Total Tools**: 66 (+3 scanner tools)
-- **BIST Stock Tools**: 18 (KAP + Yahoo Finance)
+- **Total Tools**: 79
+- **BIST Stock Tools**: 19 (KAP + Yahoo Finance + İş Yatırım ratios)
 - **BIST Technical Scanner**: 3 (borsapy TradingView integration) ⭐ **NEW**
   - Custom condition scanning (RSI, MACD, volume, etc.)
   - 12 preset strategies (oversold, momentum, etc.)

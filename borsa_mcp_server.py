@@ -66,6 +66,10 @@ from models import (
     MultiFinansalTabloSonucu,
     MultiKarZararTablosuSonucu,
     MultiNakitAkisiTablosuSonucu,
+    # İş Yatırım Financial Ratios Models
+    FinansalOranlar,
+    FinansalOranlarSonucu,
+    MultiFinansalOranlarSonucu,
     # US Stock Models
     USCompanySearchResult,
     USQuickInfoResult,
@@ -403,6 +407,93 @@ async def get_nakit_akisi_tablosu(
     except Exception as e:
         logger.exception(f"Error in tool 'get_nakit_akisi_tablosu' for ticker {ticker_kodu}.")
         return FinansalTabloSonucu(ticker_kodu=ticker_kodu, period_type=periyot, tablo=[], error_message=f"An unexpected error occurred: {str(e)}")
+
+
+@app.tool(
+    description="BIST STOCKS ONLY: Get İş Yatırım financial ratios (F/K, FD/FAVÖK, FD/Satışlar, PD/DD). BIST ONLY - NOT for US stocks. Multi-ticker support (max 10).",
+    tags=["stocks", "ratios", "valuation", "readonly", "isyatirim", "multi-ticker", "bist"]
+)
+async def get_finansal_oranlar(
+    ticker_kodu: Annotated[Union[str, List[str]], Field(
+        description="BIST ticker code(s) ONLY. Single: 'MEGAP' or multiple: ['MEGAP', 'GARAN', 'ASELS'] (max 10). NOT for US stocks like AAPL.",
+        examples=["MEGAP", ["GARAN", "AKBNK", "THYAO"]]
+    )]
+) -> Union[FinansalOranlarSonucu, MultiFinansalOranlarSonucu]:
+    """
+    Get financial ratios from İş Yatırım data for BIST (Borsa Istanbul) stocks ONLY.
+
+    IMPORTANT: This tool is for Turkish BIST stocks only. NOT for US stocks.
+    For US stocks, use get_us_quick_info instead.
+
+    Single ticker: Returns FinansalOranlarSonucu with ratios
+    Multiple tickers: Returns MultiFinansalOranlarSonucu with parallel fetching (75% faster)
+
+    Calculates:
+    - F/K (P/E): Price to Earnings - valuation relative to profits
+    - FD/FAVÖK (EV/EBITDA): Enterprise Value to operating profit - takeover valuation
+    - FD/Satışlar (EV/Sales): Enterprise Value to revenue - revenue multiple
+    - PD/DD (P/B): Price to Book Value - asset-based valuation
+
+    Use for: BIST valuation comparison, sector analysis, investment screening.
+    """
+
+    # Handle multi-ticker request
+    if isinstance(ticker_kodu, list):
+        logger.info(f"Tool 'get_finansal_oranlar' called for {len(ticker_kodu)} tickers (multi-ticker mode)")
+        try:
+            result = await borsa_client.get_finansal_oranlar_multi(ticker_kodu)
+            if result.get("error"):
+                raise ToolError(result["error"])
+            return MultiFinansalOranlarSonucu(**result)
+        except Exception as e:
+            logger.exception("Error in multi-ticker get_finansal_oranlar")
+            raise ToolError(f"Multi-ticker query failed: {str(e)}")
+
+    # Handle single ticker request
+    logger.info(f"Tool 'get_finansal_oranlar' called for ticker: '{ticker_kodu}'")
+    try:
+        data = await borsa_client.get_finansal_oranlar(ticker_kodu)
+        if data.get("error"):
+            return FinansalOranlarSonucu(
+                ticker_kodu=ticker_kodu,
+                oranlar=None,
+                error_message=data["error"]
+            )
+
+        # Build the FinansalOranlar model from data
+        oranlar = FinansalOranlar(
+            ticker_kodu=data.get("ticker_kodu", ticker_kodu),
+            sirket_adi=data.get("sirket_adi"),
+            son_donem=data.get("son_donem"),
+            kapanis_fiyati=data.get("kapanis_fiyati"),
+            fk_orani=data.get("fk_orani"),
+            fd_favok=data.get("fd_favok"),
+            fd_satislar=data.get("fd_satislar"),
+            pd_dd=data.get("pd_dd"),
+            piyasa_degeri=data.get("piyasa_degeri"),
+            firma_degeri=data.get("firma_degeri"),
+            net_borc=data.get("net_borc"),
+            ozkaynaklar=data.get("ozkaynaklar"),
+            net_kar=data.get("net_kar"),
+            favok=data.get("favok"),
+            satis_gelirleri=data.get("satis_gelirleri"),
+            kaynak=data.get("kaynak", "İş Yatırım"),
+            guncelleme_tarihi=data.get("guncelleme_tarihi")
+        )
+
+        return FinansalOranlarSonucu(
+            ticker_kodu=ticker_kodu,
+            oranlar=oranlar,
+            error_message=None
+        )
+    except Exception as e:
+        logger.exception(f"Error in tool 'get_finansal_oranlar' for ticker {ticker_kodu}.")
+        return FinansalOranlarSonucu(
+            ticker_kodu=ticker_kodu,
+            oranlar=None,
+            error_message=f"An unexpected error occurred: {str(e)}"
+        )
+
 
 @app.tool(
     description="BIST STOCKS: Get stock/index historical OHLCV data for prices, volumes, charts. STOCKS ONLY - use get_kripto_ohlc for crypto.",

@@ -626,6 +626,292 @@ class IsYatirimProvider:
 
         return tablo
 
+    # ========== ONE ENDEKS METHOD (Financial Ratios) ==========
+
+    ONE_ENDEKS_URL = "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/Common/Data.aspx/OneEndeks"
+
+    async def get_one_endeks(self, ticker_kodu: str) -> Dict[str, Any]:
+        """
+        Fetch stock data from İş Yatırım OneEndeks endpoint.
+
+        Returns market price, equity, net income, capital, volume data.
+
+        Args:
+            ticker_kodu: Ticker symbol (e.g., MEGAP, GARAN)
+
+        Returns:
+            Dict with: last, equity, netProceeds, capital, volume, etc.
+        """
+        try:
+            params = {"endeks": ticker_kodu.upper()}
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    self.ONE_ENDEKS_URL,
+                    params=params,
+                    headers=self.HEADERS
+                )
+
+                if response.status_code != 200:
+                    logger.warning(f"OneEndeks HTTP {response.status_code} for {ticker_kodu}")
+                    return {"error": f"HTTP {response.status_code}"}
+
+                data = response.json()
+
+                # API returns a list with one item per ticker
+                if isinstance(data, list) and len(data) > 0:
+                    value = data[0]
+                elif isinstance(data, dict) and data.get("ok"):
+                    value = data.get("value", {})
+                else:
+                    logger.warning(f"OneEndeks empty response for {ticker_kodu}")
+                    return {"error": f"No data for {ticker_kodu}"}
+
+                if not value:
+                    return {"error": f"No data for {ticker_kodu}"}
+
+                # Extract key fields
+                result = {
+                    "ticker_kodu": ticker_kodu.upper(),
+                    "last": self._safe_float(value.get("last")),  # Current price
+                    "equity": self._safe_float(value.get("equity")),  # Özkaynaklar (Book Value)
+                    "netProceeds": self._safe_float(value.get("netProceeds")),  # Net Kar (TTM)
+                    "capital": self._safe_float(value.get("capital")),  # Ödenmiş Sermaye
+                    "volume": self._safe_float(value.get("volume")),  # Trading volume
+                    "low": self._safe_float(value.get("low")),  # Day low
+                    "high": self._safe_float(value.get("high")),  # Day high
+                    "dayClose": self._safe_float(value.get("dayClose")),  # Previous close (base price)
+                    "symbol": value.get("symbol"),  # Symbol for verification
+                    "timestamp": datetime.now().isoformat()
+                }
+
+                logger.info(f"OneEndeks fetched for {ticker_kodu}: price={result['last']}, equity={result['equity']}")
+                return result
+
+        except httpx.TimeoutException:
+            logger.warning(f"OneEndeks timeout for {ticker_kodu}")
+            return {"error": "Request timeout"}
+        except Exception as e:
+            logger.error(f"OneEndeks error for {ticker_kodu}: {e}")
+            return {"error": str(e)}
+
+    def _safe_float(self, value: Any) -> Optional[float]:
+        """Safely convert value to float, handling None, empty strings, and errors."""
+        if value is None or value == "" or value == "null":
+            return None
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return None
+
+    # ========== FINANCIAL RATIOS CALCULATION ==========
+
+    async def get_finansal_oranlar(self, ticker_kodu: str) -> Dict[str, Any]:
+        """
+        Calculate financial ratios from İş Yatırım data.
+
+        Calculates:
+        - F/K (P/E): Market Cap / Net Income
+        - FD/FAVÖK (EV/EBITDA): Enterprise Value / EBITDA
+        - FD/Satışlar (EV/Sales): Enterprise Value / Sales
+        - PD/DD (P/B): Market Cap / Book Value
+
+        Args:
+            ticker_kodu: Ticker symbol (e.g., MEGAP, GARAN)
+
+        Returns:
+            Dict with financial ratios and supporting data
+        """
+        try:
+            # 1. Get price data from OneEndeks
+            price_data = await self.get_one_endeks(ticker_kodu)
+
+            if price_data.get("error"):
+                return {"error": price_data["error"], "ticker_kodu": ticker_kodu}
+
+            # 2. Get financial statements from MaliTablo (cached)
+            balance = await self.get_bilanco(ticker_kodu, "quarterly")
+            income = await self.get_kar_zarar(ticker_kodu, "quarterly")
+            cash_flow = await self.get_nakit_akisi(ticker_kodu, "quarterly")
+
+            # 3. Extract values from OneEndeks
+            last_price = price_data.get("last")
+            equity = price_data.get("equity")  # Book value (Özkaynaklar)
+            net_income = price_data.get("netProceeds")  # Net income (TTM)
+            capital = price_data.get("capital")  # Paid-in capital
+            company_name = price_data.get("title")
+
+            if not last_price or not capital:
+                return {
+                    "error": "Missing price or capital data",
+                    "ticker_kodu": ticker_kodu
+                }
+
+            # 4. Calculate market cap (shares = capital / 1 TL nominal)
+            shares_outstanding = capital  # 1 TL nominal value
+            market_cap = last_price * shares_outstanding
+
+            # 5. Extract from financial statements
+            total_debt = self._extract_latest_value(balance.get("tablo", []), "Total Debt")
+            cash = self._extract_latest_value(balance.get("tablo", []), "Cash And Cash Equivalents")
+            revenue = self._extract_latest_value(income.get("tablo", []), "Total Revenue")
+            operating_income = self._extract_latest_value(income.get("tablo", []), "Operating Income")
+            depreciation = self._extract_latest_value(cash_flow.get("tablo", []), "Reconciled Depreciation")
+
+            # 6. Calculate derived values
+            net_debt = (total_debt or 0) - (cash or 0)
+            enterprise_value = market_cap + net_debt
+
+            # EBITDA approximation: Operating Income + Depreciation & Amortization
+            ebitda = None
+            if operating_income is not None:
+                ebitda = operating_income + abs(depreciation or 0)
+
+            # Get latest period for reporting
+            son_donem = self._get_latest_period(balance.get("tablo", []))
+
+            # 7. Calculate ratios
+            fk_orani = None  # P/E
+            if net_income and net_income > 0:
+                fk_orani = round(market_cap / net_income, 2)
+
+            fd_favok = None  # EV/EBITDA
+            if ebitda and ebitda > 0:
+                fd_favok = round(enterprise_value / ebitda, 2)
+
+            fd_satislar = None  # EV/Sales
+            if revenue and revenue > 0:
+                fd_satislar = round(enterprise_value / revenue, 2)
+
+            pd_dd = None  # P/B
+            if equity and equity > 0:
+                pd_dd = round(market_cap / equity, 2)
+
+            # 8. Build result
+            result = {
+                "ticker_kodu": ticker_kodu.upper(),
+                "sirket_adi": company_name,
+                "son_donem": son_donem,
+                "kapanis_fiyati": last_price,
+
+                # Core Ratios
+                "fk_orani": fk_orani,  # P/E
+                "fd_favok": fd_favok,  # EV/EBITDA
+                "fd_satislar": fd_satislar,  # EV/Sales
+                "pd_dd": pd_dd,  # P/B
+
+                # Supporting Data
+                "piyasa_degeri": round(market_cap, 0) if market_cap else None,  # Market Cap
+                "firma_degeri": round(enterprise_value, 0) if enterprise_value else None,  # Enterprise Value
+                "net_borc": round(net_debt, 0) if net_debt else None,  # Net Debt
+                "ozkaynaklar": equity,  # Book Value
+                "net_kar": net_income,  # Net Income
+                "favok": round(ebitda, 0) if ebitda else None,  # EBITDA
+                "satis_gelirleri": revenue,  # Revenue
+
+                # Metadata
+                "kaynak": "İş Yatırım",
+                "guncelleme_tarihi": datetime.now().isoformat()
+            }
+
+            logger.info(f"Finansal oranlar calculated for {ticker_kodu}: F/K={fk_orani}, PD/DD={pd_dd}")
+            return result
+
+        except Exception as e:
+            logger.exception(f"Error calculating financial ratios for {ticker_kodu}")
+            return {"error": str(e), "ticker_kodu": ticker_kodu}
+
+    def _extract_latest_value(self, tablo: List[Dict], field_name: str) -> Optional[float]:
+        """Extract the latest (most recent) value for a given field from financial table."""
+        for row in tablo:
+            if row.get("Kalem") == field_name:
+                # Get all date columns (exclude "Kalem")
+                date_columns = [k for k in row.keys() if k != "Kalem"]
+                # Sort by date descending to get most recent
+                date_columns.sort(reverse=True)
+                for date_col in date_columns:
+                    value = row.get(date_col)
+                    if value is not None:
+                        return value
+                break
+        return None
+
+    def _get_latest_period(self, tablo: List[Dict]) -> str:
+        """Get the latest period label from the financial table."""
+        if not tablo:
+            return "N/A"
+
+        # Get all date columns from first row
+        first_row = tablo[0] if tablo else {}
+        date_columns = [k for k in first_row.keys() if k != "Kalem"]
+        date_columns.sort(reverse=True)
+
+        if date_columns:
+            # Format: 2025-09-30 -> 9/2025
+            try:
+                parts = date_columns[0].split("-")
+                if len(parts) == 3:
+                    return f"{int(parts[1])}/{parts[0]}"
+            except (ValueError, IndexError):
+                pass
+            return date_columns[0]
+
+        return "N/A"
+
+    async def get_finansal_oranlar_multi(
+        self,
+        ticker_kodlari: List[str]
+    ) -> Dict[str, Any]:
+        """
+        Fetch financial ratios for multiple tickers in parallel.
+
+        Args:
+            ticker_kodlari: List of ticker codes (max 10)
+
+        Returns:
+            Dict with tickers, data, counts, warnings, timestamp
+        """
+        try:
+            if not ticker_kodlari:
+                return {"error": "No tickers provided"}
+
+            if len(ticker_kodlari) > 10:
+                return {"error": "Maximum 10 tickers allowed per request"}
+
+            # Create tasks for parallel execution
+            tasks = [self.get_finansal_oranlar(ticker) for ticker in ticker_kodlari]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results with partial success handling
+            successful = []
+            failed = []
+            warnings = []
+            data = []
+
+            for ticker, result in zip(ticker_kodlari, results):
+                if isinstance(result, Exception):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {str(result)}")
+                elif result.get("error"):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {result['error']}")
+                else:
+                    successful.append(ticker)
+                    data.append(result)
+
+            return {
+                "tickers": ticker_kodlari,
+                "data": data,
+                "successful_count": len(successful),
+                "failed_count": len(failed),
+                "warnings": warnings,
+                "query_timestamp": datetime.now().isoformat()
+            }
+
+        except Exception as e:
+            logger.exception("Error in get_finansal_oranlar_multi")
+            return {"error": str(e)}
+
     # ========== MULTI-TICKER BATCH METHODS (Phase 2) ==========
 
     async def get_bilanco_multi(

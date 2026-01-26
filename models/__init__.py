@@ -149,6 +149,11 @@ from borsa_models import (
     MultiNakitAkisiTablosuSonucu
 )
 
+# İş Yatırım Financial Ratios Models
+from borsa_models import (
+    FinansalOranlar, FinansalOranlarSonucu, MultiFinansalOranlarSonucu
+)
+
 # US Stock Models from borsa_models
 from borsa_models import (
     # Core US models
@@ -275,6 +280,9 @@ __all__ = [
     # Multi-ticker models (Phase 2: İş Yatırım Financial Statements)
     "MultiFinansalTabloSonucu", "MultiKarZararTablosuSonucu",
     "MultiNakitAkisiTablosuSonucu",
+
+    # İş Yatırım Financial Ratios Models
+    "FinansalOranlar", "FinansalOranlarSonucu", "MultiFinansalOranlarSonucu",
 
     # US Stock Models
     "USCompanyInfo", "USQuickInfo", "USStockDataPoint",

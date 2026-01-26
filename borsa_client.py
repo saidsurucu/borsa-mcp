@@ -1048,6 +1048,40 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
         return await self.isyatirim_provider.get_nakit_akisi_multi(ticker_kodlari, period_type)
 
     # ============================================================================
+    # İŞ YATIRIM FINANCIAL RATIOS METHODS
+    # ============================================================================
+
+    async def get_finansal_oranlar(self, ticker_kodu: str) -> Dict[str, Any]:
+        """
+        Get financial ratios from İş Yatırım data.
+
+        Calculates:
+        - F/K (P/E): Price to Earnings ratio
+        - FD/FAVÖK (EV/EBITDA): Enterprise Value to EBITDA
+        - FD/Satışlar (EV/Sales): Enterprise Value to Sales
+        - PD/DD (P/B): Price to Book Value ratio
+
+        Args:
+            ticker_kodu: BIST ticker code (e.g., 'MEGAP', 'GARAN')
+
+        Returns:
+            Financial ratios with supporting data
+        """
+        return await self.isyatirim_provider.get_finansal_oranlar(ticker_kodu)
+
+    async def get_finansal_oranlar_multi(self, ticker_kodlari: List[str]) -> Dict[str, Any]:
+        """
+        Get financial ratios for multiple BIST tickers in parallel.
+
+        Args:
+            ticker_kodlari: List of BIST ticker codes (max 10)
+
+        Returns:
+            Dict with tickers, data, counts, warnings, timestamp
+        """
+        return await self.isyatirim_provider.get_finansal_oranlar_multi(ticker_kodlari)
+
+    # ============================================================================
     # US STOCK MARKET METHODS
     # ============================================================================
 
