@@ -1075,3 +1075,298 @@ class IsYatirimProvider:
         except Exception as e:
             logger.exception("Error in get_nakit_akisi_multi")
             return {"error": str(e)}
+
+    # ========== SERMAYE ARTIRIMLARI VE TEMETTÜ (Corporate Actions) ==========
+
+    COMPANY_INFO_URL = "https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/StockInfo/CompanyInfoAjax.aspx"
+
+    async def get_sermaye_artirimlari_raw(self, ticker_kodu: str, yil: int = 0) -> List[Dict[str, Any]]:
+        """
+        Fetch all corporate actions (capital increases and dividends) from İş Yatırım.
+
+        Args:
+            ticker_kodu: BIST ticker code (e.g., 'GARAN', 'THYAO')
+            yil: Filter by year (0 = all years)
+
+        Returns:
+            List of corporate action records from API
+        """
+        try:
+            url = f"{self.COMPANY_INFO_URL}/GetSermayeArttirimlari"
+            payload = {
+                "hisseKodu": ticker_kodu.upper(),
+                "hisseTanimKodu": "",
+                "yil": yil,
+                "zaman": "HEPSI",
+                "endeksKodu": "09",
+                "sektorKodu": ""
+            }
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    url,
+                    json=payload,
+                    headers={
+                        **self.HEADERS,
+                        'Content-Type': 'application/json; charset=UTF-8'
+                    }
+                )
+
+                if response.status_code != 200:
+                    logger.warning(f"GetSermayeArttirimlari HTTP {response.status_code} for {ticker_kodu}")
+                    return []
+
+                data = response.json()
+
+                # API returns {"d": "JSON_STRING"}
+                import json
+                raw_data = data.get("d", "[]")
+                if isinstance(raw_data, str):
+                    items = json.loads(raw_data)
+                else:
+                    items = raw_data
+
+                logger.info(f"Fetched {len(items)} corporate actions for {ticker_kodu}")
+                return items
+
+        except httpx.TimeoutException:
+            logger.warning(f"GetSermayeArttirimlari timeout for {ticker_kodu}")
+            return []
+        except Exception as e:
+            logger.error(f"GetSermayeArttirimlari error for {ticker_kodu}: {e}")
+            return []
+
+    async def get_sermaye_artirimlari(self, ticker_kodu: str, yil: int = 0) -> Dict[str, Any]:
+        """
+        Get capital increases only (Bedelli, Bedelsiz, IPO) from İş Yatırım.
+
+        Corporate Action Types:
+        - 01: Bedelli Sermaye Artırımı (Rights Issue)
+        - 02: Bedelsiz Sermaye Artırımı (Bonus Issue)
+        - 03: Bedelli ve Bedelsiz Sermaye Artırımı (Rights and Bonus Issue)
+        - 05: Birincil Halka Arz (IPO)
+        - 06: Rüçhan Hakkı Kısıtlanarak (Restricted Rights Issue)
+
+        Args:
+            ticker_kodu: BIST ticker code (e.g., 'GARAN', 'THYAO')
+            yil: Filter by year (0 = all years)
+
+        Returns:
+            Dict with capital increases data
+        """
+        all_actions = await self.get_sermaye_artirimlari_raw(ticker_kodu, yil)
+
+        # Filter capital increase types (exclude 04 = dividends)
+        capital_types = ['01', '02', '03', '05', '06']
+        filtered = [a for a in all_actions if a.get('SHT_KODU') in capital_types]
+
+        return self._format_sermaye_artirimlari(ticker_kodu, filtered)
+
+    async def get_temettu_isyatirim(self, ticker_kodu: str, yil: int = 0) -> Dict[str, Any]:
+        """
+        Get dividend history from İş Yatırım.
+
+        Only returns SHT_KODU = '04' (Nakit Temettü / Cash Dividend).
+
+        Args:
+            ticker_kodu: BIST ticker code (e.g., 'GARAN', 'THYAO')
+            yil: Filter by year (0 = all years)
+
+        Returns:
+            Dict with dividend history data
+        """
+        all_actions = await self.get_sermaye_artirimlari_raw(ticker_kodu, yil)
+
+        # Filter dividends only (04 = Nakit Temettü)
+        filtered = [a for a in all_actions if a.get('SHT_KODU') == '04']
+
+        return self._format_temettu_isyatirim(ticker_kodu, filtered)
+
+    def _format_sermaye_artirimlari(self, ticker_kodu: str, data: List[Dict]) -> Dict[str, Any]:
+        """
+        Format capital increases for response.
+
+        Fields from API:
+        - SHHE_TARIH: Date (Unix timestamp ms)
+        - SHT_KODU: Type code (01-06)
+        - SHT_TANIMI: Type in Turkish
+        - SHT_TANIMI_YD: Type in English
+        - SHHE_BDLI_ORAN: Rights issue rate (%)
+        - SHHE_BDLI_TUTAR: Rights issue amount (TL)
+        - SHHE_BDSZ_IK_ORAN: Bonus issue from internal capital (%)
+        - SHHE_BDSZ_TM_ORAN: Bonus issue from dividends (%)
+        - HSP_BOLUNME_ONCESI_SERMAYE: Pre-split capital
+        - HSP_BOLUNME_SONRASI_SERMAYE: Post-split capital
+        """
+        items = []
+        for item in data:
+            items.append({
+                "tarih": self._ms_to_date(item.get("SHHE_TARIH")),
+                "tip_kodu": item.get("SHT_KODU"),
+                "tip": item.get("SHT_TANIMI"),
+                "tip_en": item.get("SHT_TANIMI_YD"),
+                "bedelli_oran": self._safe_float(item.get("SHHE_BDLI_ORAN")),
+                "bedelli_tutar": self._safe_float(item.get("SHHE_BDLI_TUTAR")),
+                "bedelsiz_ic_kaynak_oran": self._safe_float(item.get("SHHE_BDSZ_IK_ORAN")),
+                "bedelsiz_temettu_oran": self._safe_float(item.get("SHHE_BDSZ_TM_ORAN")),
+                "onceki_sermaye": self._safe_float(item.get("HSP_BOLUNME_ONCESI_SERMAYE")),
+                "sonraki_sermaye": self._safe_float(item.get("HSP_BOLUNME_SONRASI_SERMAYE")),
+            })
+
+        return {
+            "ticker_kodu": ticker_kodu.upper(),
+            "sermaye_artirimlari": items,
+            "toplam": len(items),
+            "kaynak": "İş Yatırım",
+            "guncelleme_tarihi": datetime.now().isoformat()
+        }
+
+    def _format_temettu_isyatirim(self, ticker_kodu: str, data: List[Dict]) -> Dict[str, Any]:
+        """
+        Format dividends for response.
+
+        Fields from API:
+        - SHHE_TARIH: Distribution date (Unix timestamp ms)
+        - SHHE_NAKIT_TM_ORAN: Gross cash dividend rate (%)
+        - SHHE_NAKIT_TM_ORAN_NET: Net cash dividend rate (%)
+        - SHHE_NAKIT_TM_TUTAR: Total cash dividend amount (TL)
+        """
+        items = []
+        for item in data:
+            items.append({
+                "tarih": self._ms_to_date(item.get("SHHE_TARIH")),
+                "brut_oran": self._safe_float(item.get("SHHE_NAKIT_TM_ORAN")),
+                "net_oran": self._safe_float(item.get("SHHE_NAKIT_TM_ORAN_NET")),
+                "toplam_tutar": self._safe_float(item.get("SHHE_NAKIT_TM_TUTAR")),
+            })
+
+        return {
+            "ticker_kodu": ticker_kodu.upper(),
+            "temettuler": items,
+            "toplam": len(items),
+            "kaynak": "İş Yatırım",
+            "guncelleme_tarihi": datetime.now().isoformat()
+        }
+
+    def _ms_to_date(self, ms: Optional[int]) -> Optional[str]:
+        """Convert milliseconds timestamp to date string (YYYY-MM-DD)."""
+        if not ms:
+            return None
+        try:
+            return datetime.fromtimestamp(ms / 1000).strftime("%Y-%m-%d")
+        except (ValueError, OSError):
+            return None
+
+    # ========== MULTI-TICKER BATCH METHODS (Sermaye Artırımları & Temettü) ==========
+
+    async def get_sermaye_artirimlari_multi(
+        self,
+        ticker_kodlari: List[str],
+        yil: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Fetch capital increases for multiple tickers in parallel.
+
+        Args:
+            ticker_kodlari: List of ticker codes (max 10)
+            yil: Filter by year (0 = all years)
+
+        Returns:
+            Dict with tickers, data, counts, warnings, timestamp
+        """
+        try:
+            if not ticker_kodlari:
+                return {"error": "No tickers provided"}
+
+            if len(ticker_kodlari) > 10:
+                return {"error": "Maximum 10 tickers allowed per request"}
+
+            # Create tasks for parallel execution
+            tasks = [self.get_sermaye_artirimlari(ticker, yil) for ticker in ticker_kodlari]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results with partial success handling
+            successful = []
+            failed = []
+            warnings = []
+            data = []
+
+            for ticker, result in zip(ticker_kodlari, results):
+                if isinstance(result, Exception):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {str(result)}")
+                elif result.get("error"):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {result['error']}")
+                else:
+                    successful.append(ticker)
+                    data.append(result)
+
+            return {
+                "tickers": ticker_kodlari,
+                "data": data,
+                "successful_count": len(successful),
+                "failed_count": len(failed),
+                "warnings": warnings,
+                "query_timestamp": datetime.now().isoformat()
+            }
+
+        except Exception as e:
+            logger.exception("Error in get_sermaye_artirimlari_multi")
+            return {"error": str(e)}
+
+    async def get_temettu_isyatirim_multi(
+        self,
+        ticker_kodlari: List[str],
+        yil: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Fetch dividend history for multiple tickers in parallel.
+
+        Args:
+            ticker_kodlari: List of ticker codes (max 10)
+            yil: Filter by year (0 = all years)
+
+        Returns:
+            Dict with tickers, data, counts, warnings, timestamp
+        """
+        try:
+            if not ticker_kodlari:
+                return {"error": "No tickers provided"}
+
+            if len(ticker_kodlari) > 10:
+                return {"error": "Maximum 10 tickers allowed per request"}
+
+            # Create tasks for parallel execution
+            tasks = [self.get_temettu_isyatirim(ticker, yil) for ticker in ticker_kodlari]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results with partial success handling
+            successful = []
+            failed = []
+            warnings = []
+            data = []
+
+            for ticker, result in zip(ticker_kodlari, results):
+                if isinstance(result, Exception):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {str(result)}")
+                elif result.get("error"):
+                    failed.append(ticker)
+                    warnings.append(f"{ticker}: {result['error']}")
+                else:
+                    successful.append(ticker)
+                    data.append(result)
+
+            return {
+                "tickers": ticker_kodlari,
+                "data": data,
+                "successful_count": len(successful),
+                "failed_count": len(failed),
+                "warnings": warnings,
+                "query_timestamp": datetime.now().isoformat()
+            }
+
+        except Exception as e:
+            logger.exception("Error in get_temettu_isyatirim_multi")
+            return {"error": str(e)}

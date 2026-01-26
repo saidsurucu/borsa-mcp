@@ -231,6 +231,66 @@ class TemettuVeAksiyonlarSonucu(BaseModel):
     son_temettu: Optional[Temettu] = Field(None, description="Most recent dividend payment.")
     error_message: Optional[str] = Field(None, description="Error message if the operation failed.")
 
+# --- İş Yatırım Corporate Actions Models ---
+
+class SermayeArtirimi(BaseModel):
+    """Single capital increase event from İş Yatırım."""
+    tarih: Optional[str] = Field(None, description="Date of the capital increase (YYYY-MM-DD).")
+    tip_kodu: Optional[str] = Field(None, description="Type code: 01=Rights, 02=Bonus, 03=Both, 05=IPO, 06=Restricted Rights.")
+    tip: Optional[str] = Field(None, description="Type in Turkish (e.g., 'Bedelli Sermaye Artırımı').")
+    tip_en: Optional[str] = Field(None, description="Type in English (e.g., 'Rights Issue').")
+    bedelli_oran: Optional[float] = Field(None, description="Rights issue rate (%).")
+    bedelli_tutar: Optional[float] = Field(None, description="Rights issue amount (TL).")
+    bedelsiz_ic_kaynak_oran: Optional[float] = Field(None, description="Bonus issue from internal capital (%).")
+    bedelsiz_temettu_oran: Optional[float] = Field(None, description="Bonus issue from dividends (%).")
+    onceki_sermaye: Optional[float] = Field(None, description="Pre-split capital (TL).")
+    sonraki_sermaye: Optional[float] = Field(None, description="Post-split capital (TL).")
+
+class SermayeArtirimlariSonucu(BaseModel):
+    """Result of capital increases query from İş Yatırım."""
+    ticker_kodu: str = Field(description="BIST ticker code.")
+    sermaye_artirimlari: List[SermayeArtirimi] = Field(default_factory=list, description="List of capital increase events.")
+    toplam: int = Field(0, description="Total number of capital increases.")
+    kaynak: str = Field("İş Yatırım", description="Data source.")
+    guncelleme_tarihi: Optional[str] = Field(None, description="Query timestamp.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class MultiSermayeArtirimlariSonucu(BaseModel):
+    """Result of multi-ticker capital increases query."""
+    tickers: List[str] = Field(description="List of queried tickers.")
+    data: List[SermayeArtirimlariSonucu] = Field(default_factory=list, description="Capital increases for each ticker.")
+    successful_count: int = Field(0, description="Number of successful queries.")
+    failed_count: int = Field(0, description="Number of failed queries.")
+    warnings: List[str] = Field(default_factory=list, description="Error messages for failed tickers.")
+    query_timestamp: Optional[str] = Field(None, description="Query timestamp.")
+    error_message: Optional[str] = Field(None, description="Error message if all queries failed.")
+
+class IsyatirimTemettu(BaseModel):
+    """Single dividend payment from İş Yatırım."""
+    tarih: Optional[str] = Field(None, description="Dividend distribution date (YYYY-MM-DD).")
+    brut_oran: Optional[float] = Field(None, description="Gross dividend rate (%).")
+    net_oran: Optional[float] = Field(None, description="Net dividend rate (after tax, %).")
+    toplam_tutar: Optional[float] = Field(None, description="Total dividend amount (TL).")
+
+class IsyatirimTemettuSonucu(BaseModel):
+    """Result of dividend history query from İş Yatırım."""
+    ticker_kodu: str = Field(description="BIST ticker code.")
+    temettuler: List[IsyatirimTemettu] = Field(default_factory=list, description="List of dividend payments.")
+    toplam: int = Field(0, description="Total number of dividends.")
+    kaynak: str = Field("İş Yatırım", description="Data source.")
+    guncelleme_tarihi: Optional[str] = Field(None, description="Query timestamp.")
+    error_message: Optional[str] = Field(None, description="Error message if operation failed.")
+
+class MultiIsyatirimTemettuSonucu(BaseModel):
+    """Result of multi-ticker dividend query."""
+    tickers: List[str] = Field(description="List of queried tickers.")
+    data: List[IsyatirimTemettuSonucu] = Field(default_factory=list, description="Dividends for each ticker.")
+    successful_count: int = Field(0, description="Number of successful queries.")
+    failed_count: int = Field(0, description="Number of failed queries.")
+    warnings: List[str] = Field(default_factory=list, description="Error messages for failed tickers.")
+    query_timestamp: Optional[str] = Field(None, description="Query timestamp.")
+    error_message: Optional[str] = Field(None, description="Error message if all queries failed.")
+
 # --- Fast Info Models ---
 class HizliBilgi(BaseModel):
     """Fast access to key company metrics without heavy data processing."""

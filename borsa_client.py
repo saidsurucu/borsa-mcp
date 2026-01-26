@@ -1082,6 +1082,62 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
         return await self.isyatirim_provider.get_finansal_oranlar_multi(ticker_kodlari)
 
     # ============================================================================
+    # İŞ YATIRIM CORPORATE ACTIONS METHODS (Sermaye Artırımları & Temettü)
+    # ============================================================================
+
+    async def get_sermaye_artirimlari(self, ticker_kodu: str, yil: int = 0) -> Dict[str, Any]:
+        """
+        Get capital increases from İş Yatırım (Bedelli, Bedelsiz, IPO).
+
+        Args:
+            ticker_kodu: BIST ticker code (e.g., 'GARAN', 'THYAO')
+            yil: Filter by year (0 = all years)
+
+        Returns:
+            Dict with capital increases data
+        """
+        return await self.isyatirim_provider.get_sermaye_artirimlari(ticker_kodu, yil)
+
+    async def get_sermaye_artirimlari_multi(self, ticker_kodlari: List[str], yil: int = 0) -> Dict[str, Any]:
+        """
+        Get capital increases for multiple BIST tickers in parallel.
+
+        Args:
+            ticker_kodlari: List of BIST ticker codes (max 10)
+            yil: Filter by year (0 = all years)
+
+        Returns:
+            Dict with tickers, data, counts, warnings, timestamp
+        """
+        return await self.isyatirim_provider.get_sermaye_artirimlari_multi(ticker_kodlari, yil)
+
+    async def get_isyatirim_temettu(self, ticker_kodu: str, yil: int = 0) -> Dict[str, Any]:
+        """
+        Get dividend history from İş Yatırım.
+
+        Args:
+            ticker_kodu: BIST ticker code (e.g., 'GARAN', 'THYAO')
+            yil: Filter by year (0 = all years)
+
+        Returns:
+            Dict with dividend history data
+        """
+        return await self.isyatirim_provider.get_temettu_isyatirim(ticker_kodu, yil)
+
+    async def get_isyatirim_temettu_multi(self, ticker_kodlari: List[str], yil: int = 0) -> Dict[str, Any]:
+        """
+        Get dividend history for multiple BIST tickers in parallel.
+
+        Args:
+            ticker_kodlari: List of BIST ticker codes (max 10)
+            yil: Filter by year (0 = all years)
+
+        Returns:
+            Dict with tickers, data, counts, warnings, timestamp
+        """
+        return await self.isyatirim_provider.get_temettu_isyatirim_multi(ticker_kodlari, yil)
+
+    # ============================================================================
     # US STOCK MARKET METHODS
     # ============================================================================
 

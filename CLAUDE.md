@@ -107,6 +107,18 @@ uv run test_asels_validation.py
 - `get_kap_haberleri`: KAP news and announcements
 - `get_kap_haber_detayi`: Detailed KAP news content
 
+### İş Yatırım Corporate Actions Tools ⭐ **NEW**
+- `get_sermaye_artirimlari`: Capital increases (Bedelli, Bedelsiz, IPO) ⭐ **Multi-ticker support**
+  - Type 01: Bedelli Sermaye Artırımı (Rights Issue)
+  - Type 02: Bedelsiz Sermaye Artırımı (Bonus Issue)
+  - Type 03: Bedelli + Bedelsiz Combined
+  - Type 05: Birincil Halka Arz (IPO)
+  - Type 06: Rüçhan Hakkı Kısıtlanarak (Restricted Rights)
+- `get_isyatirim_temettu`: Dividend history from İş Yatırım ⭐ **Multi-ticker support**
+  - Gross/net dividend rates (%)
+  - Total dividend amounts (TL)
+  - Distribution dates
+
 ### BIST Index Tools
 - `get_endeks_kodu`: Search 66 BIST indices
 - `get_endeks_sirketleri`: Company information for indices
@@ -474,6 +486,46 @@ logger.error("Failed operations")
 
 ## Recent Major Updates
 
+### İş Yatırım Corporate Actions Tools (January 2026)
+- **New Tools**: 2 tools for capital increases and dividend history from İş Yatırım
+- **API Endpoint**: `GetSermayeArttirimlari` - returns all corporate actions
+- **Data Filtering**: API response filtered by `SHT_KODU` to separate types
+- **Tools Added**:
+  - `get_sermaye_artirimlari`: Capital increases (Bedelli, Bedelsiz, IPO)
+  - `get_isyatirim_temettu`: Dividend history with gross/net rates
+- **Capital Increase Types**:
+  - `01`: Bedelli Sermaye Artırımı (Rights Issue)
+  - `02`: Bedelsiz Sermaye Artırımı (Bonus Issue)
+  - `03`: Bedelli ve Bedelsiz (Rights and Bonus Combined)
+  - `05`: Birincil Halka Arz (IPO)
+  - `06`: Rüçhan Hakkı Kısıtlanarak (Restricted Rights Issue)
+- **Dividend Data**:
+  - `brut_oran`: Gross dividend rate (%)
+  - `net_oran`: Net dividend rate (%) after withholding tax
+  - `toplam_tutar`: Total dividend amount (TL)
+- **Multi-Ticker Support**: Both tools support batch queries (max 10 tickers, 60% faster)
+- **Usage Examples**:
+  ```python
+  # Single ticker - capital increases
+  get_sermaye_artirimlari("GARAN")
+  get_sermaye_artirimlari("THYAO", yil=2024)  # Filter by year
+
+  # Single ticker - dividends
+  get_isyatirim_temettu("GARAN")
+  get_isyatirim_temettu("TUPRS", yil=2024)  # Filter by year
+
+  # Multi-ticker (60% faster for 5+ stocks)
+  get_sermaye_artirimlari(["GARAN", "AKBNK", "THYAO"])
+  get_isyatirim_temettu(["GARAN", "TUPRS", "EREGL"])
+  ```
+- **Response Fields (Sermaye Artırımları)**:
+  - tarih, tip_kodu, tip, tip_en (type in Turkish/English)
+  - bedelli_oran, bedelli_tutar (rights issue rate/amount)
+  - bedelsiz_ic_kaynak_oran, bedelsiz_temettu_oran (bonus issue rates)
+  - onceki_sermaye, sonraki_sermaye (pre/post capital)
+- **Response Fields (Temettü)**:
+  - tarih, brut_oran, net_oran, toplam_tutar
+
 ### İş Yatırım Financial Ratios Tool (January 2026)
 - **New Tool**: `get_finansal_oranlar` - Get valuation ratios from İş Yatırım
 - **Ratios Calculated**:
@@ -729,9 +781,12 @@ logger.error("Failed operations")
 
 ## Tool Count Summary
 
-- **Total Tools**: 79
-- **BIST Stock Tools**: 19 (KAP + Yahoo Finance + İş Yatırım ratios)
-- **BIST Technical Scanner**: 3 (borsapy TradingView integration) ⭐ **NEW**
+- **Total Tools**: 81
+- **BIST Stock Tools**: 21 (KAP + Yahoo Finance + İş Yatırım ratios + Corporate Actions)
+- **BIST Corporate Actions Tools**: 2 (İş Yatırım - Sermaye Artırımları & Temettü) ⭐ **NEW**
+  - `get_sermaye_artirimlari`: Capital increases history with multi-ticker support
+  - `get_isyatirim_temettu`: Dividend history with multi-ticker support
+- **BIST Technical Scanner**: 3 (borsapy TradingView integration)
   - Custom condition scanning (RSI, MACD, volume, etc.)
   - 12 preset strategies (oversold, momentum, etc.)
   - 14 supported BIST indices (XU030, XU100, XBANK, etc.)

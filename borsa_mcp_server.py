@@ -70,6 +70,13 @@ from models import (
     FinansalOranlar,
     FinansalOranlarSonucu,
     MultiFinansalOranlarSonucu,
+    # İş Yatırım Corporate Actions Models
+    SermayeArtirimi,
+    SermayeArtirimlariSonucu,
+    MultiSermayeArtirimlariSonucu,
+    IsyatirimTemettu,
+    IsyatirimTemettuSonucu,
+    MultiIsyatirimTemettuSonucu,
     # US Stock Models
     USCompanySearchResult,
     USQuickInfoResult,
@@ -491,6 +498,182 @@ async def get_finansal_oranlar(
         return FinansalOranlarSonucu(
             ticker_kodu=ticker_kodu,
             oranlar=None,
+            error_message=f"An unexpected error occurred: {str(e)}"
+        )
+
+
+@app.tool(
+    description="BIST STOCKS ONLY: Get capital increases (Bedelli/Bedelsiz/IPO) from İş Yatırım. Multi-ticker support (max 10, 60% faster).",
+    tags=["stocks", "corporate-actions", "capital", "readonly", "isyatirim", "multi-ticker", "bist"]
+)
+async def get_sermaye_artirimlari(
+    ticker_kodu: Annotated[Union[str, List[str]], Field(
+        description="BIST ticker code(s). Single: 'GARAN' or multiple: ['GARAN', 'AKBNK'] (max 10). NOT for US stocks.",
+        examples=["GARAN", ["GARAN", "AKBNK", "THYAO"]]
+    )],
+    yil: Annotated[int, Field(
+        description="Filter by year (e.g., 2024). Use 0 for all years.",
+        default=0,
+        ge=0,
+        le=2100
+    )] = 0
+) -> Union[SermayeArtirimlariSonucu, MultiSermayeArtirimlariSonucu]:
+    """
+    Get capital increases history from İş Yatırım for BIST stocks.
+
+    Capital increase types:
+    - 01: Bedelli Sermaye Artırımı (Rights Issue) - shareholders buy new shares at discount
+    - 02: Bedelsiz Sermaye Artırımı (Bonus Issue) - free shares from retained earnings
+    - 03: Bedelli ve Bedelsiz (Rights + Bonus) - combined offering
+    - 05: Birincil Halka Arz (IPO) - initial public offering
+    - 06: Rüçhan Hakkı Kısıtlanarak (Restricted Rights) - limited rights issue
+
+    Returns rates (%) and amounts for capital structure changes.
+    """
+    # Handle multi-ticker request
+    if isinstance(ticker_kodu, list):
+        logger.info(f"Tool 'get_sermaye_artirimlari' called for {len(ticker_kodu)} tickers (multi-ticker mode)")
+        try:
+            result = await borsa_client.get_sermaye_artirimlari_multi(ticker_kodu, yil)
+            if result.get("error"):
+                raise ToolError(result["error"])
+            # Build response with SermayeArtirimlariSonucu objects
+            data_list = []
+            for item in result.get("data", []):
+                sermaye_artirimlari = [SermayeArtirimi(**sa) for sa in item.get("sermaye_artirimlari", [])]
+                data_list.append(SermayeArtirimlariSonucu(
+                    ticker_kodu=item.get("ticker_kodu", ""),
+                    sermaye_artirimlari=sermaye_artirimlari,
+                    toplam=item.get("toplam", 0),
+                    kaynak=item.get("kaynak", "İş Yatırım"),
+                    guncelleme_tarihi=item.get("guncelleme_tarihi")
+                ))
+            return MultiSermayeArtirimlariSonucu(
+                tickers=result.get("tickers", []),
+                data=data_list,
+                successful_count=result.get("successful_count", 0),
+                failed_count=result.get("failed_count", 0),
+                warnings=result.get("warnings", []),
+                query_timestamp=result.get("query_timestamp")
+            )
+        except Exception as e:
+            logger.exception("Error in multi-ticker get_sermaye_artirimlari")
+            raise ToolError(f"Multi-ticker query failed: {str(e)}")
+
+    # Handle single ticker request
+    logger.info(f"Tool 'get_sermaye_artirimlari' called for ticker: '{ticker_kodu}', year: {yil}")
+    try:
+        data = await borsa_client.get_sermaye_artirimlari(ticker_kodu, yil)
+        if data.get("error"):
+            return SermayeArtirimlariSonucu(
+                ticker_kodu=ticker_kodu,
+                sermaye_artirimlari=[],
+                toplam=0,
+                error_message=data["error"]
+            )
+
+        sermaye_artirimlari = [SermayeArtirimi(**sa) for sa in data.get("sermaye_artirimlari", [])]
+        return SermayeArtirimlariSonucu(
+            ticker_kodu=data.get("ticker_kodu", ticker_kodu),
+            sermaye_artirimlari=sermaye_artirimlari,
+            toplam=data.get("toplam", 0),
+            kaynak=data.get("kaynak", "İş Yatırım"),
+            guncelleme_tarihi=data.get("guncelleme_tarihi")
+        )
+    except Exception as e:
+        logger.exception(f"Error in tool 'get_sermaye_artirimlari' for ticker {ticker_kodu}.")
+        return SermayeArtirimlariSonucu(
+            ticker_kodu=ticker_kodu,
+            sermaye_artirimlari=[],
+            toplam=0,
+            error_message=f"An unexpected error occurred: {str(e)}"
+        )
+
+
+@app.tool(
+    description="BIST STOCKS ONLY: Get dividend history from İş Yatırım (gross/net rates, total amounts). Multi-ticker support (max 10, 60% faster).",
+    tags=["stocks", "dividends", "corporate-actions", "readonly", "isyatirim", "multi-ticker", "bist"]
+)
+async def get_isyatirim_temettu(
+    ticker_kodu: Annotated[Union[str, List[str]], Field(
+        description="BIST ticker code(s). Single: 'GARAN' or multiple: ['GARAN', 'AKBNK'] (max 10). NOT for US stocks.",
+        examples=["GARAN", ["GARAN", "AKBNK", "TUPRS"]]
+    )],
+    yil: Annotated[int, Field(
+        description="Filter by year (e.g., 2024). Use 0 for all years.",
+        default=0,
+        ge=0,
+        le=2100
+    )] = 0
+) -> Union[IsyatirimTemettuSonucu, MultiIsyatirimTemettuSonucu]:
+    """
+    Get dividend history from İş Yatırım for BIST stocks.
+
+    Returns cash dividends (Nakit Temettü) with:
+    - tarih: Distribution date (YYYY-MM-DD)
+    - brut_oran: Gross dividend rate (%) before tax
+    - net_oran: Net dividend rate (%) after withholding tax
+    - toplam_tutar: Total dividend amount distributed (TL)
+
+    Note: This is İş Yatırım source. For Yahoo Finance dividend data,
+    use get_temettu_ve_aksiyonlar tool which also includes stock splits.
+    """
+    # Handle multi-ticker request
+    if isinstance(ticker_kodu, list):
+        logger.info(f"Tool 'get_isyatirim_temettu' called for {len(ticker_kodu)} tickers (multi-ticker mode)")
+        try:
+            result = await borsa_client.get_isyatirim_temettu_multi(ticker_kodu, yil)
+            if result.get("error"):
+                raise ToolError(result["error"])
+            # Build response with IsyatirimTemettuSonucu objects
+            data_list = []
+            for item in result.get("data", []):
+                temettuler = [IsyatirimTemettu(**t) for t in item.get("temettuler", [])]
+                data_list.append(IsyatirimTemettuSonucu(
+                    ticker_kodu=item.get("ticker_kodu", ""),
+                    temettuler=temettuler,
+                    toplam=item.get("toplam", 0),
+                    kaynak=item.get("kaynak", "İş Yatırım"),
+                    guncelleme_tarihi=item.get("guncelleme_tarihi")
+                ))
+            return MultiIsyatirimTemettuSonucu(
+                tickers=result.get("tickers", []),
+                data=data_list,
+                successful_count=result.get("successful_count", 0),
+                failed_count=result.get("failed_count", 0),
+                warnings=result.get("warnings", []),
+                query_timestamp=result.get("query_timestamp")
+            )
+        except Exception as e:
+            logger.exception("Error in multi-ticker get_isyatirim_temettu")
+            raise ToolError(f"Multi-ticker query failed: {str(e)}")
+
+    # Handle single ticker request
+    logger.info(f"Tool 'get_isyatirim_temettu' called for ticker: '{ticker_kodu}', year: {yil}")
+    try:
+        data = await borsa_client.get_isyatirim_temettu(ticker_kodu, yil)
+        if data.get("error"):
+            return IsyatirimTemettuSonucu(
+                ticker_kodu=ticker_kodu,
+                temettuler=[],
+                toplam=0,
+                error_message=data["error"]
+            )
+
+        temettuler = [IsyatirimTemettu(**t) for t in data.get("temettuler", [])]
+        return IsyatirimTemettuSonucu(
+            ticker_kodu=data.get("ticker_kodu", ticker_kodu),
+            temettuler=temettuler,
+            toplam=data.get("toplam", 0),
+            kaynak=data.get("kaynak", "İş Yatırım"),
+            guncelleme_tarihi=data.get("guncelleme_tarihi")
+        )
+    except Exception as e:
+        logger.exception(f"Error in tool 'get_isyatirim_temettu' for ticker {ticker_kodu}.")
+        return IsyatirimTemettuSonucu(
+            ticker_kodu=ticker_kodu,
+            temettuler=[],
+            toplam=0,
             error_message=f"An unexpected error occurred: {str(e)}"
         )
 

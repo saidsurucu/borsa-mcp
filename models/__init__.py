@@ -154,6 +154,12 @@ from borsa_models import (
     FinansalOranlar, FinansalOranlarSonucu, MultiFinansalOranlarSonucu
 )
 
+# İş Yatırım Corporate Actions Models (Sermaye Artırımları & Temettü)
+from borsa_models import (
+    SermayeArtirimi, SermayeArtirimlariSonucu, MultiSermayeArtirimlariSonucu,
+    IsyatirimTemettu, IsyatirimTemettuSonucu, MultiIsyatirimTemettuSonucu
+)
+
 # US Stock Models from borsa_models
 from borsa_models import (
     # Core US models
@@ -283,6 +289,10 @@ __all__ = [
 
     # İş Yatırım Financial Ratios Models
     "FinansalOranlar", "FinansalOranlarSonucu", "MultiFinansalOranlarSonucu",
+
+    # İş Yatırım Corporate Actions Models
+    "SermayeArtirimi", "SermayeArtirimlariSonucu", "MultiSermayeArtirimlariSonucu",
+    "IsyatirimTemettu", "IsyatirimTemettuSonucu", "MultiIsyatirimTemettuSonucu",
 
     # US Stock Models
     "USCompanyInfo", "USQuickInfo", "USStockDataPoint",
