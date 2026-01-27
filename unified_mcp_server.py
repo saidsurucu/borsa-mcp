@@ -188,11 +188,11 @@ async def get_profile(
         result = await market_router.get_profile(symbol, MarketType(market))
 
         # Add Islamic finance compliance if requested (BIST only)
-        if include_islamic and market == "bist" and result.profile:
+        if include_islamic and market == "bist" and result.get("profile"):
             try:
                 islamic_info = await market_router.get_islamic_compliance(symbol)
                 # Add to profile as additional data
-                result.profile.islamic_compliance = islamic_info
+                result["profile"]["islamic_compliance"] = islamic_info
             except Exception as e:
                 logger.warning(f"Failed to fetch Islamic compliance for {symbol}: {e}")
 
@@ -963,34 +963,50 @@ async def get_economic_calendar(
         high_importance_only = importance == "high" if importance else True
         result = await provider.get_economic_calendar(start_date, end_date, high_importance_only, country)
 
-        from models.unified_base import EconomicCalendarResult, EconomicEvent, UnifiedMetadata
+        # Convert Pydantic result to dict and return raw dict
         events = []
-        if result and result.economic_events:
-            for day_event in result.economic_events:
-                # Each day_event is an EkonomikOlay with date and events list
-                for e in day_event.events:
-                    events.append(EconomicEvent(
-                        date=day_event.date,
-                        time=e.event_time,
-                        country=e.country_code,
-                        event=e.event_name,
-                        importance=e.importance,
-                        actual=e.actual,
-                        forecast=e.forecast,
-                        previous=e.prior
-                    ))
+        if result:
+            # Handle both Pydantic model and dict responses
+            economic_events = result.economic_events if hasattr(result, 'economic_events') else result.get('economic_events', [])
+            for day_event in (economic_events or []):
+                # Handle both Pydantic and dict
+                day_date = day_event.date if hasattr(day_event, 'date') else day_event.get('date')
+                day_events = day_event.events if hasattr(day_event, 'events') else day_event.get('events', [])
+                for e in (day_events or []):
+                    if hasattr(e, 'event_time'):
+                        events.append({
+                            "date": day_date,
+                            "time": e.event_time,
+                            "country": e.country_code,
+                            "event": e.event_name,
+                            "importance": e.importance,
+                            "actual": e.actual,
+                            "forecast": e.forecast,
+                            "previous": e.prior
+                        })
+                    else:
+                        events.append({
+                            "date": day_date,
+                            "time": e.get('event_time'),
+                            "country": e.get('country_code'),
+                            "event": e.get('event_name'),
+                            "importance": e.get('importance'),
+                            "actual": e.get('actual'),
+                            "forecast": e.get('forecast'),
+                            "previous": e.get('prior')
+                        })
 
-        return EconomicCalendarResult(
-            metadata=UnifiedMetadata(
-                market=MarketType.FX,
-                symbols=["calendar"],
-                source="borsapy",
-                timestamp=datetime.now()
-            ),
-            events=events,
-            period=period,
-            country_filter=country
-        )
+        return {
+            "metadata": {
+                "market": "fx",
+                "symbols": ["calendar"],
+                "source": "borsapy",
+                "timestamp": datetime.now().isoformat()
+            },
+            "events": events,
+            "period": period,
+            "country_filter": country
+        }
     except Exception as e:
         logger.exception("Error in get_economic_calendar")
         raise ToolError(f"Economic calendar fetch failed: {str(e)}")
@@ -1022,34 +1038,34 @@ async def get_bond_yields(
         provider = BorsapyBondProvider()
         result = await provider.get_tahvil_faizleri()
 
-        from models.unified_base import BondYieldsResult, BondYield, UnifiedMetadata
+        # Return raw dict without Pydantic validation
         yields = []
         risk_free = None
 
         if result and result.get("tahviller"):
             for t in result["tahviller"]:
-                yields.append(BondYield(
-                    name=t.get("tahvil_adi"),
-                    maturity=t.get("vade"),
-                    yield_rate=t.get("faiz_orani"),
-                    change=t.get("degisim_yuzde"),
-                    timestamp=None  # Not available from this provider
-                ))
+                yields.append({
+                    "name": t.get("tahvil_adi"),
+                    "maturity": t.get("vade"),
+                    "yield_rate": t.get("faiz_orani"),
+                    "change": t.get("degisim_yuzde"),
+                    "timestamp": None
+                })
             # Use 10Y yield as risk-free rate
             if result.get("tahvil_lookup"):
                 risk_free = result["tahvil_lookup"].get("10Y")
 
-        return BondYieldsResult(
-            metadata=UnifiedMetadata(
-                market=MarketType.FX,
-                symbols=["bonds"],
-                source="borsapy",
-                timestamp=datetime.now()
-            ),
-            country=country,
-            yields=yields,
-            risk_free_rate=risk_free
-        )
+        return {
+            "metadata": {
+                "market": "fx",
+                "symbols": ["bonds"],
+                "source": "borsapy",
+                "timestamp": datetime.now().isoformat()
+            },
+            "country": country,
+            "yields": yields,
+            "risk_free_rate": risk_free
+        }
     except Exception as e:
         logger.exception("Error in get_bond_yields")
         raise ToolError(f"Bond yields fetch failed: {str(e)}")
