@@ -20,6 +20,8 @@ dependencies = [
     "markitdown>=0.1.1",
     "openpyxl>=3.1.5",
     "requests>=2.31.0",
+    "borsapy>=0.6.5",
+    "yfscreen>=0.1.1",
 ]
 
 [project.scripts]
