@@ -247,8 +247,11 @@ async def get_quick_info(
 
 
 @app.tool(
-    description="STOCKS: Get historical OHLCV price data with flexible date range or period.",
-    tags=["stocks", "crypto", "historical", "readonly"]
+    name="get_historical_data",
+    title="Historical Price Data",
+    description="Get OHLCV price history with date range or period (1d-5y). Supports BIST, US, and crypto.",
+    tags={"stocks", "crypto", "historical"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_historical_data(
     symbol: Annotated[str, Field(
@@ -298,8 +301,11 @@ async def get_historical_data(
 
 
 @app.tool(
-    description="STOCKS: Get technical analysis (RSI, MACD, Bollinger Bands, moving averages, trends).",
-    tags=["stocks", "crypto", "technical", "readonly"]
+    name="get_technical_analysis",
+    title="Technical Analysis",
+    description="Get technical indicators: RSI, MACD, Bollinger Bands, moving averages, and trend signals.",
+    tags={"stocks", "crypto", "technical"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_technical_analysis(
     symbol: Annotated[str, Field(
@@ -338,8 +344,11 @@ async def get_technical_analysis(
 
 
 @app.tool(
-    description="STOCKS: Get pivot points with support/resistance levels (S1-S3, R1-R3).",
-    tags=["stocks", "technical", "readonly"]
+    name="get_pivot_points",
+    title="Pivot Points",
+    description="Get classic pivot points with 7 levels: PP, S1-S3, R1-R3, and distance to nearest levels.",
+    tags={"stocks", "technical"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_pivot_points(
     symbol: Annotated[str, Field(
@@ -373,8 +382,11 @@ async def get_pivot_points(
 
 
 @app.tool(
-    description="STOCKS: Get analyst ratings, price targets, and recommendations.",
-    tags=["stocks", "analyst", "readonly", "multi-ticker"]
+    name="get_analyst_data",
+    title="Analyst Ratings",
+    description="Get analyst ratings, price targets, and buy/sell/hold recommendations. Batch support up to 10.",
+    tags={"stocks", "analyst", "multi-ticker"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_analyst_data(
     symbols: Annotated[Union[str, List[str]], Field(
@@ -406,8 +418,11 @@ async def get_analyst_data(
 
 
 @app.tool(
-    description="STOCKS: Get dividend history, yield, payout ratio, and stock splits.",
-    tags=["stocks", "dividends", "readonly", "multi-ticker"]
+    name="get_dividends",
+    title="Dividend History",
+    description="Get dividend yield, history, payout ratio, and stock splits. Batch support up to 10.",
+    tags={"stocks", "dividends", "multi-ticker"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_dividends(
     symbols: Annotated[Union[str, List[str]], Field(
@@ -439,8 +454,11 @@ async def get_dividends(
 
 
 @app.tool(
-    description="STOCKS: Get earnings calendar, EPS history, and growth estimates.",
-    tags=["stocks", "earnings", "readonly", "multi-ticker"]
+    name="get_earnings",
+    title="Earnings Calendar",
+    description="Get earnings dates, EPS history, surprises, and growth estimates. Batch support up to 10.",
+    tags={"stocks", "earnings", "multi-ticker"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_earnings(
     symbols: Annotated[Union[str, List[str]], Field(
@@ -472,8 +490,11 @@ async def get_earnings(
 
 
 @app.tool(
-    description="STOCKS: Get financial statements (balance sheet, income statement, cash flow).",
-    tags=["stocks", "financials", "readonly", "multi-ticker"]
+    name="get_financial_statements",
+    title="Financial Statements",
+    description="Get balance sheet, income statement, and cash flow (annual/quarterly). Batch support up to 10.",
+    tags={"stocks", "financials", "multi-ticker"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_financial_statements(
     symbols: Annotated[Union[str, List[str]], Field(
@@ -518,8 +539,11 @@ async def get_financial_statements(
 
 
 @app.tool(
-    description="STOCKS: Get financial ratios and analysis (valuation, Buffett, health metrics).",
-    tags=["stocks", "ratios", "analysis", "readonly"]
+    name="get_financial_ratios",
+    title="Financial Ratios",
+    description="Get ratios: valuation (P/E, EV/EBITDA), Buffett analysis, health metrics, or comprehensive.",
+    tags={"stocks", "ratios", "analysis"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_financial_ratios(
     symbol: Annotated[str, Field(
@@ -560,8 +584,11 @@ async def get_financial_ratios(
 
 
 @app.tool(
-    description="BIST: Get corporate actions (capital increases, dividend history from İş Yatırım).",
-    tags=["stocks", "corporate-actions", "readonly", "multi-ticker"]
+    name="get_corporate_actions",
+    title="Corporate Actions",
+    description="Get BIST corporate actions: capital increases (bedelli/bedelsiz), IPOs, dividends. Batch up to 10.",
+    tags={"stocks", "corporate-actions", "multi-ticker"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_corporate_actions(
     symbols: Annotated[Union[str, List[str]], Field(
@@ -604,8 +631,11 @@ async def get_corporate_actions(
 
 
 @app.tool(
-    description="BIST: Get KAP news list or detailed news content for a stock.",
-    tags=["stocks", "news", "readonly"]
+    name="get_news",
+    title="KAP News",
+    description="Get KAP news list for a BIST stock, or fetch full news content by news_id.",
+    tags={"stocks", "news"},
+    annotations={"readOnlyHint": True}
 )
 async def get_news(
     symbol: Annotated[Optional[str], Field(
@@ -666,8 +696,11 @@ async def get_news(
 # =============================================================================
 
 @app.tool(
-    description="SCREENER: Screen stocks/ETFs with presets or custom filters (BIST and US markets).",
-    tags=["stocks", "screener", "readonly"]
+    name="screen_securities",
+    title="Stock Screener",
+    description="Screen stocks/ETFs with 23 presets (value, growth, dividend, sector) or custom filters.",
+    tags={"stocks", "screener"},
+    annotations={"readOnlyHint": True, "openWorldHint": True}
 )
 async def screen_securities(
     market: Annotated[Literal["bist", "us"], Field(
@@ -777,8 +810,11 @@ async def scan_stocks(
 
 
 @app.tool(
-    description="SECTOR: Get sector comparison with peer stocks and average metrics.",
-    tags=["stocks", "sector", "readonly"]
+    name="get_sector_comparison",
+    title="Sector Comparison",
+    description="Get sector peers, average P/E and P/B, and comparative positioning for a stock.",
+    tags={"stocks", "sector"},
+    annotations={"readOnlyHint": True}
 )
 async def get_sector_comparison(
     symbol: Annotated[str, Field(
@@ -815,8 +851,11 @@ async def get_sector_comparison(
 # =============================================================================
 
 @app.tool(
-    description="CRYPTO: Get crypto market data (ticker, orderbook, trades, exchange info).",
-    tags=["crypto", "market", "readonly"]
+    name="get_crypto_market",
+    title="Crypto Market Data",
+    description="Get crypto ticker, orderbook, trades, or OHLC from BtcTurk (TRY) or Coinbase (USD).",
+    tags={"crypto", "market"},
+    annotations={"readOnlyHint": True}
 )
 async def get_crypto_market(
     symbol: Annotated[str, Field(
@@ -862,8 +901,11 @@ async def get_crypto_market(
 # =============================================================================
 
 @app.tool(
-    description="FX: Get foreign exchange rates, metals, and commodities (via borsapy).",
-    tags=["fx", "commodities", "readonly"]
+    name="get_fx_data",
+    title="FX & Commodities",
+    description="Get FX rates (65 currencies), precious metals, and commodities. Current or historical OHLC.",
+    tags={"fx", "commodities"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_fx_data(
     symbols: Annotated[Optional[List[str]], Field(
@@ -922,8 +964,11 @@ async def get_fx_data(
 # =============================================================================
 
 @app.tool(
-    description="CALENDAR: Get economic calendar events for multiple countries.",
-    tags=["macro", "calendar", "readonly"]
+    name="get_economic_calendar",
+    title="Economic Calendar",
+    description="Get economic events for TR, US, EU, DE, GB, JP, CN with importance filter.",
+    tags={"macro", "calendar"},
+    annotations={"readOnlyHint": True}
 )
 async def get_economic_calendar(
     country: Annotated[Optional[CalendarCountryLiteral], Field(
@@ -1025,8 +1070,11 @@ async def get_economic_calendar(
 
 
 @app.tool(
-    description="BONDS: Get Turkish government bond yields (2Y, 5Y, 10Y) and risk-free rate.",
-    tags=["bonds", "macro", "readonly"]
+    name="get_bond_yields",
+    title="Bond Yields",
+    description="Get Turkish government bond yields (2Y, 5Y, 10Y) and risk-free rate for DCF calculations.",
+    tags={"bonds", "macro"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_bond_yields(
     country: Annotated[BondCountryLiteral, Field(
@@ -1088,8 +1136,11 @@ async def get_bond_yields(
 # =============================================================================
 
 @app.tool(
-    description="FUNDS: Get Turkish mutual fund data (TEFAS) with portfolio, performance, or comparison.",
-    tags=["funds", "readonly"]
+    name="get_fund_data",
+    title="Mutual Fund Data",
+    description="Get TEFAS fund info, portfolio allocation, performance, or compare multiple funds.",
+    tags={"funds"},
+    annotations={"readOnlyHint": True}
 )
 async def get_fund_data(
     symbol: Annotated[Union[str, List[str]], Field(
@@ -1152,8 +1203,11 @@ async def get_fund_data(
 # =============================================================================
 
 @app.tool(
-    description="INDEX: Get stock market index data with optional component list.",
-    tags=["stocks", "index", "readonly"]
+    name="get_index_data",
+    title="Stock Index Data",
+    description="Get index value, change, and optionally component stocks (BIST: XU100, XU030; US: SPY, QQQ).",
+    tags={"stocks", "index"},
+    annotations={"readOnlyHint": True}
 )
 async def get_index_data(
     code: Annotated[str, Field(
@@ -1203,8 +1257,11 @@ InflationTypeLiteral = Literal["tufe", "ufe"]
 
 
 @app.tool(
-    description="MACRO: Get Turkish inflation data or calculate cumulative inflation.",
-    tags=["macro", "inflation", "readonly"]
+    name="get_macro_data",
+    title="Macro Inflation Data",
+    description="Get Turkish TÜFE/ÜFE inflation data or calculate cumulative inflation between dates.",
+    tags={"macro", "inflation"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_macro_data(
     data_type: Annotated[MacroDataTypeLiteral, Field(
@@ -1297,8 +1354,11 @@ async def get_macro_data(
 # =============================================================================
 
 @app.tool(
-    description="HELP: Get available presets and filter documentation for stock screeners.",
-    tags=["help", "screener", "readonly"]
+    name="get_screener_help",
+    title="Screener Help",
+    description="Get screener documentation: 23 presets, filter fields, operators, and examples.",
+    tags={"help", "screener"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_screener_help(
     market: Annotated[Literal["bist", "us"], Field(
@@ -1327,8 +1387,11 @@ async def get_screener_help(
 
 
 @app.tool(
-    description="HELP: Get available indicators, operators, and presets for BIST technical scanner.",
-    tags=["help", "scanner", "readonly"]
+    name="get_scanner_help",
+    title="Scanner Help",
+    description="Get scanner documentation: indicators (RSI, MACD, Supertrend, T3), operators, 22 presets.",
+    tags={"help", "scanner"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_scanner_help() -> ScannerHelpResult:
     """
@@ -1353,8 +1416,11 @@ async def get_scanner_help() -> ScannerHelpResult:
 
 
 @app.tool(
-    description="REGULATIONS: Get Turkish financial regulations documentation.",
-    tags=["regulations", "help", "readonly"]
+    name="get_regulations",
+    title="Fund Regulations",
+    description="Get Turkish investment fund regulations (CMB rules) documentation.",
+    tags={"regulations", "help"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_regulations(
     regulation_type: Annotated[Literal["fund"], Field(
