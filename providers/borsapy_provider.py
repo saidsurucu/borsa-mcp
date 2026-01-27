@@ -1132,9 +1132,11 @@ class BorsapyProvider:
                         if field == "recommendation":
                             screener.set_recommendation(constraints)
                         elif field == "sector":
-                            screener.set_sector(constraints)
+                            # set_sector is broken in borsapy, skip it
+                            logger.warning(f"Skipping sector filter - not supported by borsapy API")
                         elif field == "index":
-                            screener.set_index(constraints)
+                            # set_index is broken in borsapy, skip it
+                            logger.warning(f"Skipping index filter - not supported by borsapy API")
 
             elif custom_filters:
                 filters_applied = custom_filters
@@ -1154,15 +1156,17 @@ class BorsapyProvider:
                         if field == "recommendation":
                             screener.set_recommendation(constraints)
                         elif field == "sector":
-                            screener.set_sector(constraints)
+                            # set_sector is broken in borsapy, skip it
+                            logger.warning(f"Skipping sector filter - not supported by borsapy API")
                         elif field == "index":
-                            screener.set_index(constraints)
+                            # set_index is broken in borsapy, skip it
+                            logger.warning(f"Skipping index filter - not supported by borsapy API")
 
             else:
-                # Default: All BIST 100 stocks
-                screener.set_index("XU100")
-                filter_description = "Varsayılan: BIST 100 hisseleri"
-                filters_applied = {"index": "XU100"}
+                # Default: All BIST stocks (set_index is broken in borsapy)
+                # Don't call any filter methods - just return all stocks
+                filter_description = "Varsayılan: Tüm BIST hisseleri"
+                filters_applied = {}
 
             # Limit validation
             limit = min(limit, 250)
