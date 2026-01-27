@@ -108,21 +108,24 @@ app.add_middleware(cache_middleware)
 # =============================================================================
 
 @app.tool(
-    description="STOCKS: Search for stocks, indices, funds, or crypto by name/symbol. Returns ticker codes and basic info.",
-    tags=["stocks", "crypto", "funds", "search", "readonly"]
+    name="search_symbol",
+    title="Search Symbols",
+    description="Search stocks, indices, funds, or crypto by name/symbol across BIST, US, crypto, and fund markets.",
+    tags={"stocks", "crypto", "funds", "search"},
+    annotations={"readOnlyHint": True, "openWorldHint": True}
 )
 async def search_symbol(
     query: Annotated[str, Field(
-        description="Company name, ticker, or keyword to search. Case-insensitive.",
+        description="Search term: company name, ticker, or keyword",
         min_length=2,
-        examples=["Garanti", "AAPL", "Bitcoin", "TEB"]
+        examples=["Garanti", "AAPL", "Bitcoin"]
     )],
     market: Annotated[MarketLiteral, Field(
-        description="Market to search: bist (Turkish stocks), us (NYSE/NASDAQ), crypto_tr (BtcTurk), crypto_global (Coinbase), fund (TEFAS)",
+        description="Target market: bist, us, crypto_tr, crypto_global, fund",
         examples=["bist", "us", "fund"]
     )],
     limit: Annotated[int, Field(
-        description="Maximum results to return",
+        description="Max results (1-50)",
         default=10,
         ge=1,
         le=50
@@ -152,21 +155,24 @@ async def search_symbol(
 
 
 @app.tool(
-    description="STOCKS: Get company/asset profile with sector, description, financials, and key metrics.",
-    tags=["stocks", "profile", "readonly"]
+    name="get_profile",
+    title="Company Profile",
+    description="Get company profile with sector, financials, key metrics, and optional Islamic compliance (BIST).",
+    tags={"stocks", "profile"},
+    annotations={"readOnlyHint": True}
 )
 async def get_profile(
     symbol: Annotated[str, Field(
-        description="Ticker symbol (e.g., GARAN, AAPL, AAK for funds)",
+        description="Ticker symbol",
         pattern=r"^[A-Z0-9]{2,10}$",
-        examples=["GARAN", "ASELS", "AAPL", "MSFT"]
+        examples=["GARAN", "AAPL"]
     )],
     market: Annotated[MarketLiteral, Field(
         description="Market: bist, us, or fund",
         examples=["bist", "us"]
     )],
     include_islamic: Annotated[bool, Field(
-        description="Include Islamic finance compliance info - whether stock is Sharia-compliant (BIST only)",
+        description="Include Sharia compliance info (BIST only)",
         default=False
     )] = False
 ) -> ProfileResult:
@@ -203,12 +209,15 @@ async def get_profile(
 
 
 @app.tool(
-    description="STOCKS: Get quick key metrics (P/E, P/B, ROE, 52w range) for single or multiple stocks.",
-    tags=["stocks", "metrics", "readonly", "multi-ticker"]
+    name="get_quick_info",
+    title="Quick Stock Info",
+    description="Get key metrics (P/E, P/B, ROE, 52w range) for one or multiple stocks. Batch support up to 10.",
+    tags={"stocks", "metrics", "multi-ticker"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_quick_info(
     symbols: Annotated[Union[str, List[str]], Field(
-        description="Single ticker or list of tickers (max 10). Examples: 'GARAN' or ['GARAN', 'AKBNK', 'THYAO']",
+        description="Ticker(s), max 10: 'GARAN' or ['GARAN', 'AKBNK']",
         examples=["GARAN", ["GARAN", "AKBNK", "THYAO"]]
     )],
     market: Annotated[MarketLiteral, Field(
@@ -712,24 +721,27 @@ async def screen_securities(
 
 
 @app.tool(
-    description="SCANNER: Scan BIST stocks by technical conditions (RSI, MACD, Supertrend, T3).",
-    tags=["stocks", "scanner", "technical", "readonly"]
+    name="scan_stocks",
+    title="Technical Stock Scanner",
+    description="Scan BIST stocks by technical indicators (RSI, MACD, Supertrend, T3). Use preset or custom condition.",
+    tags={"stocks", "scanner", "technical"},
+    annotations={"readOnlyHint": True, "openWorldHint": True}
 )
 async def scan_stocks(
     index: Annotated[IndexLiteral, Field(
-        description="BIST index: XU030, XU100, XBANK, XUSIN, XUMAL, XUHIZ, XUTEK, etc.",
+        description="BIST index to scan",
         examples=["XU030", "XU100", "XBANK"]
     )],
     condition: Annotated[Optional[str], Field(
-        description="Custom condition: 'RSI < 30', 'supertrend_direction == 1', 'close > t3 and RSI > 50'",
+        description="Custom: 'RSI < 30', 'supertrend_direction == 1'",
         default=None
     )] = None,
     preset: Annotated[Optional[ScanPresetLiteral], Field(
-        description="Preset strategy: oversold, bullish_momentum, supertrend_bullish, t3_bullish, high_volume, etc.",
+        description="Preset: oversold, bullish_momentum, supertrend_bullish, t3_bullish, high_volume",
         default=None
     )] = None,
     timeframe: Annotated[Literal["1d", "1h", "4h", "1W"], Field(
-        description="Timeframe: 1d (daily), 1h (hourly), 4h, 1W (weekly)",
+        description="Timeframe: 1d, 1h, 4h, 1W",
         default="1d"
     )] = "1d"
 ) -> ScannerResult:
