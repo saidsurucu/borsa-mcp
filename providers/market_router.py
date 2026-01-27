@@ -1173,14 +1173,26 @@ class MarketRouter:
                 try:
                     result = await self._client.calculate_buffett_value_analysis(ticker)
                     if result:
+                        # Extract numeric values from nested dicts
+                        oe_data = result.get("owner_earnings") or {}
+                        oe_yield_data = result.get("oe_yield") or {}
+                        dcf_data = result.get("dcf_fisher") or {}
+                        sm_data = result.get("safety_margin") or {}
+
+                        # Extract just the numeric values
+                        oe_value = oe_data.get("owner_earnings") if isinstance(oe_data, dict) else oe_data
+                        oe_yield_value = oe_yield_data.get("oe_yield") if isinstance(oe_yield_data, dict) else oe_yield_data
+                        dcf_value = dcf_data.get("intrinsic_per_share") if isinstance(dcf_data, dict) else dcf_data
+                        sm_value = sm_data.get("safety_margin") if isinstance(sm_data, dict) else sm_data
+
                         buffett = BuffettMetrics(
-                            owner_earnings=result.get("owner_earnings"),
-                            oe_yield=result.get("oe_yield"),
-                            dcf_intrinsic_value=result.get("dcf_fisher"),
-                            safety_margin=result.get("safety_margin"),
+                            owner_earnings=oe_value,
+                            oe_yield=oe_yield_value,
+                            dcf_intrinsic_value=dcf_value,
+                            safety_margin=sm_value,
                             buffett_score=result.get("buffett_score")
                         )
-                        insights.extend(result.get("insights") or [])
+                        insights.extend(result.get("key_insights") or [])
                         ratio_warnings.extend(result.get("warnings") or [])
                 except Exception as e:
                     ratio_warnings.append(f"Buffett analysis error: {str(e)}")
@@ -1189,17 +1201,34 @@ class MarketRouter:
                 try:
                     result = await self._client.calculate_core_financial_health(ticker)
                     if result:
+                        # Extract numeric values from nested dicts
+                        roe_data = result.get("roe") or {}
+                        roic_data = result.get("roic") or {}
+                        debt_data = result.get("debt_ratios") or {}
+                        fcf_data = result.get("fcf_margin") or {}
+                        eq_data = result.get("earnings_quality") or {}
+
+                        # Extract just the numeric values
+                        roe_value = roe_data.get("roe_percent") / 100.0 if isinstance(roe_data, dict) and roe_data.get("roe_percent") else None
+                        roic_value = roic_data.get("roic_percent") / 100.0 if isinstance(roic_data, dict) and roic_data.get("roic_percent") else None
+                        d_to_e = debt_data.get("debt_to_equity") if isinstance(debt_data, dict) else None
+                        d_to_a = debt_data.get("debt_to_assets") if isinstance(debt_data, dict) else None
+                        int_cov = debt_data.get("interest_coverage") if isinstance(debt_data, dict) else None
+                        fcf_value = fcf_data.get("fcf_margin_percent") / 100.0 if isinstance(fcf_data, dict) and fcf_data.get("fcf_margin_percent") else None
+                        eq_value = eq_data.get("cf_to_earnings_ratio") if isinstance(eq_data, dict) else None
+
                         core_health = CoreHealthMetrics(
-                            roe=result.get("roe"),
-                            roic=result.get("roic"),
-                            debt_to_equity=result.get("debt_to_equity"),
-                            debt_to_assets=result.get("debt_to_assets"),
-                            interest_coverage=result.get("interest_coverage"),
-                            fcf_margin=result.get("fcf_margin"),
-                            earnings_quality=result.get("earnings_quality"),
-                            health_score=result.get("health_score")
+                            roe=roe_value,
+                            roic=roic_value,
+                            debt_to_equity=d_to_e,
+                            debt_to_assets=d_to_a,
+                            interest_coverage=int_cov,
+                            fcf_margin=fcf_value,
+                            earnings_quality=eq_value,
+                            health_score=result.get("overall_health_score")
                         )
-                        insights.extend(result.get("insights") or [])
+                        insights.extend(result.get("strengths") or [])
+                        ratio_warnings.extend(result.get("concerns") or [])
                 except Exception as e:
                     ratio_warnings.append(f"Core health error: {str(e)}")
 
