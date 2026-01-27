@@ -1929,40 +1929,75 @@ class MarketRouter:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Compare multiple funds side by side. Returns raw dict."""
-        source = "tefas"
+        """Compare multiple funds side by side using borsapy. Returns raw dict."""
+        import borsapy as bp
+        from datetime import datetime, timedelta
 
-        result = await self._client.compare_funds_advanced(
-            fund_codes=fund_codes,
-            fund_type=fund_type,
-            start_date=start_date,
-            end_date=end_date
-        )
-
+        source = "borsapy"
         funds = []
-        comparison_date = None
+        comparison_date = datetime.now().strftime('%Y-%m-%d')
+        warnings = []
 
-        if result and result.get("funds"):
-            for f in result["funds"]:
-                funds.append({
-                    "code": f.get("kod", ""),
-                    "name": f.get("ad", ""),
-                    "category": f.get("kategori", ""),
-                    "company": f.get("kurulus", ""),
-                    "price": f.get("fiyat"),
-                    "daily_return": f.get("gunluk_getiri"),
-                    "weekly_return": f.get("haftalik_getiri"),
-                    "monthly_return": f.get("aylik_getiri"),
-                    "three_month_return": f.get("uc_aylik_getiri"),
-                    "six_month_return": f.get("alti_aylik_getiri"),
-                    "ytd_return": f.get("yilbasi_getiri"),
-                    "one_year_return": f.get("yillik_getiri"),
-                    "total_assets": f.get("toplam_deger")
-                })
-            comparison_date = result.get("tarih")
+        for fund_code in fund_codes[:10]:  # Max 10 funds
+            try:
+                fund = bp.Fund(fund_code.upper())
+                info = fund.info
+
+                if info:
+                    # Calculate weekly return from history if not provided
+                    weekly_return = info.get("weekly_return")
+                    if weekly_return is None:
+                        try:
+                            week_start = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+                            hist = fund.history(start=week_start)
+                            if hist is not None and len(hist) >= 2:
+                                first_price = hist['Price'].iloc[0]
+                                last_price = hist['Price'].iloc[-1]
+                                weekly_return = round(((last_price / first_price) - 1) * 100, 2)
+                        except Exception:
+                            pass
+
+                    # Calculate custom range return if dates provided
+                    custom_return = None
+                    if start_date:
+                        try:
+                            hist = fund.history(start=start_date, end=end_date)
+                            if hist is not None and len(hist) >= 2:
+                                first_price = hist['Price'].iloc[0]
+                                last_price = hist['Price'].iloc[-1]
+                                custom_return = round(((last_price / first_price) - 1) * 100, 2)
+                        except Exception:
+                            pass
+
+                    funds.append({
+                        "code": info.get("fund_code"),
+                        "name": info.get("name"),
+                        "category": info.get("category"),
+                        "company": info.get("founder"),
+                        "price": info.get("price"),
+                        "daily_return": info.get("daily_return"),
+                        "weekly_return": weekly_return,
+                        "monthly_return": info.get("return_1m"),
+                        "three_month_return": info.get("return_3m"),
+                        "six_month_return": info.get("return_6m"),
+                        "ytd_return": info.get("return_ytd"),
+                        "one_year_return": info.get("return_1y"),
+                        "three_year_return": info.get("return_3y"),
+                        "five_year_return": info.get("return_5y"),
+                        "total_assets": info.get("fund_size"),
+                        "investor_count": info.get("investor_count"),
+                        "custom_return": custom_return
+                    })
+            except Exception as e:
+                warnings.append(f"{fund_code}: {str(e)}")
+                logger.warning(f"Error fetching fund {fund_code}: {e}")
 
         return {
-            "metadata": self._create_metadata(MarketType.FUND, fund_codes, source),
+            "metadata": self._create_metadata(
+                MarketType.FUND, fund_codes, source,
+                successful=len(funds), failed=len(fund_codes) - len(funds),
+                warnings=warnings
+            ),
             "funds": funds,
             "comparison_date": comparison_date
         }
