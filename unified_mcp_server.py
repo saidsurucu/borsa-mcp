@@ -1202,6 +1202,147 @@ async def get_fund_data(
         raise ToolError(f"Fund data fetch failed: {str(e)}")
 
 
+@app.tool(
+    name="screen_funds",
+    title="Screen Turkish Mutual Funds",
+    description="Screen and filter TEFAS funds by type, category, returns, and sort criteria. Find top performing funds.",
+    tags={"funds", "screener"},
+    annotations={"readOnlyHint": True}
+)
+async def screen_funds(
+    fund_type: Annotated[Literal["YAT", "EMK"], Field(
+        description="Fund type: YAT=Investment Funds (Yatırım Fonları), EMK=Pension Funds (Emeklilik Fonları)",
+        examples=["YAT", "EMK"]
+    )] = "YAT",
+    category: Annotated[Optional[str], Field(
+        description="Fund category filter (e.g., 'Para Piyasası', 'Değişken', 'Hisse Senedi', 'Borçlanma Araçları')",
+        examples=["Para Piyasası", "Değişken", "Hisse Senedi"]
+    )] = None,
+    min_return_1m: Annotated[Optional[float], Field(
+        description="Minimum 1-month return (%)",
+        examples=[5.0, 10.0]
+    )] = None,
+    min_return_1y: Annotated[Optional[float], Field(
+        description="Minimum 1-year return (%)",
+        examples=[20.0, 50.0]
+    )] = None,
+    sort_by: Annotated[Literal["return_1m", "return_3m", "return_6m", "return_1y", "return_3y", "weekly_return"], Field(
+        description="Sort results by this return period",
+        examples=["return_1y", "weekly_return"]
+    )] = "return_1y",
+    limit: Annotated[int, Field(
+        description="Maximum number of results (1-100)",
+        ge=1,
+        le=100
+    )] = 20
+) -> Dict[str, Any]:
+    """
+    Screen Turkish mutual funds (TEFAS) with filtering and sorting.
+
+    Features:
+    - Filter by fund type (Investment vs Pension)
+    - Filter by category (Para Piyasası, Değişken, Hisse Senedi, etc.)
+    - Filter by minimum returns
+    - Sort by any return period including weekly
+    - Calculates weekly return (5 business days) for all funds
+
+    Examples:
+    - screen_funds() → Top 20 funds by 1-year return
+    - screen_funds(category="Para Piyasası", sort_by="weekly_return") → Money market funds by weekly return
+    - screen_funds(min_return_1y=50, limit=10) → Top 10 funds with >50% yearly return
+    """
+    import borsapy as bp
+    from datetime import datetime, timedelta
+
+    logger.info(f"screen_funds: type={fund_type}, category={category}, sort_by={sort_by}")
+
+    try:
+        # Get base fund list from borsapy
+        df = bp.screen_funds(
+            fund_type=fund_type,
+            min_return_1m=min_return_1m,
+            min_return_1y=min_return_1y,
+            limit=100  # Get more, we'll filter and sort ourselves
+        )
+
+        if df is None or len(df) == 0:
+            return {
+                "metadata": {"source": "borsapy", "timestamp": datetime.now().isoformat()},
+                "funds": [],
+                "total_count": 0
+            }
+
+        funds = []
+        for _, row in df.iterrows():
+            fund_code = row.get('fund_code')
+            if not fund_code:
+                continue
+
+            # Get full fund info including category and calculate weekly return
+            try:
+                fund = bp.Fund(fund_code)
+                info = fund.info
+
+                # Category filter
+                fund_category = info.get('category', '')
+                if category and category.lower() not in fund_category.lower():
+                    continue
+
+                # Calculate weekly return (5 business days)
+                weekly_return = None
+                try:
+                    hist = fund.history(start=(datetime.now() - timedelta(days=10)).strftime('%Y-%m-%d'))
+                    if hist is not None and len(hist) >= 6:
+                        # Get last 6 data points (5 business days + today)
+                        last_6 = hist.tail(6)
+                        first_price = last_6['Price'].iloc[0]
+                        last_price = last_6['Price'].iloc[-1]
+                        weekly_return = round(((last_price / first_price) - 1) * 100, 4)
+                except Exception:
+                    pass
+
+                funds.append({
+                    "code": fund_code,
+                    "name": info.get('name', row.get('name', '')),
+                    "category": fund_category,
+                    "daily_return": info.get('daily_return'),
+                    "weekly_return": weekly_return,
+                    "return_1m": info.get('return_1m') or row.get('return_1m'),
+                    "return_3m": info.get('return_3m') or row.get('return_3m'),
+                    "return_6m": info.get('return_6m') or row.get('return_6m'),
+                    "return_1y": info.get('return_1y') or row.get('return_1y'),
+                    "return_3y": info.get('return_3y') or row.get('return_3y'),
+                    "fund_size": info.get('fund_size'),
+                    "investor_count": info.get('investor_count')
+                })
+            except Exception as e:
+                logger.debug(f"Error getting fund {fund_code}: {e}")
+                continue
+
+        # Sort by requested field
+        if sort_by and funds:
+            funds.sort(key=lambda x: x.get(sort_by) or -999999, reverse=True)
+
+        # Apply limit
+        funds = funds[:limit]
+
+        return {
+            "metadata": {
+                "source": "borsapy",
+                "timestamp": datetime.now().isoformat(),
+                "fund_type": fund_type,
+                "category_filter": category,
+                "sort_by": sort_by
+            },
+            "funds": funds,
+            "total_count": len(funds)
+        }
+
+    except Exception as e:
+        logger.exception(f"Error in screen_funds")
+        raise ToolError(f"Fund screening failed: {str(e)}")
+
+
 # =============================================================================
 # INDEX TOOLS (1 tool)
 # =============================================================================

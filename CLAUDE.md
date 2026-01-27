@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **unified MCP (Model Context Protocol) server** for BIST (Istanbul Stock Exchange), US stocks, cryptocurrencies, mutual funds, and FX data. The server consolidates 81 legacy tools into **26 unified, function-based tools** with market routing.
+This is a **unified MCP (Model Context Protocol) server** for BIST (Istanbul Stock Exchange), US stocks, cryptocurrencies, mutual funds, and FX data. The server consolidates 81 legacy tools into **27 unified, function-based tools** with market routing.
 
 **⭐ MAJOR CONSOLIDATION (v0.9.0):**
-- **81 tools → 26 unified tools** (68% reduction)
+- **81 tools → 27 unified tools** (68% reduction)
 - **Market-based routing**: Single tool handles BIST, US, crypto via `market` parameter
 - **Multi-ticker parallel execution**: 75% faster batch queries
 - **Unified response models**: Consistent data structures across all markets
@@ -27,7 +27,7 @@ This is a **unified MCP (Model Context Protocol) server** for BIST (Istanbul Sto
 The project follows a **unified router pattern** with market-based routing:
 
 ### Core Files
-- **unified_mcp_server.py**: Main FastMCP server with 26 unified tools (v0.9.0+)
+- **unified_mcp_server.py**: Main FastMCP server with 27 unified tools (v0.9.0+)
 - **providers/market_router.py**: Market routing layer that dispatches to providers
 - **models/unified_base.py**: Unified response models and enums (84 exports)
 - **borsa_mcp_server.py**: Legacy server with 81 tools (kept as fallback)
@@ -109,10 +109,11 @@ uv run test_tefas_provider.py
 | `get_sector_comparison` | Sector peers and average metrics |
 | `get_macro_data` | Turkish inflation data (TÜFE/ÜFE) and inflation calculator |
 
-### Fund & Index Tools (2 tools)
+### Fund & Index Tools (3 tools)
 | Tool | Description |
 |------|-------------|
 | `get_fund_data` | TEFAS mutual fund data with portfolio/performance + multi-fund comparison |
+| `screen_funds` | Screen/filter TEFAS funds by type, category, returns with weekly return calculation |
 | `get_index_data` | Stock market index data with components (BIST + US) |
 
 ### Help & Documentation Tools (3 tools)
