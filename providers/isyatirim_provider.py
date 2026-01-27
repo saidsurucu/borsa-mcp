@@ -756,14 +756,18 @@ class IsYatirimProvider:
 
             # FD/Satışlar needs revenue - try to get from income statement
             fd_satislar = None
+            revenue = None
             try:
                 income = ticker.income_stmt
                 if income is not None and not income.empty:
-                    # Get latest revenue (first column after sorting)
-                    if "Total Revenue" in income.index:
-                        revenue = income.loc["Total Revenue"].iloc[0]
-                        if revenue and revenue > 0 and enterprise_value:
-                            fd_satislar = round(enterprise_value / revenue, 2)
+                    # Look for "Satış Gelirleri" (Turkish) or "Total Revenue" (English)
+                    for rev_key in ["Satış Gelirleri", "Total Revenue"]:
+                        if rev_key in income.index:
+                            revenue = income.loc[rev_key].iloc[0]
+                            break
+
+                    if revenue and revenue > 0 and enterprise_value:
+                        fd_satislar = round(enterprise_value / revenue, 2)
             except Exception as e:
                 logger.debug(f"Could not get revenue for FD/Satışlar: {e}")
 
@@ -790,6 +794,7 @@ class IsYatirimProvider:
                 "piyasa_degeri": round(market_cap, 0) if market_cap else None,
                 "firma_degeri": round(enterprise_value, 0) if enterprise_value else None,
                 "net_borc": round(net_debt, 0) if net_debt else None,
+                "satis_gelirleri": round(revenue, 0) if revenue else None,
                 "temettu_verimi": info.get("dividendYield"),
 
                 # Additional info
