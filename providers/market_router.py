@@ -20,7 +20,7 @@ from models.unified_base import (
     DividendInfo, StockSplitInfo, EarningsEvent, FinancialStatement,
     ValuationRatios, BuffettMetrics, CoreHealthMetrics, AdvancedMetrics,
     CapitalIncrease, NewsItem, ScreenedStock, ScannedStock,
-    CryptoTicker, CryptoOrderbook, CryptoOrderbookLevel, CryptoTrade, FXRate, FundInfo,
+    CryptoTicker, CryptoOrderbook, CryptoOrderbookLevel, CryptoTrade, FXRate, FundInfo, FundPortfolioItem,
     IndexInfo, IndexComponent, SectorStock,
     # New models for expanded features
     IslamicComplianceInfo, FundComparisonItem, FundComparisonResult,
@@ -1693,11 +1693,13 @@ class MarketRouter:
             )
 
         if include_portfolio:
-            result = await self._client.get_fund_portfolio(symbol)
-            if result and result.varlik_gruplari:
+            # Get raw portfolio data from provider (returns dict with son_portfoy_dagilimi)
+            raw_portfolio = self._client.tefas_provider.get_fund_portfolio(symbol)
+            if raw_portfolio and raw_portfolio.get('son_portfoy_dagilimi'):
+                allocation = raw_portfolio['son_portfoy_dagilimi']
                 portfolio = [
-                    {"asset_type": g.grup_adi, "weight": g.yuzde, "value": g.deger}
-                    for g in result.varlik_gruplari
+                    FundPortfolioItem(asset_type=k, weight=v)
+                    for k, v in allocation.items()
                 ]
 
         if include_performance:

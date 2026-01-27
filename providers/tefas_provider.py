@@ -453,7 +453,7 @@ class TefasProvider:
             
             headers = {
                 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
                 'Accept': 'application/json, text/plain, */*',
                 'Accept-Language': 'tr-TR,tr;q=0.9'
             }
