@@ -1606,40 +1606,52 @@ class MarketRouter:
         include_portfolio: bool = False,
         include_performance: bool = False
     ) -> Dict[str, Any]:
-        """Get mutual fund data. Returns raw dict."""
-        source = "tefas"
+        """Get mutual fund data using borsapy. Returns raw dict."""
+        import borsapy as bp
+
+        source = "borsapy"
         fund_info = None
         portfolio = None
         performance = None
 
-        result = await self._client.get_fund_detail(symbol)
-        if result and result.fon_kodu:
-            fund_info = {
-                "code": result.fon_kodu,
-                "name": result.fon_adi,
-                "category": result.fon_turu,
-                "company": result.kurulus,
-                "price": result.fiyat,
-                "total_assets": result.toplam_deger,
-                "investor_count": result.yatirimci_sayisi
-            }
+        try:
+            fund = bp.Fund(symbol.upper())
+            info = fund.info
 
-        if include_portfolio:
-            raw_portfolio = self._client.tefas_provider.get_fund_portfolio(symbol)
-            if raw_portfolio and raw_portfolio.get('son_portfoy_dagilimi'):
-                allocation = raw_portfolio['son_portfoy_dagilimi']
-                portfolio = [
-                    {"asset_type": k, "weight": v}
-                    for k, v in allocation.items()
-                ]
+            if info:
+                fund_info = {
+                    "code": info.get("fund_code"),
+                    "name": info.get("name"),
+                    "category": info.get("category"),
+                    "company": info.get("founder"),
+                    "price": info.get("price"),
+                    "total_assets": info.get("fund_size"),
+                    "investor_count": info.get("investor_count"),
+                    "daily_return": info.get("daily_return"),
+                    "weekly_return": info.get("weekly_return"),
+                    "return_1m": info.get("return_1m"),
+                    "return_3m": info.get("return_3m"),
+                    "return_6m": info.get("return_6m"),
+                    "return_ytd": info.get("return_ytd"),
+                    "return_1y": info.get("return_1y"),
+                    "return_3y": info.get("return_3y"),
+                    "return_5y": info.get("return_5y"),
+                    "category_rank": info.get("category_rank"),
+                    "category_fund_count": info.get("category_fund_count"),
+                    "market_share": info.get("market_share"),
+                    "isin": info.get("isin"),
+                    "kap_link": info.get("kap_link")
+                }
 
-        if include_performance:
-            result = await self._client.get_fund_performance(symbol)
-            if result and result.fiyat_noktalari:
-                performance = [
-                    {"date": p.tarih, "price": p.fiyat, "portfolio_size": p.portfoy_buyuklugu}
-                    for p in result.fiyat_noktalari
-                ]
+                # Portfolio allocation from borsapy
+                if include_portfolio and info.get("allocation"):
+                    portfolio = [
+                        {"asset_type": a.get("asset_type"), "asset_name": a.get("asset_name"), "weight": a.get("weight")}
+                        for a in info.get("allocation", [])
+                    ]
+
+        except Exception as e:
+            logger.warning(f"borsapy fund error for {symbol}: {e}")
 
         return {
             "metadata": self._create_metadata(MarketType.FUND, symbol, source),
