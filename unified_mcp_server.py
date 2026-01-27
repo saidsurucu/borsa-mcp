@@ -1130,7 +1130,7 @@ async def get_bond_yields(
 @app.tool(
     name="get_fund_data",
     title="Mutual Fund Data",
-    description="Get TEFAS fund info, portfolio allocation, performance, or compare multiple funds.",
+    description="Get TEFAS fund info with returns (daily/weekly/1m/3m/6m/1y/3y/5y), portfolio, or compare funds. Supports custom date range.",
     tags={"funds"},
     annotations={"readOnlyHint": True}
 )
@@ -1150,7 +1150,17 @@ async def get_fund_data(
     compare_mode: Annotated[bool, Field(
         description="Enable comparison mode for multiple funds",
         default=False
-    )] = False
+    )] = False,
+    start_date: Annotated[Optional[str], Field(
+        description="Custom range start date (YYYY-MM-DD) for calculating custom_return",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2024-01-01", "2025-06-15"]
+    )] = None,
+    end_date: Annotated[Optional[str], Field(
+        description="Custom range end date (YYYY-MM-DD). Defaults to today if start_date is set",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2024-12-31", "2026-01-15"]
+    )] = None
 ) -> Dict[str, Any]:
     """
     Get Turkish mutual fund (TEFAS) data or compare multiple funds.
@@ -1158,19 +1168,20 @@ async def get_fund_data(
     Modes:
     1. Single fund: Get detailed fund info with optional portfolio/performance
     2. Comparison: Compare multiple funds side by side
+    3. Custom range: Calculate return between specific dates
 
     836+ funds from Takasbank with:
     - Fund profile: Name, category, management company
-    - Price and returns
-    - Total assets and investor count
-    - Portfolio allocation (optional, single fund)
-    - Performance history (optional, single fund)
-    - Side-by-side comparison (multiple funds)
+    - Returns: daily, weekly, 1m, 3m, 6m, YTD, 1y, 3y, 5y
+    - Custom range return (start_date/end_date)
+    - Portfolio allocation (optional)
+    - Side-by-side comparison
 
     Examples:
-    - get_fund_data("AAK") → Basic fund info
-    - get_fund_data("TI2", include_portfolio=True) → With portfolio
-    - get_fund_data(["AAK", "TI2", "ZBE"], compare_mode=True) → Fund comparison
+    - get_fund_data("TPC") → Basic fund info with all returns
+    - get_fund_data("TPC", include_portfolio=True) → With portfolio
+    - get_fund_data("TPC", start_date="2025-01-01") → Custom range return
+    - get_fund_data(["AAK", "TI2"], compare_mode=True) → Fund comparison
     """
     logger.info(f"get_fund_data: symbol='{symbol}', compare_mode={compare_mode}")
     try:
@@ -1183,10 +1194,11 @@ async def get_fund_data(
         else:
             # Single fund mode
             return await market_router.get_fund_data(
-                symbol_list[0], include_portfolio, include_performance
+                symbol_list[0], include_portfolio, include_performance,
+                start_date, end_date
             )
     except Exception as e:
-        logger.exception(f"Error in get_fund_data for '{symbols}'")
+        logger.exception(f"Error in get_fund_data for '{symbol}'")
         raise ToolError(f"Fund data fetch failed: {str(e)}")
 
 

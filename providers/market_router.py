@@ -1604,21 +1604,64 @@ class MarketRouter:
         self,
         symbol: str,
         include_portfolio: bool = False,
-        include_performance: bool = False
+        include_performance: bool = False,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Get mutual fund data using borsapy. Returns raw dict."""
+        """Get mutual fund data using borsapy. Returns raw dict.
+
+        Args:
+            symbol: Fund code (e.g., TPC, IPB)
+            include_portfolio: Include portfolio allocation
+            include_performance: Include performance history
+            start_date: Custom range start (YYYY-MM-DD) for calculating custom_return
+            end_date: Custom range end (YYYY-MM-DD) for calculating custom_return
+        """
         import borsapy as bp
+        from datetime import datetime, timedelta
 
         source = "borsapy"
         fund_info = None
         portfolio = None
         performance = None
+        custom_return = None
 
         try:
             fund = bp.Fund(symbol.upper())
             info = fund.info
 
             if info:
+                # Calculate weekly return from history if not provided
+                weekly_return = info.get("weekly_return")
+                if weekly_return is None:
+                    try:
+                        week_start = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+                        hist = fund.history(start=week_start)
+                        if hist is not None and len(hist) >= 2:
+                            first_price = hist['Price'].iloc[0]
+                            last_price = hist['Price'].iloc[-1]
+                            weekly_return = round(((last_price / first_price) - 1) * 100, 2)
+                    except Exception as e:
+                        logger.debug(f"Could not calculate weekly return for {symbol}: {e}")
+
+                # Calculate custom range return if dates provided
+                if start_date:
+                    try:
+                        hist = fund.history(start=start_date, end=end_date)
+                        if hist is not None and len(hist) >= 2:
+                            first_price = hist['Price'].iloc[0]
+                            last_price = hist['Price'].iloc[-1]
+                            custom_return = {
+                                "start_date": start_date,
+                                "end_date": end_date or datetime.now().strftime('%Y-%m-%d'),
+                                "start_price": round(first_price, 4),
+                                "end_price": round(last_price, 4),
+                                "return_percent": round(((last_price / first_price) - 1) * 100, 2),
+                                "days": len(hist)
+                            }
+                    except Exception as e:
+                        logger.debug(f"Could not calculate custom return for {symbol}: {e}")
+
                 fund_info = {
                     "code": info.get("fund_code"),
                     "name": info.get("name"),
@@ -1628,7 +1671,7 @@ class MarketRouter:
                     "total_assets": info.get("fund_size"),
                     "investor_count": info.get("investor_count"),
                     "daily_return": info.get("daily_return"),
-                    "weekly_return": info.get("weekly_return"),
+                    "weekly_return": weekly_return,
                     "return_1m": info.get("return_1m"),
                     "return_3m": info.get("return_3m"),
                     "return_6m": info.get("return_6m"),
@@ -1657,7 +1700,8 @@ class MarketRouter:
             "metadata": self._create_metadata(MarketType.FUND, symbol, source),
             "fund": fund_info,
             "portfolio": portfolio,
-            "performance_history": performance
+            "performance_history": performance,
+            "custom_return": custom_return
         }
 
     # --- Index Data ---
