@@ -928,6 +928,31 @@ class MarketRouter:
                         "quarterly_earnings_growth": getattr(bv, 'ceyreklik_kazanc_buyumesi', None)
                     }
 
+            # Fallback to TradingView if yfinance has no data
+            if not next_date and not earnings_history:
+                try:
+                    from providers.borsapy_scanner_provider import BorsapyScannerProvider
+                    scanner = BorsapyScannerProvider()
+                    tv_data = await scanner.get_earnings_data(symbol)
+                    if tv_data:
+                        source = "tradingview"
+                        next_date = tv_data.get("earnings_release_next_date")
+                        last_date = tv_data.get("earnings_release_date")
+                        if last_date:
+                            earnings_history.append({
+                                "date": last_date,
+                                "eps_estimate": tv_data.get("eps_forecast_next_fq"),
+                                "eps_actual": tv_data.get("eps_basic_ttm"),
+                                "surprise_percent": None
+                            })
+                        growth_estimates = {
+                            "eps_ttm": tv_data.get("eps_basic_ttm"),
+                            "eps_diluted_ttm": tv_data.get("eps_diluted_ttm"),
+                            "eps_forecast_next_fq": tv_data.get("eps_forecast_next_fq")
+                        }
+                except Exception as e:
+                    logger.warning(f"TradingView earnings fallback failed for {symbol}: {e}")
+
         elif market == MarketType.US:
             result = await self._client.get_us_earnings(symbol)
             if result:
@@ -1817,10 +1842,19 @@ class MarketRouter:
         last_updated = None
 
         if result:
-            is_compliant = result.get("uygun", False)
-            compliance_status = result.get("durum", "Bilinmiyor")
-            compliance_details = result.get("detay", "")
-            last_updated = result.get("guncelleme_tarihi", "")
+            # Handle both Pydantic model and dict responses
+            if hasattr(result, 'katilim_endeksi_dahil'):
+                # Pydantic model (KatilimFinansUygunlukSonucu)
+                is_compliant = result.katilim_endeksi_dahil if result.katilim_endeksi_dahil else False
+                compliance_status = "Uygun" if is_compliant else ("Veri bulunamadı" if not result.veri_bulundu else "Uygun Değil")
+                compliance_details = ", ".join(result.katilim_endeksleri) if result.katilim_endeksleri else None
+                last_updated = None
+            elif hasattr(result, 'get'):
+                # Dict response
+                is_compliant = result.get("katilim_endeksi_dahil", result.get("uygun", False))
+                compliance_status = result.get("durum", "Bilinmiyor")
+                compliance_details = result.get("detay", "")
+                last_updated = result.get("guncelleme_tarihi", "")
 
         return {
             "is_compliant": is_compliant,

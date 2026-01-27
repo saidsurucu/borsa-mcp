@@ -665,3 +665,81 @@ Ornekler:
             ema_periods=self.EMA_PERIODS,
             notes=notes
         )
+
+    async def get_earnings_data(self, symbol: str) -> Optional[Dict]:
+        """
+        Get earnings data for a BIST stock from TradingView scanner API.
+
+        Returns dict with:
+        - earnings_release_date: Last earnings release date
+        - earnings_release_next_date: Next earnings release date
+        - eps_basic_ttm: Earnings per share (TTM)
+        - eps_diluted_ttm: Diluted EPS (TTM)
+        - eps_forecast_next_fq: EPS forecast for next quarter
+        """
+        import httpx
+        from datetime import datetime as dt
+
+        try:
+            url = "https://scanner.tradingview.com/turkey/scan"
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+            }
+
+            # TradingView ticker format for BIST
+            ticker = f"BIST:{symbol.upper().replace('.IS', '')}"
+
+            payload = {
+                "filter": [{"left": "exchange", "operation": "equal", "right": "BIST"}],
+                "symbols": {"query": {"types": []}, "tickers": [ticker]},
+                "columns": [
+                    "name",
+                    "earnings_release_date",
+                    "earnings_release_next_date",
+                    "earnings_per_share_basic_ttm",
+                    "earnings_per_share_diluted_ttm",
+                    "earnings_per_share_forecast_next_fq"
+                ],
+                "range": [0, 1]
+            }
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+
+            if not data.get("data"):
+                logger.warning(f"No earnings data from TradingView for {symbol}")
+                return None
+
+            row = data["data"][0].get("d", [])
+            if len(row) < 6:
+                return None
+
+            # Convert Unix timestamps to ISO dates
+            def ts_to_date(ts):
+                if ts and isinstance(ts, (int, float)) and ts > 0:
+                    try:
+                        return dt.fromtimestamp(ts).strftime("%Y-%m-%d")
+                    except:
+                        return None
+                return None
+
+            result = {
+                "symbol": symbol,
+                "name": row[0],
+                "earnings_release_date": ts_to_date(row[1]),
+                "earnings_release_next_date": ts_to_date(row[2]),
+                "eps_basic_ttm": row[3] if row[3] else None,
+                "eps_diluted_ttm": row[4] if row[4] else None,
+                "eps_forecast_next_fq": row[5] if row[5] else None,
+                "source": "tradingview"
+            }
+
+            logger.info(f"Got TradingView earnings for {symbol}: next={result['earnings_release_next_date']}")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error fetching TradingView earnings for {symbol}: {e}")
+            return None
