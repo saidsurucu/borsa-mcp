@@ -710,121 +710,103 @@ class IsYatirimProvider:
         except (ValueError, TypeError):
             return None
 
-    # ========== FINANCIAL RATIOS CALCULATION ==========
+    # ========== FINANCIAL RATIOS (from borsapy) ==========
 
     async def get_finansal_oranlar(self, ticker_kodu: str) -> Dict[str, Any]:
         """
-        Calculate financial ratios from İş Yatırım data.
+        Get pre-calculated financial ratios from borsapy (TradingView/İş Yatırım data).
 
-        Calculates:
-        - F/K (P/E): Market Cap / Net Income
-        - FD/FAVÖK (EV/EBITDA): Enterprise Value / EBITDA
-        - FD/Satışlar (EV/Sales): Enterprise Value / Sales
-        - PD/DD (P/B): Market Cap / Book Value
+        Returns:
+        - F/K (P/E): trailingPE from borsapy
+        - FD/FAVÖK (EV/EBITDA): enterpriseToEbitda from borsapy
+        - FD/Satışlar (EV/Sales): Calculated from enterpriseValue / revenue
+        - PD/DD (P/B): priceToBook from borsapy
 
         Args:
-            ticker_kodu: Ticker symbol (e.g., MEGAP, GARAN)
+            ticker_kodu: Ticker symbol (e.g., AEFES, GARAN)
 
         Returns:
             Dict with financial ratios and supporting data
         """
         try:
-            # 1. Get price data from OneEndeks
-            price_data = await self.get_one_endeks(ticker_kodu)
+            import borsapy as bp
 
-            if price_data.get("error"):
-                return {"error": price_data["error"], "ticker_kodu": ticker_kodu}
+            # Get ticker info from borsapy (uses TradingView data)
+            ticker = bp.Ticker(ticker_kodu.upper())
+            info = ticker.info
 
-            # 2. Get financial statements from MaliTablo (cached)
-            balance = await self.get_bilanco(ticker_kodu, "quarterly")
-            income = await self.get_kar_zarar(ticker_kodu, "quarterly")
-            cash_flow = await self.get_nakit_akisi(ticker_kodu, "quarterly")
+            if not info:
+                return {"error": f"No data for {ticker_kodu}", "ticker_kodu": ticker_kodu}
 
-            # 3. Extract values from OneEndeks
-            last_price = price_data.get("last")
-            equity = price_data.get("equity")  # Book value (Özkaynaklar)
-            net_income = price_data.get("netProceeds")  # Net income (TTM)
-            capital = price_data.get("capital")  # Paid-in capital
-            company_name = price_data.get("title")
+            # Extract pre-calculated ratios
+            fk_orani = info.get("trailingPE")  # P/E
+            fd_favok = info.get("enterpriseToEbitda")  # EV/EBITDA
+            pd_dd = info.get("priceToBook")  # P/B
 
-            if not last_price or not capital:
-                return {
-                    "error": "Missing price or capital data",
-                    "ticker_kodu": ticker_kodu
-                }
+            # Extract supporting data
+            market_cap = info.get("marketCap")
+            net_debt = info.get("netDebt")
+            last_price = info.get("last") or info.get("prev_close")
+            company_name = info.get("description")
 
-            # 4. Calculate market cap (shares = capital / 1 TL nominal)
-            shares_outstanding = capital  # 1 TL nominal value
-            market_cap = last_price * shares_outstanding
+            # Calculate enterprise value
+            enterprise_value = None
+            if market_cap is not None and net_debt is not None:
+                enterprise_value = market_cap + net_debt
 
-            # 5. Extract from financial statements
-            total_debt = self._extract_latest_value(balance.get("tablo", []), "Total Debt")
-            cash = self._extract_latest_value(balance.get("tablo", []), "Cash And Cash Equivalents")
-            revenue = self._extract_latest_value(income.get("tablo", []), "Total Revenue")
-            operating_income = self._extract_latest_value(income.get("tablo", []), "Operating Income")
-            depreciation = self._extract_latest_value(cash_flow.get("tablo", []), "Reconciled Depreciation")
+            # FD/Satışlar needs revenue - try to get from income statement
+            fd_satislar = None
+            try:
+                income = ticker.income_stmt
+                if income is not None and not income.empty:
+                    # Get latest revenue (first column after sorting)
+                    if "Total Revenue" in income.index:
+                        revenue = income.loc["Total Revenue"].iloc[0]
+                        if revenue and revenue > 0 and enterprise_value:
+                            fd_satislar = round(enterprise_value / revenue, 2)
+            except Exception as e:
+                logger.debug(f"Could not get revenue for FD/Satışlar: {e}")
 
-            # 6. Calculate derived values
-            net_debt = (total_debt or 0) - (cash or 0)
-            enterprise_value = market_cap + net_debt
+            # Round ratios for display
+            if fk_orani is not None:
+                fk_orani = round(fk_orani, 2)
+            if fd_favok is not None:
+                fd_favok = round(fd_favok, 2)
+            if pd_dd is not None:
+                pd_dd = round(pd_dd, 2)
 
-            # EBITDA approximation: Operating Income + Depreciation & Amortization
-            ebitda = None
-            if operating_income is not None:
-                ebitda = operating_income + abs(depreciation or 0)
-
-            # Get latest period for reporting
-            son_donem = self._get_latest_period(balance.get("tablo", []))
-
-            # 7. Calculate ratios
-            fk_orani = None  # P/E
-            if net_income and net_income > 0:
-                fk_orani = round(market_cap / net_income, 2)
-
-            fd_favok = None  # EV/EBITDA
-            if ebitda and ebitda > 0:
-                fd_favok = round(enterprise_value / ebitda, 2)
-
-            fd_satislar = None  # EV/Sales
-            if revenue and revenue > 0:
-                fd_satislar = round(enterprise_value / revenue, 2)
-
-            pd_dd = None  # P/B
-            if equity and equity > 0:
-                pd_dd = round(market_cap / equity, 2)
-
-            # 8. Build result
             result = {
                 "ticker_kodu": ticker_kodu.upper(),
                 "sirket_adi": company_name,
-                "son_donem": son_donem,
                 "kapanis_fiyati": last_price,
 
-                # Core Ratios
+                # Core Ratios (pre-calculated from borsapy/TradingView)
                 "fk_orani": fk_orani,  # P/E
                 "fd_favok": fd_favok,  # EV/EBITDA
                 "fd_satislar": fd_satislar,  # EV/Sales
                 "pd_dd": pd_dd,  # P/B
 
                 # Supporting Data
-                "piyasa_degeri": round(market_cap, 0) if market_cap else None,  # Market Cap
-                "firma_degeri": round(enterprise_value, 0) if enterprise_value else None,  # Enterprise Value
-                "net_borc": round(net_debt, 0) if net_debt else None,  # Net Debt
-                "ozkaynaklar": equity,  # Book Value
-                "net_kar": net_income,  # Net Income
-                "favok": round(ebitda, 0) if ebitda else None,  # EBITDA
-                "satis_gelirleri": revenue,  # Revenue
+                "piyasa_degeri": round(market_cap, 0) if market_cap else None,
+                "firma_degeri": round(enterprise_value, 0) if enterprise_value else None,
+                "net_borc": round(net_debt, 0) if net_debt else None,
+                "temettu_verimi": info.get("dividendYield"),
+
+                # Additional info
+                "52_hafta_en_yuksek": info.get("fiftyTwoWeekHigh"),
+                "52_hafta_en_dusuk": info.get("fiftyTwoWeekLow"),
+                "yabanci_orani": info.get("foreignRatio"),
 
                 # Metadata
-                "kaynak": "İş Yatırım",
+                "kaynak": "borsapy (TradingView)",
                 "guncelleme_tarihi": datetime.now().isoformat()
             }
 
-            logger.info(f"Finansal oranlar calculated for {ticker_kodu}: F/K={fk_orani}, PD/DD={pd_dd}")
+            logger.info(f"Finansal oranlar fetched for {ticker_kodu}: F/K={fk_orani}, FD/FAVÖK={fd_favok}, PD/DD={pd_dd}")
             return result
 
         except Exception as e:
-            logger.exception(f"Error calculating financial ratios for {ticker_kodu}")
+            logger.exception(f"Error fetching financial ratios for {ticker_kodu}")
             return {"error": str(e), "ticker_kodu": ticker_kodu}
 
     def _extract_latest_value(self, tablo: List[Dict], field_name: str) -> Optional[float]:
