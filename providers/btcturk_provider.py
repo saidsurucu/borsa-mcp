@@ -323,19 +323,17 @@ class BtcTurkProvider:
                 tickers = filtered_tickers
             
             return KriptoTickerSonucu(
-                tickers=tickers,
-                toplam_cift=len(tickers),
-                pair_symbol=pair_symbol,
-                quote_currency=quote_currency
+                ticker_data=tickers,
+                total_pairs=len(tickers),
+                quote_currency_filter=quote_currency
             )
             
         except Exception as e:
             logger.error(f"Error getting ticker data: {e}")
             return KriptoTickerSonucu(
-                tickers=[],
-                toplam_cift=0,
-                pair_symbol=pair_symbol,
-                quote_currency=quote_currency,
+                ticker_data=[],
+                total_pairs=0,
+                quote_currency_filter=quote_currency,
                 error_message=str(e)
             )
     

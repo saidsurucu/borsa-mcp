@@ -368,40 +368,88 @@ class BorsapyProvider:
             try:
                 divs = ticker.dividends
                 if divs is not None and not divs.empty:
-                    for date, amount in divs.items():
-                        tarih_str = date.strftime('%Y-%m-%d') if hasattr(date, 'strftime') else str(date)
-                        tarih_dt = datetime.datetime.strptime(tarih_str, '%Y-%m-%d') if isinstance(tarih_str, str) else date
+                    # borsapy returns DataFrame with columns: Amount, GrossRate, NetRate, TotalDividend
+                    # Index is the date
+                    import pandas as pd
+                    if isinstance(divs, pd.DataFrame):
+                        # Handle DataFrame format from borsapy
+                        for date in divs.index:
+                            row = divs.loc[date]
+                            amount = float(row['Amount']) if 'Amount' in row.index else float(row.iloc[0])
+                            tarih_str = date.strftime('%Y-%m-%d') if hasattr(date, 'strftime') else str(date)
+                            tarih_dt = datetime.datetime.strptime(tarih_str, '%Y-%m-%d') if isinstance(tarih_str, str) else date
 
-                        temettuler.append(Temettu(
-                            tarih=tarih_dt,
-                            miktar=float(amount)
-                        ))
-                        tum_aksiyonlar.append(KurumsalAksiyon(
-                            tarih=tarih_dt,
-                            tip="Temettü",
-                            deger=float(amount)
-                        ))
+                            temettuler.append(Temettu(
+                                tarih=tarih_dt,
+                                miktar=amount
+                            ))
+                            tum_aksiyonlar.append(KurumsalAksiyon(
+                                tarih=tarih_dt,
+                                tip="Temettü",
+                                deger=amount
+                            ))
+                    else:
+                        # Handle Series format (yfinance style)
+                        for date, amount in divs.items():
+                            tarih_str = date.strftime('%Y-%m-%d') if hasattr(date, 'strftime') else str(date)
+                            tarih_dt = datetime.datetime.strptime(tarih_str, '%Y-%m-%d') if isinstance(tarih_str, str) else date
+
+                            temettuler.append(Temettu(
+                                tarih=tarih_dt,
+                                miktar=float(amount)
+                            ))
+                            tum_aksiyonlar.append(KurumsalAksiyon(
+                                tarih=tarih_dt,
+                                tip="Temettü",
+                                deger=float(amount)
+                            ))
             except Exception as e:
                 logger.debug(f"No dividends for {ticker_kodu}: {e}")
 
-            # Get stock splits
+            # Get stock splits / capital actions
             bolunmeler = []
             try:
                 splits = ticker.splits
                 if splits is not None and not splits.empty:
-                    for date, ratio in splits.items():
-                        tarih_str = date.strftime('%Y-%m-%d') if hasattr(date, 'strftime') else str(date)
-                        tarih_dt = datetime.datetime.strptime(tarih_str, '%Y-%m-%d') if isinstance(tarih_str, str) else date
+                    import pandas as pd
+                    if isinstance(splits, pd.DataFrame):
+                        # borsapy returns DataFrame with columns: Capital, RightsIssue, BonusFromCapital, BonusFromDividend
+                        for date in splits.index:
+                            row = splits.loc[date]
+                            # Sum up all bonus-related columns as the "split ratio"
+                            bonus_capital = float(row.get('BonusFromCapital', 0) or 0)
+                            bonus_dividend = float(row.get('BonusFromDividend', 0) or 0)
+                            rights_issue = float(row.get('RightsIssue', 0) or 0)
+                            total_ratio = bonus_capital + bonus_dividend + rights_issue
 
-                        bolunmeler.append(HisseBolunmesi(
-                            tarih=tarih_dt,
-                            oran=float(ratio)
-                        ))
-                        tum_aksiyonlar.append(KurumsalAksiyon(
-                            tarih=tarih_dt,
-                            tip="Bölünme",
-                            deger=float(ratio)
-                        ))
+                            if total_ratio > 0:
+                                tarih_str = date.strftime('%Y-%m-%d') if hasattr(date, 'strftime') else str(date)
+                                tarih_dt = datetime.datetime.strptime(tarih_str, '%Y-%m-%d') if isinstance(tarih_str, str) else date
+
+                                bolunmeler.append(HisseBolunmesi(
+                                    tarih=tarih_dt,
+                                    oran=total_ratio
+                                ))
+                                tum_aksiyonlar.append(KurumsalAksiyon(
+                                    tarih=tarih_dt,
+                                    tip="Bölünme/Sermaye Artırımı",
+                                    deger=total_ratio
+                                ))
+                    else:
+                        # Handle Series format (yfinance style)
+                        for date, ratio in splits.items():
+                            tarih_str = date.strftime('%Y-%m-%d') if hasattr(date, 'strftime') else str(date)
+                            tarih_dt = datetime.datetime.strptime(tarih_str, '%Y-%m-%d') if isinstance(tarih_str, str) else date
+
+                            bolunmeler.append(HisseBolunmesi(
+                                tarih=tarih_dt,
+                                oran=float(ratio)
+                            ))
+                            tum_aksiyonlar.append(KurumsalAksiyon(
+                                tarih=tarih_dt,
+                                tip="Bölünme",
+                                deger=float(ratio)
+                            ))
             except Exception as e:
                 logger.debug(f"No splits for {ticker_kodu}: {e}")
 

@@ -181,11 +181,14 @@ class BorsapyCalendarProvider:
                         country_name = event_data['country_name']
                         description = f"{country_name} economic indicator: {event_data['event_name']}"
 
+                        # Convert event_date to string for the model
+                        event_time_str = event_date.strftime('%Y-%m-%d %H:%M:%S') if hasattr(event_date, 'strftime') else str(event_date)
+
                         event_detail = EkonomikOlayDetayi(
                             event_name=event_data['event_name'],
                             country_code=event_data['country_code'],
                             country_name=country_name,
-                            event_time=event_date,
+                            event_time=event_time_str,
                             period=event_data['period'],
                             actual=event_data['actual'],
                             prior=event_data['previous'],

@@ -208,19 +208,17 @@ class CoinbaseProvider:
                     tickers.append(ticker)
             
             return CoinbaseTickerSonucu(
-                tickers=tickers,
-                toplam_cift=len(tickers),
-                product_id=product_id,
-                quote_currency=quote_currency
+                ticker_data=tickers,
+                total_pairs=len(tickers),
+                quote_currency_filter=quote_currency
             )
             
         except Exception as e:
             logger.error(f"Error getting ticker data: {e}")
             return CoinbaseTickerSonucu(
-                tickers=[],
-                toplam_cift=0,
-                product_id=product_id,
-                quote_currency=quote_currency,
+                ticker_data=[],
+                total_pairs=0,
+                quote_currency_filter=quote_currency,
                 error_message=str(e)
             )
     

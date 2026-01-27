@@ -60,8 +60,13 @@ class FonProfil(BaseModel):
     min_yatirim: Optional[float] = Field(None, description="Minimum investment amount.")
     benchmark: Optional[str] = Field(None, description="Benchmark index.")
 
+class FonPortfoyDagilimKalemi(BaseModel):
+    """Single portfolio allocation item."""
+    kiymet_tip: Optional[str] = Field(None, description="Asset type name (e.g., 'Hisse Senedi', 'Tahvil').")
+    portfoy_orani: Optional[float] = Field(None, description="Portfolio allocation percentage.")
+
 class FonPortfoyDagilimi(BaseModel):
-    """Portfolio allocation breakdown."""
+    """Portfolio allocation breakdown (legacy fixed-field format)."""
     hisse_senedi: Optional[float] = Field(None, description="Equity allocation percentage.")
     tahvil_bono: Optional[float] = Field(None, description="Bond allocation percentage.")
     para_piyasasi: Optional[float] = Field(None, description="Money market allocation percentage.")
@@ -76,24 +81,57 @@ class FonFiyatGecmisi(BaseModel):
     getiri_gunluk: Optional[float] = Field(None, description="Daily return percentage.")
 
 class FonDetayBilgisi(BaseModel):
-    """Comprehensive fund detail information."""
-    fon_bilgisi: Optional[FonBilgisi] = Field(None, description="Basic fund information.")
-    profil: Optional[FonProfil] = Field(None, description="Technical fund profile.")
-    portfoy_dagilimi: Optional[FonPortfoyDagilimi] = Field(None, description="Portfolio allocation.")
+    """Comprehensive fund detail information (flat structure from provider)."""
+    # Basic fund information (flat fields from provider)
+    fon_kodu: Optional[str] = Field(None, description="Fund code.")
+    fon_adi: Optional[str] = Field(None, description="Fund name.")
+    tarih: Optional[str] = Field(None, description="Data date.")
+    fiyat: Optional[float] = Field(None, description="Current NAV price.")
+    tedavuldeki_pay_sayisi: Optional[float] = Field(None, description="Outstanding shares.")
+    toplam_deger: Optional[float] = Field(None, description="Total fund size/AUM.")
+    birim_pay_degeri: Optional[float] = Field(None, description="Unit share value.")
+    yatirimci_sayisi: Optional[int] = Field(None, description="Number of investors.")
+    kurulus: Optional[str] = Field(None, description="Management company.")
+    yonetici: Optional[str] = Field(None, description="Fund manager.")
+    fon_turu: Optional[str] = Field(None, description="Fund type.")
+    risk_degeri: Optional[int] = Field(None, description="Risk level (1-7 scale).")
+
+    # Performance returns (flat fields)
+    getiri_1_ay: Optional[float] = Field(None, description="1-month return percentage.")
+    getiri_3_ay: Optional[float] = Field(None, description="3-month return percentage.")
+    getiri_6_ay: Optional[float] = Field(None, description="6-month return percentage.")
+    getiri_yil_basi: Optional[float] = Field(None, description="Year-to-date return percentage.")
+    getiri_1_yil: Optional[float] = Field(None, description="1-year return percentage.")
+    getiri_3_yil: Optional[float] = Field(None, description="3-year return percentage.")
+    getiri_5_yil: Optional[float] = Field(None, description="5-year return percentage.")
+    gunluk_getiri: Optional[float] = Field(None, description="Daily return percentage.")
+    haftalik_getiri: Optional[float] = Field(None, description="Weekly return percentage.")
+
+    # Category and ranking
+    fon_kategori: Optional[str] = Field(None, description="Fund category.")
+    kategori_derece: Optional[int] = Field(None, description="Category ranking.")
+    kategori_fon_sayisi: Optional[int] = Field(None, description="Total funds in category.")
+
+    # Legacy nested fields (for backwards compatibility)
+    fon_bilgisi: Optional[FonBilgisi] = Field(None, description="Basic fund information (nested).")
+    profil: Optional[FonProfil] = Field(None, description="Technical fund profile (nested).")
+
+    # Portfolio allocation (list format from provider)
+    portfoy_dagilimi: Optional[List[FonPortfoyDagilimKalemi]] = Field(None, description="Portfolio allocation by asset type.")
     fiyat_gecmisi: List[FonFiyatGecmisi] = Field(default_factory=list, description="Historical price data.")
-    
+
     # Risk and performance metrics
     standart_sapma: Optional[float] = Field(None, description="Standard deviation (volatility).")
     sharpe_orani: Optional[float] = Field(None, description="Sharpe ratio.")
     max_dusus: Optional[float] = Field(None, description="Maximum drawdown percentage.")
     beta: Optional[float] = Field(None, description="Beta coefficient vs benchmark.")
     alpha: Optional[float] = Field(None, description="Alpha vs benchmark.")
-    
+
     # Additional metadata
     api_source: Optional[str] = Field(None, description="API source used for data.")
     son_guncelleme: Optional[datetime.datetime] = Field(None, description="Last update timestamp.")
     veri_tamamlik_skoru: Optional[float] = Field(None, description="Data completeness score (0-100).")
-    
+
     error_message: Optional[str] = Field(None, description="Error message if retrieval failed.")
 
 # --- Performance Analysis Models ---

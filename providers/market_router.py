@@ -1485,7 +1485,7 @@ class MarketRouter:
                         change_24h=t.dailyPercent,  # Correct attribute name
                         high_24h=t.high,
                         low_24h=t.low,
-                        timestamp=t.timestamp
+                        timestamp=t.timestamp.isoformat() if t.timestamp else None
                     )
             elif data_type == DataType.ORDERBOOK:
                 result = await self._client.get_kripto_orderbook(symbol)
@@ -1651,16 +1651,16 @@ class MarketRouter:
         performance = None
 
         result = await self._client.get_fund_detail(symbol)
-        if result and result.fon_bilgisi:
-            f = result.fon_bilgisi
+        if result and result.fon_kodu:
+            # Read from flat fields (provider returns flat structure)
             fund_info = FundInfo(
-                code=f.fon_kodu,
-                name=f.fon_adi,
-                category=f.fon_turu,
-                company=f.kurulus,
-                price=f.fiyat,
-                total_assets=f.toplam_deger,
-                investor_count=f.yatirimci_sayisi
+                code=result.fon_kodu,
+                name=result.fon_adi,
+                category=result.fon_turu,
+                company=result.kurulus,
+                price=result.fiyat,
+                total_assets=result.toplam_deger,
+                investor_count=result.yatirimci_sayisi
             )
 
         if include_portfolio:
@@ -1761,21 +1761,33 @@ class MarketRouter:
             ticker = self._get_ticker_with_suffix(symbol, market)
             result = await self._client.get_sektor_karsilastirmasi_yfinance([ticker])
             if result:
-                sector = result.get("sektor")
-                industry = result.get("sanayi")
-                avg_pe = result.get("sektor_ortalama_fk")
-                avg_pb = result.get("sektor_ortalama_pddd")
-                if result.get("rakipler"):
-                    for p in result["rakipler"]:
-                        peers.append(SectorStock(
-                            symbol=p.get("sembol"),
-                            name=p.get("ad"),
-                            market_cap=p.get("piyasa_degeri"),
-                            pe_ratio=p.get("fk_orani"),
-                            pb_ratio=p.get("pd_dd"),
-                            dividend_yield=p.get("temettu_verimi"),
-                            change_percent=p.get("degisim_yuzdesi")
-                        ))
+                # Extract from sirket_verileri (company data list)
+                sirket_verileri = result.get("sirket_verileri", [])
+                if sirket_verileri:
+                    first_company = sirket_verileri[0]
+                    sector = first_company.get("sektor")
+
+                # Extract from sektor_ozeti (sector summary)
+                sektor_ozeti = result.get("sektor_ozeti", {})
+                if sektor_ozeti and sector:
+                    sector_data = sektor_ozeti.get(sector, {})
+                    avg_pe = sector_data.get("ortalama_fk")
+                    avg_pb = sector_data.get("ortalama_pd_dd")
+
+                # Add all companies as peers
+                for p in sirket_verileri:
+                    ticker_code = p.get("ticker", "").replace(".IS", "")
+                    company_name = p.get("sirket_adi") or ticker_code  # Use ticker as fallback
+                    peers.append(SectorStock(
+                        symbol=ticker_code,
+                        name=company_name,
+                        market_cap=p.get("piyasa_degeri"),
+                        pe_ratio=p.get("fk_orani"),
+                        pb_ratio=p.get("pd_dd"),
+                        roe=p.get("roe"),
+                        dividend_yield=None,
+                        change_percent=float(p.get("yillik_getiri")) if p.get("yillik_getiri") else None
+                    ))
 
         elif market == MarketType.US:
             result = await self._client.get_us_sector_comparison([symbol])
@@ -2211,14 +2223,17 @@ class MarketRouter:
         if regulation_type == "fund":
             result = await self._client.get_fon_mevzuati()
 
-            if result and hasattr(result, 'maddeler'):
-                for m in result.maddeler:
+            if result:
+                # FonMevzuatSonucu has icerik (content) as a single string, not maddeler (items)
+                content = result.icerik if hasattr(result, 'icerik') and result.icerik else ""
+                title = result.baslik if hasattr(result, 'baslik') and result.baslik else "Yatırım Fonlarına İlişkin Rehber"
+                if content:
                     items.append(RegulationItem(
-                        title=m.baslik if hasattr(m, 'baslik') else "",
-                        content=m.icerik if hasattr(m, 'icerik') else "",
-                        category=m.kategori if hasattr(m, 'kategori') else None
+                        title=title,
+                        content=content[:2000] + "..." if len(content) > 2000 else content,  # Truncate for display
+                        category="SPK Fund Regulation"
                     ))
-                last_updated = result.guncelleme_tarihi if hasattr(result, 'guncelleme_tarihi') else None
+                last_updated = result.son_guncelleme if hasattr(result, 'son_guncelleme') else None
 
         return RegulationsResult(
             metadata=self._create_metadata(MarketType.FUND, [regulation_type], source),

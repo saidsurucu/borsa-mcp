@@ -671,16 +671,22 @@ class IsYatirimProvider:
                     return {"error": f"No data for {ticker_kodu}"}
 
                 # Extract key fields
+                last_price = self._safe_float(value.get("last"))
+                day_close = self._safe_float(value.get("dayClose"))
+                # Fallback to dayClose when last is 0 or None (market closed)
+                effective_price = last_price if last_price and last_price > 0 else day_close
+
                 result = {
                     "ticker_kodu": ticker_kodu.upper(),
-                    "last": self._safe_float(value.get("last")),  # Current price
+                    "last": effective_price,  # Use effective price (last or dayClose fallback)
+                    "raw_last": last_price,  # Keep original for debugging
                     "equity": self._safe_float(value.get("equity")),  # Özkaynaklar (Book Value)
                     "netProceeds": self._safe_float(value.get("netProceeds")),  # Net Kar (TTM)
                     "capital": self._safe_float(value.get("capital")),  # Ödenmiş Sermaye
                     "volume": self._safe_float(value.get("volume")),  # Trading volume
                     "low": self._safe_float(value.get("low")),  # Day low
                     "high": self._safe_float(value.get("high")),  # Day high
-                    "dayClose": self._safe_float(value.get("dayClose")),  # Previous close (base price)
+                    "dayClose": day_close,  # Previous close (base price)
                     "symbol": value.get("symbol"),  # Symbol for verification
                     "timestamp": datetime.now().isoformat()
                 }
