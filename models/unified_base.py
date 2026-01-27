@@ -469,7 +469,7 @@ class EarningsResult(BaseModel):
     symbol: str
     next_earnings_date: Optional[str] = None
     earnings_history: List[EarningsEvent] = Field(default_factory=list)
-    growth_estimates: Optional[Dict[str, float]] = None
+    growth_estimates: Optional[Dict[str, Optional[float]]] = None
 
 
 # --- Financial Statements Result ---

@@ -7,7 +7,7 @@ import logging
 import os
 import ssl
 from datetime import datetime
-from typing import Annotated, Any, List, Literal, Optional, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 import urllib3
 from fastmcp import FastMCP
@@ -17,15 +17,7 @@ from pydantic import Field
 
 from providers.market_router import market_router
 from models.unified_base import (
-    MarketType, StatementType, PeriodType, DataType, RatioSetType, ExchangeType, SymbolSearchResult, ProfileResult, QuickInfoResult,
-    HistoricalDataResult, TechnicalAnalysisResult, PivotPointsResult,
-    AnalystDataResult, DividendResult, EarningsResult,
-    FinancialStatementsResult, FinancialRatiosResult,
-    CorporateActionsResult, NewsResult, NewsDetailResult, ScreenerResult, ScannerResult,
-    CryptoMarketResult, FXResult, FundResult, FundComparisonResult, IndexResult,
-    SectorComparisonResult, EconomicCalendarResult, BondYieldsResult,
-    # New result types for expanded features
-    MacroDataResult, ScreenerHelpResult, ScannerHelpResult, RegulationsResult
+    MarketType, StatementType, PeriodType, DataType, RatioSetType, ExchangeType
 )
 
 # Disable SSL verification globally to avoid certificate issues
@@ -130,7 +122,7 @@ async def search_symbol(
         ge=1,
         le=50
     )] = 10
-) -> SymbolSearchResult:
+) -> Dict[str, Any]:
     """
     Search for symbols across different markets.
 
@@ -175,7 +167,7 @@ async def get_profile(
         description="Include Sharia compliance info (BIST only)",
         default=False
     )] = False
-) -> ProfileResult:
+) -> Dict[str, Any]:
     """
     Get detailed company profile including:
     - Business description and sector
@@ -224,7 +216,7 @@ async def get_quick_info(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> QuickInfoResult:
+) -> Dict[str, Any]:
     """
     Get quick metrics for one or more stocks:
     - Current price and change %
@@ -277,7 +269,7 @@ async def get_historical_data(
         pattern=r"^\d{4}-\d{2}-\d{2}$",
         default=None
     )] = None
-) -> HistoricalDataResult:
+) -> Dict[str, Any]:
     """
     Get historical OHLCV (Open, High, Low, Close, Volume) data.
 
@@ -321,7 +313,7 @@ async def get_technical_analysis(
         description="Analysis timeframe: 1d (daily), 1h (hourly), 4h, 1W (weekly)",
         default="1d"
     )] = "1d"
-) -> TechnicalAnalysisResult:
+) -> Dict[str, Any]:
     """
     Get technical analysis with indicators and signals:
     - Moving averages: SMA/EMA 5, 10, 20, 50, 200
@@ -360,7 +352,7 @@ async def get_pivot_points(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> PivotPointsResult:
+) -> Dict[str, Any]:
     """
     Get classic pivot points with 7 levels:
     - Pivot Point (PP)
@@ -397,7 +389,7 @@ async def get_analyst_data(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> AnalystDataResult:
+) -> Dict[str, Any]:
     """
     Get analyst recommendations and price targets:
     - Rating summary: Strong Buy, Buy, Hold, Sell, Strong Sell counts
@@ -433,7 +425,7 @@ async def get_dividends(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> DividendResult:
+) -> Dict[str, Any]:
     """
     Get dividend information:
     - Current yield and annual dividend
@@ -469,7 +461,7 @@ async def get_earnings(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> EarningsResult:
+) -> Dict[str, Any]:
     """
     Get earnings calendar and history:
     - Next earnings announcement date
@@ -513,7 +505,7 @@ async def get_financial_statements(
         description="Period: annual or quarterly",
         default="annual"
     )] = "annual"
-) -> FinancialStatementsResult:
+) -> Dict[str, Any]:
     """
     Get financial statements:
     - Balance Sheet: Assets, liabilities, equity
@@ -559,7 +551,7 @@ async def get_financial_ratios(
         description="Ratio set: valuation, buffett, core_health, advanced, comprehensive",
         default="valuation"
     )] = "valuation"
-) -> FinancialRatiosResult:
+) -> Dict[str, Any]:
     """
     Get financial ratios and analysis:
 
@@ -601,7 +593,7 @@ async def get_corporate_actions(
         ge=2000,
         le=2030
     )] = None
-) -> CorporateActionsResult:
+) -> Dict[str, Any]:
     """
     Get BIST corporate actions:
 
@@ -660,7 +652,7 @@ async def get_news(
         default=1,
         ge=1
     )] = 1
-) -> Union[NewsResult, NewsDetailResult]:
+) -> Dict[str, Any]:
     """
     Get KAP (Public Disclosure Platform) news for BIST stocks.
 
@@ -725,7 +717,7 @@ async def screen_securities(
         ge=1,
         le=250
     )] = 25
-) -> ScreenerResult:
+) -> Dict[str, Any]:
     """
     Screen securities with 23 presets or custom filters.
 
@@ -777,7 +769,7 @@ async def scan_stocks(
         description="Timeframe: 1d, 1h, 4h, 1W",
         default="1d"
     )] = "1d"
-) -> ScannerResult:
+) -> Dict[str, Any]:
     """
     Scan BIST stocks by technical conditions using TradingView data.
 
@@ -826,7 +818,7 @@ async def get_sector_comparison(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> SectorComparisonResult:
+) -> Dict[str, Any]:
     """
     Get sector comparison for a stock:
     - Sector and industry classification
@@ -871,7 +863,7 @@ async def get_crypto_market(
         description="Data type: ticker, orderbook, trades, exchange_info, ohlc",
         default="ticker"
     )] = "ticker"
-) -> CryptoMarketResult:
+) -> Dict[str, Any]:
     """
     Get cryptocurrency market data from BtcTurk or Coinbase.
 
@@ -930,7 +922,7 @@ async def get_fx_data(
         pattern=r"^\d{4}-\d{2}-\d{2}$",
         default=None
     )] = None
-) -> FXResult:
+) -> Dict[str, Any]:
     """
     Get foreign exchange rates, precious metals, and commodities.
 
@@ -983,7 +975,7 @@ async def get_economic_calendar(
         description="Period: today, this_week, next_week",
         default="this_week"
     )] = "this_week"
-) -> EconomicCalendarResult:
+) -> Dict[str, Any]:
     """
     Get economic calendar events via borsapy.
 
@@ -1081,7 +1073,7 @@ async def get_bond_yields(
         description="Country: TR or US",
         default="TR"
     )] = "TR"
-) -> BondYieldsResult:
+) -> Dict[str, Any]:
     """
     Get government bond yields via borsapy.
 
@@ -1159,7 +1151,7 @@ async def get_fund_data(
         description="Enable comparison mode for multiple funds",
         default=False
     )] = False
-) -> Union[FundResult, FundComparisonResult]:
+) -> Dict[str, Any]:
     """
     Get Turkish mutual fund (TEFAS) data or compare multiple funds.
 
@@ -1223,7 +1215,7 @@ async def get_index_data(
         description="Include list of component stocks",
         default=False
     )] = False
-) -> IndexResult:
+) -> Dict[str, Any]:
     """
     Get stock market index information.
 
@@ -1317,7 +1309,7 @@ async def get_macro_data(
         ge=1,
         le=500
     )] = None
-) -> MacroDataResult:
+) -> Dict[str, Any]:
     """
     Get Turkish macro economic data (inflation).
 
@@ -1365,7 +1357,7 @@ async def get_screener_help(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> ScreenerHelpResult:
+) -> Dict[str, Any]:
     """
     Get screener help with available presets and filter documentation.
 
@@ -1393,7 +1385,7 @@ async def get_screener_help(
     tags={"help", "scanner"},
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
-async def get_scanner_help() -> ScannerHelpResult:
+async def get_scanner_help() -> Dict[str, Any]:
     """
     Get BIST scanner help with indicators, operators, and preset strategies.
 
@@ -1427,7 +1419,7 @@ async def get_regulations(
         description="Regulation type: fund (Turkish investment fund regulations)",
         default="fund"
     )] = "fund"
-) -> RegulationsResult:
+) -> Dict[str, Any]:
     """
     Get Turkish financial regulations documentation.
 
