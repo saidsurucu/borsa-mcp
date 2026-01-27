@@ -1262,7 +1262,7 @@ async def screen_funds(
             fund_type=fund_type,
             min_return_1m=min_return_1m,
             min_return_1y=min_return_1y,
-            limit=100  # Get more, we'll filter and sort ourselves
+            limit=500  # Get all funds to cover all categories (Para Piyasası, etc.)
         )
 
         if df is None or len(df) == 0:
@@ -1272,13 +1272,13 @@ async def screen_funds(
                 "total_count": 0
             }
 
-        funds = []
+        # Step 1: Filter funds by category first (fast - only fetches info)
+        candidates = []
         for _, row in df.iterrows():
             fund_code = row.get('fund_code')
             if not fund_code:
                 continue
 
-            # Get full fund info including category and calculate weekly return
             try:
                 fund = bp.Fund(fund_code)
                 info = fund.info
@@ -1288,36 +1288,50 @@ async def screen_funds(
                 if category and category.lower() not in fund_category.lower():
                     continue
 
-                # Calculate weekly return (5 business days)
-                weekly_return = None
-                try:
-                    hist = fund.history(start=(datetime.now() - timedelta(days=10)).strftime('%Y-%m-%d'))
-                    if hist is not None and len(hist) >= 6:
-                        # Get last 6 data points (5 business days + today)
-                        last_6 = hist.tail(6)
-                        first_price = last_6['Price'].iloc[0]
-                        last_price = last_6['Price'].iloc[-1]
-                        weekly_return = round(((last_price / first_price) - 1) * 100, 4)
-                except Exception:
-                    pass
-
-                funds.append({
+                candidates.append({
                     "code": fund_code,
                     "name": info.get('name', row.get('name', '')),
                     "category": fund_category,
                     "daily_return": info.get('daily_return'),
-                    "weekly_return": weekly_return,
                     "return_1m": info.get('return_1m') or row.get('return_1m'),
                     "return_3m": info.get('return_3m') or row.get('return_3m'),
                     "return_6m": info.get('return_6m') or row.get('return_6m'),
                     "return_1y": info.get('return_1y') or row.get('return_1y'),
                     "return_3y": info.get('return_3y') or row.get('return_3y'),
                     "fund_size": info.get('fund_size'),
-                    "investor_count": info.get('investor_count')
+                    "investor_count": info.get('investor_count'),
+                    "_fund": fund  # Keep reference for weekly calc
                 })
             except Exception as e:
                 logger.debug(f"Error getting fund {fund_code}: {e}")
-                continue
+
+        # Step 2: Calculate weekly return
+        # If sorting by weekly_return, calculate for all candidates
+        # Otherwise, only calculate for top candidates to save time
+        if sort_by != "weekly_return":
+            candidates.sort(key=lambda x: x.get(sort_by) or -999999, reverse=True)
+            to_process = candidates[:limit * 2]  # Buffer for filtering
+        else:
+            to_process = candidates  # Need all for weekly_return sort
+
+        funds = []
+        for c in to_process:
+            fund = c.pop('_fund', None)
+            weekly_return = None
+
+            # Calculate weekly return (5 business days)
+            if fund:
+                try:
+                    hist = fund.history(start=(datetime.now() - timedelta(days=10)).strftime('%Y-%m-%d'))
+                    if hist is not None and len(hist) >= 2:
+                        first_price = hist['Price'].iloc[0]
+                        last_price = hist['Price'].iloc[-1]
+                        weekly_return = round(((last_price / first_price) - 1) * 100, 4)
+                except Exception:
+                    pass
+
+            c['weekly_return'] = weekly_return
+            funds.append(c)
 
         # Sort by requested field
         if sort_by and funds:
