@@ -455,6 +455,26 @@ class MarketRouter:
                         "volume": int(dp.volume) if dp.volume else None
                     })
 
+        elif market == MarketType.FX:
+            import borsapy as bp
+            source = "borsapy"
+            try:
+                fx = bp.FX(symbol.upper())
+                hist = fx.history(period=period or "1mo", start=start_date, end=end_date)
+                if hist is not None and len(hist) > 0:
+                    for idx, row in hist.iterrows():
+                        date_str = idx.strftime('%Y-%m-%d') if hasattr(idx, 'strftime') else str(idx)
+                        data_points.append({
+                            "date": date_str,
+                            "open": row.get('Open'),
+                            "high": row.get('High'),
+                            "low": row.get('Low'),
+                            "close": row.get('Close'),
+                            "volume": None
+                        })
+            except Exception as e:
+                logger.warning(f"FX historical data error for {symbol}: {e}")
+
         return {
             "metadata": self._create_metadata(market, symbol, source),
             "symbol": symbol.upper(),
