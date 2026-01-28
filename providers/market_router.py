@@ -217,14 +217,20 @@ class MarketRouter:
         elif market == MarketType.FUND:
             source = "tefas"
             result = await self._client.get_fund_detail(symbol)
-            if result and result.fon:
-                f = result.fon
+            if result:
+                # FonDetayBilgisi has flat structure (fon_kodu, fon_adi, etc.)
                 profile = {
-                    "symbol": f.profil.kod if f.profil else symbol,
-                    "name": f.profil.ad if f.profil else symbol,
+                    "symbol": result.fon_kodu or symbol,
+                    "name": result.fon_adi or symbol,
                     "market": "fund",
-                    "description": f.profil.kategori if f.profil else None,
-                    "currency": "TRY"
+                    "description": result.fon_turu,
+                    "currency": "TRY",
+                    "company": result.kurulus,
+                    "manager": result.yonetici,
+                    "risk_level": result.risk_degeri,
+                    "total_assets": result.toplam_deger,
+                    "investor_count": result.yatirimci_sayisi,
+                    "price": result.fiyat
                 }
 
         return {
