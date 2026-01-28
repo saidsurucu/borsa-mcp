@@ -165,8 +165,8 @@ class KriptoOHLCSonucu(BaseModel):
     time_frame: Optional[str] = Field(None, description="Time frame used (e.g., '1d', '1h').")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
-class KriptoKline(BaseModel):
-    """Kline (candlestick) data from Graph API."""
+class KriptoKlineRaw(BaseModel):
+    """Raw Kline data from Graph API (TradingView format with arrays)."""
     model_config = ConfigDict(populate_by_name=True)
     s: Optional[str] = Field(None, description="Symbol/pair.")
     t: List[int] = Field(default_factory=list, description="Timestamps (Unix timestamps).")
@@ -181,14 +181,25 @@ class KriptoKline(BaseModel):
     c: List[float] = Field(default_factory=list, description="Close prices.")
     v: List[float] = Field(default_factory=list, description="Volumes.")
 
+class KriptoKline(BaseModel):
+    """Individual Kline (candlestick) data point."""
+    timestamp: int = Field(description="Unix timestamp of the candle.")
+    formatted_time: Optional[str] = Field(None, description="Human-readable timestamp.")
+    open: float = Field(description="Open price.")
+    high: float = Field(description="High price.")
+    low: float = Field(description="Low price.")
+    close: float = Field(description="Close price.")
+    volume: float = Field(description="Trading volume.")
+
 class KriptoKlineSonucu(BaseModel):
     """Kline data result."""
-    pair_symbol: Optional[str] = Field(None, description="Trading pair symbol.")
+    symbol: Optional[str] = Field(None, description="Trading pair symbol.")
     resolution: Optional[str] = Field(None, description="Kline resolution (e.g., '1D', '1H', '15m').")
-    kline_data: Optional[KriptoKline] = Field(None, description="Kline data from Graph API.")
-    total_candles: Optional[int] = Field(None, description="Number of candlesticks returned.")
-    from_timestamp: Optional[int] = Field(None, description="Start timestamp.")
-    to_timestamp: Optional[int] = Field(None, description="End timestamp.")
+    klines: List[KriptoKline] = Field(default_factory=list, description="Individual candle data points.")
+    toplam_veri: Optional[int] = Field(None, description="Number of candlesticks returned.")
+    from_time: Optional[int] = Field(None, description="Start timestamp.")
+    to_time: Optional[int] = Field(None, description="End timestamp.")
+    status: Optional[str] = Field(None, description="API status (ok/error).")
     error_message: Optional[str] = Field(None, description="Error message if operation failed.")
 
 # --- Technical Analysis Models ---

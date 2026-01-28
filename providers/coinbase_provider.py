@@ -454,8 +454,15 @@ class CoinbaseProvider:
             # Convert to pandas DataFrame
             data = []
             for candle in ohlc_result.candles:
+                # candle.start is already datetime from the model
+                timestamp = candle.start
+                if isinstance(timestamp, (int, float)):
+                    timestamp = pd.to_datetime(timestamp, unit='s', utc=True)
+                elif isinstance(timestamp, str):
+                    timestamp = pd.to_datetime(timestamp, utc=True)
+                # If already datetime, use as-is
                 data.append({
-                    'timestamp': pd.to_datetime(int(candle.start), unit='s', utc=True),
+                    'timestamp': timestamp,
                     'open': candle.open,
                     'high': candle.high,
                     'low': candle.low,

@@ -433,7 +433,7 @@ class MarketRouter:
             if result and result.ohlc_data:
                 for dp in result.ohlc_data:
                     data_points.append({
-                        "date": dp.timestamp,
+                        "date": dp.time,  # KriptoOHLC uses 'time' not 'timestamp'
                         "open": dp.open,
                         "high": dp.high,
                         "low": dp.low,
@@ -447,7 +447,7 @@ class MarketRouter:
             if result and result.candles:
                 for dp in result.candles:
                     data_points.append({
-                        "date": dp.time,
+                        "date": dp.start,  # CoinbaseCandle uses 'start' not 'time'
                         "open": dp.open,
                         "high": dp.high,
                         "low": dp.low,
@@ -459,7 +459,8 @@ class MarketRouter:
             import borsapy as bp
             source = "borsapy"
             try:
-                fx = bp.FX(symbol.upper())
+                # Don't uppercase for special symbols like gram-altin
+                fx = bp.FX(symbol)
                 hist = fx.history(period=period or "1mo", start=start_date, end=end_date)
                 if hist is not None and len(hist) > 0:
                     for idx, row in hist.iterrows():
@@ -589,57 +590,57 @@ class MarketRouter:
         elif market == MarketType.CRYPTO_TR:
             source = "btcturk"
             result = await self._client.get_kripto_teknik_analiz(symbol)
-            if result and result.indikatorler:
-                ind = result.indikatorler
-                current_price = result.guncel_fiyat
-                moving_averages = {
-                    "sma_5": ind.sma_5,
-                    "sma_10": ind.sma_10,
-                    "sma_20": ind.sma_20,
-                    "sma_50": ind.sma_50,
-                    "sma_200": ind.sma_200,
-                    "ema_5": ind.ema_5,
-                    "ema_10": ind.ema_10,
-                    "ema_20": ind.ema_20,
-                    "ema_50": ind.ema_50,
-                    "ema_200": ind.ema_200
-                }
+            if result and result.teknik_indiktorler:
+                ind = result.teknik_indiktorler
+                ma = result.hareketli_ortalamalar
+                if result.fiyat_analizi:
+                    current_price = result.fiyat_analizi.guncel_fiyat
+                if ma:
+                    moving_averages = {
+                        "sma_5": ma.sma_5,
+                        "sma_10": ma.sma_10,
+                        "sma_20": ma.sma_20,
+                        "sma_50": ma.sma_50,
+                        "sma_200": ma.sma_200,
+                        "ema_12": ma.ema_12,
+                        "ema_26": ma.ema_26
+                    }
                 indicators = {
                     "rsi_14": ind.rsi_14,
                     "macd": ind.macd,
-                    "macd_signal": ind.macd_sinyal,
+                    "macd_signal": ind.macd_signal,
                     "macd_histogram": ind.macd_histogram,
-                    "bb_upper": ind.bb_ust,
-                    "bb_middle": ind.bb_orta,
-                    "bb_lower": ind.bb_alt
+                    "bb_upper": ind.bollinger_upper,
+                    "bb_middle": ind.bollinger_middle,
+                    "bb_lower": ind.bollinger_lower
                 }
 
         elif market == MarketType.CRYPTO_GLOBAL:
             source = "coinbase"
             result = await self._client.get_coinbase_teknik_analiz(symbol)
-            if result and result.indikatorler:
-                ind = result.indikatorler
-                current_price = result.guncel_fiyat
-                moving_averages = {
-                    "sma_5": ind.sma_5,
-                    "sma_10": ind.sma_10,
-                    "sma_20": ind.sma_20,
-                    "sma_50": ind.sma_50,
-                    "sma_200": ind.sma_200,
-                    "ema_5": ind.ema_5,
-                    "ema_10": ind.ema_10,
-                    "ema_20": ind.ema_20,
-                    "ema_50": ind.ema_50,
-                    "ema_200": ind.ema_200
-                }
+            if result and result.teknik_indiktorler:
+                ind = result.teknik_indiktorler
+                ma = result.hareketli_ortalamalar
+                if result.fiyat_analizi:
+                    current_price = result.fiyat_analizi.guncel_fiyat
+                if ma:
+                    moving_averages = {
+                        "sma_5": ma.sma_5,
+                        "sma_10": ma.sma_10,
+                        "sma_20": ma.sma_20,
+                        "sma_50": ma.sma_50,
+                        "sma_200": ma.sma_200,
+                        "ema_12": ma.ema_12,
+                        "ema_26": ma.ema_26
+                    }
                 indicators = {
                     "rsi_14": ind.rsi_14,
                     "macd": ind.macd,
-                    "macd_signal": ind.macd_sinyal,
+                    "macd_signal": ind.macd_signal,
                     "macd_histogram": ind.macd_histogram,
-                    "bb_upper": ind.bb_ust,
-                    "bb_middle": ind.bb_orta,
-                    "bb_lower": ind.bb_alt
+                    "bb_upper": ind.bollinger_upper,
+                    "bb_middle": ind.bollinger_middle,
+                    "bb_lower": ind.bollinger_lower
                 }
 
         return {

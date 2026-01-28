@@ -904,13 +904,13 @@ class BtcTurkProvider:
                 
                 # Crypto-specific volatility thresholds
                 if volatility > 8:
-                    result.volatilite_seviyesi = "cok_yuksek"
+                    result.volatilite = "cok_yuksek"
                 elif volatility > 5:
-                    result.volatilite_seviyesi = "yuksek"
+                    result.volatilite = "yuksek"
                 elif volatility > 2:
-                    result.volatilite_seviyesi = "orta"
+                    result.volatilite = "orta"
                 else:
-                    result.volatilite_seviyesi = "dusuk"
+                    result.volatilite = "dusuk"
             
             # Overall Signal Generation (crypto-optimized)
             signal_score = 0
