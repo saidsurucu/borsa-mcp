@@ -93,8 +93,8 @@ class CoinbaseTickerSonucu(BaseModel):
 class CoinbaseOrderbook(BaseModel):
     """Order book data for a trading pair."""
     product_id: Optional[str] = Field(None, description="Trading pair identifier.")
-    bids: List[Dict[str, str]] = Field(default_factory=list, description="Buy orders with price and size.")
-    asks: List[Dict[str, str]] = Field(default_factory=list, description="Sell orders with price and size.")
+    bids: List[List[float]] = Field(default_factory=list, description="Buy orders [price, size] sorted by price descending.")
+    asks: List[List[float]] = Field(default_factory=list, description="Sell orders [price, size] sorted by price ascending.")
     time: Optional[datetime.datetime] = Field(None, description="Order book timestamp.")
 
 class CoinbaseOrderbookSonucu(BaseModel):

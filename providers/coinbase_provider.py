@@ -239,16 +239,15 @@ class CoinbaseProvider:
             asks_data = pricebook.get('asks', [])
             time = pricebook.get('time')
             
-            # Convert bids and asks to proper format
-            bid_orders = [(float(bid.get('price', 0)), float(bid.get('size', 0))) for bid in bids_data]
-            ask_orders = [(float(ask.get('price', 0)), float(ask.get('size', 0))) for ask in asks_data]
-            
+            # Convert bids and asks to list format (model expects List[List[float]])
+            bid_orders = [[float(bid.get('price', 0)), float(bid.get('size', 0))] for bid in bids_data]
+            ask_orders = [[float(ask.get('price', 0)), float(ask.get('size', 0))] for ask in asks_data]
+
             orderbook = CoinbaseOrderbook(
+                product_id=product_id.upper(),
                 time=time,
                 bids=bid_orders,
-                asks=ask_orders,
-                bid_count=len(bid_orders),
-                ask_count=len(ask_orders)
+                asks=ask_orders
             )
             
             return CoinbaseOrderbookSonucu(
