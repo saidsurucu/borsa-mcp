@@ -138,7 +138,7 @@ requires-dist = [
 
 [[package]]
 name = "borsapy"
-version = "0.6.5"
+version = "0.7.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -149,13 +149,15 @@ dependencies = [
     { name = "pandas" },
     { name = "pydantic" },
     { name = "pymupdf4llm" },
+    { name = "rich" },
     { name = "tradingview-screener" },
+    { name = "typer" },
     { name = "urllib3" },
     { name = "websocket-client" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/45/0b/3f29c7ecbf54477d2acd76701b6ae6211dbeaf31bf334befef2a6773c836/borsapy-0.6.5.tar.gz", hash = "sha256:f946dbf35b07033b84c41e3349a7524871ea8f9798a4c847072a707a82bdca4d", size = 3016687, upload-time = "2026-01-27T08:03:58.49Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ae/21/0e5bdde714dc3cda4081dbfbbbec7a163b648f0703f88680b8367b4c7f65/borsapy-0.7.3.tar.gz", hash = "sha256:c05929e27717fc8208ce20ba92d61600279bf25122dadd0b8105b27604be62fc", size = 3127593, upload-time = "2026-02-15T22:45:39.809Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a0/fe/86876e0f6471abe5ac2c3d8496cf9f0ef5f834af00ae0666f0f473cce3dd/borsapy-0.6.5-py3-none-any.whl", hash = "sha256:df58e8632686bebf93f6569464bab8d82d549ab4c9236c53885bcf8a5274cc32", size = 221946, upload-time = "2026-01-27T08:03:56.672Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/e4/84cd91b14cbb2002bf49cb1734023e7b5889eb482d1bcb6a38f23035f6ec/borsapy-0.7.3-py3-none-any.whl", hash = "sha256:bd1e35edd1bbad6f0d39cd98de6ff853b550477f9e04dbe2bac3dff97b6ff306", size = 275197, upload-time = "2026-02-15T22:45:37.74Z" },
 ]
 
 [[package]]
