@@ -270,12 +270,13 @@ class BorsapyProvider:
     # FINANCIAL STATEMENT METHODS (Fallback for İş Yatırım)
     # =========================================================================
 
-    def _get_financial_data(self, ticker_kodu: str, period_type: str, statement_type: str) -> pd.DataFrame:
+    def _get_financial_data(self, ticker_kodu: str, period_type: str, statement_type: str, last_n: Optional[int] = None) -> pd.DataFrame:
         """
         Fetches financial statement data, trying XI_29 first then UFRS for banks.
 
         Args:
             statement_type: 'balance_sheet', 'income_stmt', or 'cashflow'
+            last_n: Number of periods to fetch. None for default (5).
         """
         ticker = self._get_ticker(ticker_kodu)
         quarterly = period_type == 'quarterly'
@@ -293,6 +294,8 @@ class BorsapyProvider:
                 kwargs = {"quarterly": quarterly}
                 if group:
                     kwargs["financial_group"] = group
+                if last_n is not None:
+                    kwargs["last_n"] = last_n
                 return method(**kwargs)
             except Exception:
                 if group == "UFRS":
@@ -300,30 +303,30 @@ class BorsapyProvider:
                 logger.debug(f"{ticker_kodu} failed with XI_29, trying UFRS")
                 continue
 
-    async def get_bilanco(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
+    async def get_bilanco(self, ticker_kodu: str, period_type: str, last_n: Optional[int] = None) -> Dict[str, Any]:
         """Fetches balance sheet from borsapy. Tries XI_29 then UFRS for banks."""
         try:
-            data = self._get_financial_data(ticker_kodu, period_type, 'balance_sheet')
+            data = self._get_financial_data(ticker_kodu, period_type, 'balance_sheet', last_n)
             records = self._financial_statement_to_dict_list(data)
             return {"tablo": records}
         except Exception as e:
             logger.exception(f"Error fetching balance sheet from borsapy for {ticker_kodu}")
             return {"error": str(e)}
 
-    async def get_kar_zarar(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
+    async def get_kar_zarar(self, ticker_kodu: str, period_type: str, last_n: Optional[int] = None) -> Dict[str, Any]:
         """Fetches income statement from borsapy. Tries XI_29 then UFRS for banks."""
         try:
-            data = self._get_financial_data(ticker_kodu, period_type, 'income_stmt')
+            data = self._get_financial_data(ticker_kodu, period_type, 'income_stmt', last_n)
             records = self._financial_statement_to_dict_list(data)
             return {"tablo": records}
         except Exception as e:
             logger.exception(f"Error fetching income statement from borsapy for {ticker_kodu}")
             return {"error": str(e)}
 
-    async def get_nakit_akisi(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
+    async def get_nakit_akisi(self, ticker_kodu: str, period_type: str, last_n: Optional[int] = None) -> Dict[str, Any]:
         """Fetches cash flow statement from borsapy. Tries XI_29 then UFRS for banks."""
         try:
-            data = self._get_financial_data(ticker_kodu, period_type, 'cashflow')
+            data = self._get_financial_data(ticker_kodu, period_type, 'cashflow', last_n)
             records = self._financial_statement_to_dict_list(data)
             return {"tablo": records}
         except Exception as e:

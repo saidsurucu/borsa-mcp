@@ -513,7 +513,14 @@ async def get_financial_statements(
     period: Annotated[PeriodLiteral, Field(
         description="Period: annual or quarterly",
         default="annual"
-    )] = "annual"
+    )] = "annual",
+    last_n: Annotated[Optional[int], Field(
+        description="Number of periods to fetch. Default 5. Max ~40 quarterly, ~15 annual. BIST only.",
+        default=None,
+        ge=1,
+        le=40,
+        examples=[4, 8, 12, 20]
+    )] = None
 ) -> Dict[str, Any]:
     """
     Get financial statements:
@@ -521,18 +528,19 @@ async def get_financial_statements(
     - Income Statement: Revenue, costs, net income
     - Cash Flow: Operating, investing, financing activities
 
-    BIST uses İş Yatırım (primary) with Yahoo Finance fallback.
+    BIST uses borsapy (primary) with Yahoo Finance fallback.
     US uses Yahoo Finance directly.
 
     Examples:
     - get_financial_statements("SASA", "bist", "balance", "annual")
     - get_financial_statements("AAPL", "us", "all", "quarterly")
+    - get_financial_statements("THYAO", "bist", "income", "quarterly", 12)  # last 12 quarters
     """
-    logger.info(f"get_financial_statements: symbols='{symbols}', market='{market}'")
+    logger.info(f"get_financial_statements: symbols='{symbols}', market='{market}', last_n={last_n}")
     try:
         return await market_router.get_financial_statements(
             symbols, MarketType(market),
-            StatementType(statement_type), PeriodType(period)
+            StatementType(statement_type), PeriodType(period), last_n
         )
     except Exception as e:
         logger.exception(f"Error in get_financial_statements for '{symbols}'")

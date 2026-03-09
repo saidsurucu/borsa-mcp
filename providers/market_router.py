@@ -1022,7 +1022,8 @@ class MarketRouter:
         symbols: Union[str, List[str]],
         market: MarketType,
         statement_type: StatementType = StatementType.ALL,
-        period: PeriodType = PeriodType.ANNUAL
+        period: PeriodType = PeriodType.ANNUAL,
+        last_n: int = None
     ) -> Dict[str, Any]:
         """Get financial statements (balance sheet, income, cash flow). Returns raw dict."""
         is_multi = isinstance(symbols, list)
@@ -1035,7 +1036,7 @@ class MarketRouter:
         period_str = "annual" if period == PeriodType.ANNUAL else "quarterly"
 
         if market == MarketType.BIST:
-            source = "isyatirim"
+            source = "borsapy"
             types_to_fetch = []
             if statement_type in [StatementType.BALANCE, StatementType.ALL]:
                 types_to_fetch.append(("balance", self._client.get_bilanco))
@@ -1046,7 +1047,7 @@ class MarketRouter:
 
             for stmt_name, fetch_func in types_to_fetch:
                 try:
-                    result = await fetch_func(symbol, period_str)
+                    result = await fetch_func(symbol, period_str, last_n)
                     if result and result.get("tablo"):
                         tablo = result["tablo"]
                         periods_list = []

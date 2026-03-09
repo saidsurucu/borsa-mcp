@@ -388,12 +388,12 @@ class BorsaApiClient:
         
     # ========== FINANCIAL STATEMENTS (İş Yatırım) ==========
 
-    async def get_bilanco(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
+    async def get_bilanco(self, ticker_kodu: str, period_type: str, last_n: int = None) -> Dict[str, Any]:
         """
         Fetches balance sheet from borsapy (primary source).
         Falls back to Yahoo Finance if borsapy fails.
         """
-        result = await self.borsapy_provider.get_bilanco(ticker_kodu, period_type)
+        result = await self.borsapy_provider.get_bilanco(ticker_kodu, period_type, last_n)
 
         # If borsapy fails or returns no data, fallback to Yahoo Finance
         if result.get("error") or len(result.get("tablo", [])) == 0:
@@ -402,12 +402,12 @@ class BorsaApiClient:
 
         return result
 
-    async def get_kar_zarar(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
+    async def get_kar_zarar(self, ticker_kodu: str, period_type: str, last_n: int = None) -> Dict[str, Any]:
         """
         Fetches income statement from borsapy (primary source).
         Falls back to Yahoo Finance if borsapy fails.
         """
-        result = await self.borsapy_provider.get_kar_zarar(ticker_kodu, period_type)
+        result = await self.borsapy_provider.get_kar_zarar(ticker_kodu, period_type, last_n)
 
         if result.get("error") or len(result.get("tablo", [])) == 0:
             logger.warning(f"borsapy kar/zarar failed for {ticker_kodu}, using Yahoo Finance fallback")
@@ -415,12 +415,12 @@ class BorsaApiClient:
 
         return result
 
-    async def get_nakit_akisi(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
+    async def get_nakit_akisi(self, ticker_kodu: str, period_type: str, last_n: int = None) -> Dict[str, Any]:
         """
         Fetches cash flow statement from borsapy (primary source).
         Falls back to Yahoo Finance if borsapy fails.
         """
-        result = await self.borsapy_provider.get_nakit_akisi(ticker_kodu, period_type)
+        result = await self.borsapy_provider.get_nakit_akisi(ticker_kodu, period_type, last_n)
 
         if result.get("error") or len(result.get("tablo", [])) == 0:
             logger.warning(f"borsapy nakit akışı failed for {ticker_kodu}, using Yahoo Finance fallback")
