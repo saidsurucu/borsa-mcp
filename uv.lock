@@ -138,7 +138,7 @@ requires-dist = [
 
 [[package]]
 name = "borsapy"
-version = "0.8.2"
+version = "0.8.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -155,9 +155,9 @@ dependencies = [
     { name = "urllib3" },
     { name = "websocket-client" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/99/48/57f489a47316fd2ef76a829df7ce316bc2422f425f8c6038a0831d7c8c48/borsapy-0.8.2.tar.gz", hash = "sha256:e08ee33c0e42e8c60584cbad6b4c312532a1cd1ae1f0995358f09691bd0d8bac", size = 3208777, upload-time = "2026-03-09T17:13:14.751Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/50/cc/bacd5d05978a95359ac05d762dac5e688c58009f9e0b4fc502f0ddb15fad/borsapy-0.8.3.tar.gz", hash = "sha256:f7b0645dafbba22525602682d2dc424cd7aae70ed5c38cacae7580867935ae30", size = 3208829, upload-time = "2026-03-09T19:49:16.525Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6b/c6/e5745886cfb68b60b83699fc277fbfa0cec582689407384fdd1799ec0e7c/borsapy-0.8.2-py3-none-any.whl", hash = "sha256:dd554e4002940c8450e4913cdf999471eabaf2bff184e32040e6c7ac20b02b12", size = 294779, upload-time = "2026-03-09T17:13:12.898Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/31/351ab584844caa9f897eca23cdc46a15749ebd2647afb4c71c34695262be/borsapy-0.8.3-py3-none-any.whl", hash = "sha256:f4fed9a62f4aeff40138ad9e10055f8b83f74e4d0ef074ae0b3288700a78f8fd", size = 294779, upload-time = "2026-03-09T19:49:14.923Z" },
 ]
 
 [[package]]
