@@ -1035,10 +1035,6 @@ class MarketRouter:
         symbol = symbol_list[0]
         period_str = "annual" if period == PeriodType.ANNUAL else "quarterly"
 
-        # Default last_n for BIST: 20 quarterly (~5 years), 10 annual
-        if last_n is None and market == MarketType.BIST:
-            last_n = 20 if period == PeriodType.QUARTERLY else 10
-
         if market == MarketType.BIST:
             source = "borsapy"
             types_to_fetch = []

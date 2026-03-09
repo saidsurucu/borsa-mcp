@@ -515,7 +515,7 @@ async def get_financial_statements(
         default="annual"
     )] = "annual",
     last_n: Annotated[Optional[int], Field(
-        description="Number of periods to fetch. BIST default: 20 quarterly (~5 years), 10 annual. Max ~40 quarterly, ~15 annual. BIST only.",
+        description="Number of periods to fetch. Default 5. Max ~40 quarterly, ~15 annual. BIST only.",
         default=None,
         ge=1,
         le=40,
