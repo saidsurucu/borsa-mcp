@@ -515,7 +515,7 @@ async def get_financial_statements(
         default="annual"
     )] = "annual",
     last_n: Annotated[Optional[int], Field(
-        description="Number of periods to fetch. Default 5. Max ~40 quarterly, ~15 annual. BIST only.",
+        description="Number of periods to fetch (BIST only). Default 5 (returns ~4 recent quarters or ~4 years). Use 20 for ~5 years of quarterly data, 40 for max. IMPORTANT: If user asks for older data (e.g. '2023 Q2' or 'last 3 years'), increase last_n accordingly.",
         default=None,
         ge=1,
         le=40,
@@ -531,10 +531,13 @@ async def get_financial_statements(
     BIST uses borsapy (primary) with Yahoo Finance fallback.
     US uses Yahoo Finance directly.
 
+    IMPORTANT: Default returns only ~4 most recent periods. If user asks for older data
+    (e.g. "2023 financials", "last 3 years quarterly"), set last_n=20 or higher.
+
     Examples:
     - get_financial_statements("SASA", "bist", "balance", "annual")
     - get_financial_statements("AAPL", "us", "all", "quarterly")
-    - get_financial_statements("THYAO", "bist", "income", "quarterly", 12)  # last 12 quarters
+    - get_financial_statements("THYAO", "bist", "income", "quarterly", last_n=20)  # ~5 years of quarters
     """
     logger.info(f"get_financial_statements: symbols='{symbols}', market='{market}', last_n={last_n}")
     try:
