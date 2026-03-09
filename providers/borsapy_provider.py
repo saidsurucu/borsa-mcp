@@ -88,8 +88,9 @@ class BorsapyProvider:
         # Reset the index to make the financial item names a column
         df_reset = df_copy.reset_index()
 
-        # Rename the 'index' column to something more descriptive
-        df_reset = df_reset.rename(columns={'index': 'Kalem'})
+        # Rename the index column to 'Kalem' for consistency with isyatirim_provider
+        # borsapy 0.8.2+ uses 'Item' as index name; older versions use default 'index'
+        df_reset = df_reset.rename(columns={'index': 'Kalem', 'Item': 'Kalem'})
 
         # Convert the DataFrame to a list of dictionaries
         return df_reset.to_dict(orient='records')
