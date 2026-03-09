@@ -390,40 +390,40 @@ class BorsaApiClient:
 
     async def get_bilanco(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
         """
-        Fetches balance sheet from İş Yatırım (primary source).
-        Falls back to Yahoo Finance if İş Yatırım fails.
+        Fetches balance sheet from borsapy (primary source).
+        Falls back to Yahoo Finance if borsapy fails.
         """
-        result = await self.isyatirim_provider.get_bilanco(ticker_kodu, period_type)
+        result = await self.borsapy_provider.get_bilanco(ticker_kodu, period_type)
 
-        # If İş Yatırım fails or returns no data, fallback to Yahoo Finance
+        # If borsapy fails or returns no data, fallback to Yahoo Finance
         if result.get("error") or len(result.get("tablo", [])) == 0:
-            logger.warning(f"İş Yatırım bilanco failed for {ticker_kodu}, using Yahoo Finance fallback")
+            logger.warning(f"borsapy bilanco failed for {ticker_kodu}, using Yahoo Finance fallback")
             return await self.yfinance_provider.get_bilanco(ticker_kodu, period_type)
 
         return result
 
     async def get_kar_zarar(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
         """
-        Fetches income statement from İş Yatırım (primary source).
-        Falls back to Yahoo Finance if İş Yatırım fails.
+        Fetches income statement from borsapy (primary source).
+        Falls back to Yahoo Finance if borsapy fails.
         """
-        result = await self.isyatirim_provider.get_kar_zarar(ticker_kodu, period_type)
+        result = await self.borsapy_provider.get_kar_zarar(ticker_kodu, period_type)
 
         if result.get("error") or len(result.get("tablo", [])) == 0:
-            logger.warning(f"İş Yatırım kar/zarar failed for {ticker_kodu}, using Yahoo Finance fallback")
+            logger.warning(f"borsapy kar/zarar failed for {ticker_kodu}, using Yahoo Finance fallback")
             return await self.yfinance_provider.get_kar_zarar(ticker_kodu, period_type)
 
         return result
 
     async def get_nakit_akisi(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
         """
-        Fetches cash flow statement from İş Yatırım (primary source).
-        Falls back to Yahoo Finance if İş Yatırım fails.
+        Fetches cash flow statement from borsapy (primary source).
+        Falls back to Yahoo Finance if borsapy fails.
         """
-        result = await self.isyatirim_provider.get_nakit_akisi(ticker_kodu, period_type)
+        result = await self.borsapy_provider.get_nakit_akisi(ticker_kodu, period_type)
 
         if result.get("error") or len(result.get("tablo", [])) == 0:
-            logger.warning(f"İş Yatırım nakit akışı failed for {ticker_kodu}, using Yahoo Finance fallback")
+            logger.warning(f"borsapy nakit akışı failed for {ticker_kodu}, using Yahoo Finance fallback")
             return await self.yfinance_provider.get_nakit_akisi(ticker_kodu, period_type)
 
         return result
@@ -1036,16 +1036,45 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
     # ============================================================================
 
     async def get_bilanco_multi(self, ticker_kodlari: List[str], period_type: str) -> Dict[str, Any]:
-        """Delegates multi-ticker balance sheet fetching to IsYatirimProvider."""
-        return await self.isyatirim_provider.get_bilanco_multi(ticker_kodlari, period_type)
+        """Multi-ticker balance sheet via borsapy with parallel execution."""
+        return await self._financial_statement_multi(
+            ticker_kodlari, period_type, self.borsapy_provider.get_bilanco
+        )
 
     async def get_kar_zarar_multi(self, ticker_kodlari: List[str], period_type: str) -> Dict[str, Any]:
-        """Delegates multi-ticker income statement fetching to IsYatirimProvider."""
-        return await self.isyatirim_provider.get_kar_zarar_multi(ticker_kodlari, period_type)
+        """Multi-ticker income statement via borsapy with parallel execution."""
+        return await self._financial_statement_multi(
+            ticker_kodlari, period_type, self.borsapy_provider.get_kar_zarar
+        )
 
     async def get_nakit_akisi_multi(self, ticker_kodlari: List[str], period_type: str) -> Dict[str, Any]:
-        """Delegates multi-ticker cash flow statement fetching to IsYatirimProvider."""
-        return await self.isyatirim_provider.get_nakit_akisi_multi(ticker_kodlari, period_type)
+        """Multi-ticker cash flow statement via borsapy with parallel execution."""
+        return await self._financial_statement_multi(
+            ticker_kodlari, period_type, self.borsapy_provider.get_nakit_akisi
+        )
+
+    async def _financial_statement_multi(
+        self, ticker_kodlari: List[str], period_type: str, fetch_fn
+    ) -> Dict[str, Any]:
+        """Generic multi-ticker financial statement fetcher with parallel execution."""
+        import asyncio
+        tasks = [fetch_fn(t, period_type) for t in ticker_kodlari]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        data, warnings = [], []
+        for ticker, result in zip(ticker_kodlari, results):
+            if isinstance(result, Exception):
+                warnings.append(f"{ticker}: {str(result)}")
+            elif result.get("error"):
+                warnings.append(f"{ticker}: {result['error']}")
+            else:
+                data.append({"ticker": ticker, **result})
+        return {
+            "tickers": ticker_kodlari,
+            "data": data,
+            "successful_count": len(data),
+            "failed_count": len(warnings),
+            "warnings": warnings
+        }
 
     # ============================================================================
     # İŞ YATIRIM FINANCIAL RATIOS METHODS

@@ -385,13 +385,13 @@ class IsYatirimProvider:
                 "exchange": "TRY",
                 "financialGroup": financial_group,
                 "year1": periods[0][0],
-                "period1": periods[0][1],  # Keep as quarter number (1-4)
+                "period1": periods[0][1] * 3,  # Quarter to month: Q1→3, Q2→6, Q3→9, Q4→12
                 "year2": periods[1][0],
-                "period2": periods[1][1],
+                "period2": periods[1][1] * 3,
                 "year3": periods[2][0],
-                "period3": periods[2][1],
+                "period3": periods[2][1] * 3,
                 "year4": periods[3][0],
-                "period4": periods[3][1],
+                "period4": periods[3][1] * 3,
                 "_": int(time.time() * 1000)
             }
         else:  # annual
@@ -556,16 +556,11 @@ class IsYatirimProvider:
             period = params.get(f"period{i}")
 
             if year and period:
-                # Period is quarter number (1-4) or 12 for annual
+                # Period is month number (3,6,9,12) for quarterly or 12 for annual
                 # Map to quarter end dates
-                if period == 12:
-                    # Annual data, use Dec 31
-                    date_str = f"{year}-12-31"
-                else:
-                    # Quarterly: 1→03-31, 2→06-30, 3→09-30, 4→12-31
-                    quarter_end_month = {1: "03-31", 2: "06-30", 3: "09-30", 4: "12-31"}
-                    month_day = quarter_end_month.get(period, "12-31")
-                    date_str = f"{year}-{month_day}"
+                quarter_end_month = {3: "03-31", 6: "06-30", 9: "09-30", 12: "12-31"}
+                month_day = quarter_end_month.get(period, "12-31")
+                date_str = f"{year}-{month_day}"
 
                 dates.append(date_str)
 

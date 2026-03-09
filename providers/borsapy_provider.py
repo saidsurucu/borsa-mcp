@@ -269,11 +269,40 @@ class BorsapyProvider:
     # FINANCIAL STATEMENT METHODS (Fallback for İş Yatırım)
     # =========================================================================
 
+    def _get_financial_data(self, ticker_kodu: str, period_type: str, statement_type: str) -> pd.DataFrame:
+        """
+        Fetches financial statement data, trying XI_29 first then UFRS for banks.
+
+        Args:
+            statement_type: 'balance_sheet', 'income_stmt', or 'cashflow'
+        """
+        ticker = self._get_ticker(ticker_kodu)
+        quarterly = period_type == 'quarterly'
+        method_map = {
+            'balance_sheet': 'get_balance_sheet',
+            'income_stmt': 'get_income_stmt',
+            'cashflow': 'get_cashflow',
+        }
+        method_name = method_map[statement_type]
+
+        # Try XI_29 (industrial) first, then UFRS (banks)
+        for group in [None, "UFRS"]:
+            try:
+                method = getattr(ticker, method_name)
+                kwargs = {"quarterly": quarterly}
+                if group:
+                    kwargs["financial_group"] = group
+                return method(**kwargs)
+            except Exception:
+                if group == "UFRS":
+                    raise  # Last attempt, let it propagate
+                logger.debug(f"{ticker_kodu} failed with XI_29, trying UFRS")
+                continue
+
     async def get_bilanco(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
-        """Fetches balance sheet from borsapy (fallback for İş Yatırım)."""
+        """Fetches balance sheet from borsapy. Tries XI_29 then UFRS for banks."""
         try:
-            ticker = self._get_ticker(ticker_kodu)
-            data = ticker.quarterly_balance_sheet if period_type == 'quarterly' else ticker.balance_sheet
+            data = self._get_financial_data(ticker_kodu, period_type, 'balance_sheet')
             records = self._financial_statement_to_dict_list(data)
             return {"tablo": records}
         except Exception as e:
@@ -281,10 +310,9 @@ class BorsapyProvider:
             return {"error": str(e)}
 
     async def get_kar_zarar(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
-        """Fetches income statement from borsapy (fallback for İş Yatırım)."""
+        """Fetches income statement from borsapy. Tries XI_29 then UFRS for banks."""
         try:
-            ticker = self._get_ticker(ticker_kodu)
-            data = ticker.quarterly_income_stmt if period_type == 'quarterly' else ticker.income_stmt
+            data = self._get_financial_data(ticker_kodu, period_type, 'income_stmt')
             records = self._financial_statement_to_dict_list(data)
             return {"tablo": records}
         except Exception as e:
@@ -292,10 +320,9 @@ class BorsapyProvider:
             return {"error": str(e)}
 
     async def get_nakit_akisi(self, ticker_kodu: str, period_type: str) -> Dict[str, Any]:
-        """Fetches cash flow statement from borsapy (fallback for İş Yatırım)."""
+        """Fetches cash flow statement from borsapy. Tries XI_29 then UFRS for banks."""
         try:
-            ticker = self._get_ticker(ticker_kodu)
-            data = ticker.quarterly_cashflow if period_type == 'quarterly' else ticker.cashflow
+            data = self._get_financial_data(ticker_kodu, period_type, 'cashflow')
             records = self._financial_statement_to_dict_list(data)
             return {"tablo": records}
         except Exception as e:
