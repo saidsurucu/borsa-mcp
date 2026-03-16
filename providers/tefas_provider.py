@@ -536,7 +536,7 @@ class TefasProvider:
                 'fiyat_gecmisi_1ay_sayisi': len(fund_prices_1a),
                 'fiyat_gecmisi_1ay_mevcut': len(fund_prices_1a) > 0,
                 
-                # Risk metrics (may not be available in this endpoint)
+                # Risk metrics - try API first, fallback to borsapy calculation
                 'standart_sapma': fund_info.get('STANDARTSAPMA'),
                 'sharpe_orani': fund_info.get('SHARPEORANI'),
                 'alpha': fund_info.get('ALPHA'),
@@ -565,7 +565,19 @@ class TefasProvider:
                     result_data['fiyat_gecmisi_3ay'] = convert_price_history(fund_prices_3a)
                 if fund_prices_6a:
                     result_data['fiyat_gecmisi_6ay'] = convert_price_history(fund_prices_6a)
-            
+
+            # Fill missing risk metrics from borsapy if API didn't provide them
+            if result_data.get('sharpe_orani') is None or result_data.get('standart_sapma') is None:
+                try:
+                    bp_fund = bp.Fund(fund_code)
+                    risk = bp_fund.risk_metrics()
+                    if result_data.get('sharpe_orani') is None and risk.get('sharpe_ratio') is not None:
+                        result_data['sharpe_orani'] = float(risk['sharpe_ratio'])
+                    if result_data.get('standart_sapma') is None and risk.get('annualized_volatility') is not None:
+                        result_data['standart_sapma'] = float(risk['annualized_volatility'])
+                except Exception as e:
+                    logger.debug(f"Could not fetch risk metrics from borsapy for {fund_code}: {e}")
+
             return result_data
             
         except Exception as e:
@@ -924,17 +936,17 @@ class TefasProvider:
             # Calculate rankings
             if comparison_data:
                 # Rank by 1-year return
-                sorted_by_return = sorted(comparison_data, key=lambda x: x.get('getiri_1_yil', 0), reverse=True)
+                sorted_by_return = sorted(comparison_data, key=lambda x: x.get('getiri_1_yil') or 0, reverse=True)
                 for i, fund in enumerate(sorted_by_return):
                     fund['getiri_siralamasi'] = i + 1
-                
+
                 # Rank by Sharpe ratio
-                sorted_by_sharpe = sorted(comparison_data, key=lambda x: x.get('sharpe_orani', 0), reverse=True)
+                sorted_by_sharpe = sorted(comparison_data, key=lambda x: x.get('sharpe_orani') or 0, reverse=True)
                 for i, fund in enumerate(sorted_by_sharpe):
                     fund['risk_ayarli_getiri_siralamasi'] = i + 1
-                
+
                 # Rank by size
-                sorted_by_size = sorted(comparison_data, key=lambda x: x.get('toplam_deger', 0), reverse=True)
+                sorted_by_size = sorted(comparison_data, key=lambda x: x.get('toplam_deger') or 0, reverse=True)
                 for i, fund in enumerate(sorted_by_size):
                     fund['buyukluk_siralamasi'] = i + 1
             
