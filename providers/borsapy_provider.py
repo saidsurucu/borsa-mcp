@@ -180,7 +180,8 @@ class BorsapyProvider:
         ticker_kodu: str,
         period: YFinancePeriodEnum = None,
         start_date: str = None,
-        end_date: str = None
+        end_date: str = None,
+        adjust: bool = False
     ) -> Dict[str, Any]:
         """Fetches historical OHLCV data from borsapy."""
         try:
@@ -191,7 +192,7 @@ class BorsapyProvider:
             # Determine which mode to use: date range or period
             if start_date or end_date:
                 # Date range mode
-                hist_df = ticker.history(start=start_date, end=end_date)
+                hist_df = ticker.history(start=start_date, end=end_date, adjust=adjust)
 
                 # Calculate time frame for optimization
                 if start_date and end_date:
@@ -208,7 +209,7 @@ class BorsapyProvider:
             else:
                 # Period mode
                 borsapy_period = self._convert_period(period)
-                hist_df = ticker.history(period=borsapy_period)
+                hist_df = ticker.history(period=borsapy_period, adjust=adjust)
 
                 # Map periods to approximate days
                 period_days_map = {
@@ -562,7 +563,7 @@ class BorsapyProvider:
         """Performs technical analysis using borsapy historical data."""
         try:
             ticker = self._get_ticker(ticker_kodu)
-            hist = ticker.history(period="6ay")  # 6 months of data
+            hist = ticker.history(period="6ay", adjust=False)  # 6 months of data
 
             if hist is None or hist.empty:
                 return {"error": f"No historical data for {ticker_kodu}"}
@@ -680,7 +681,7 @@ class BorsapyProvider:
         """Calculates daily pivot points using borsapy historical data."""
         try:
             ticker = self._get_ticker(ticker_kodu)
-            hist = ticker.history(period="5g")  # Last 5 days
+            hist = ticker.history(period="5g", adjust=False)  # Last 5 days
 
             if hist is None or hist.empty or len(hist) < 2:
                 return {"error": f"Insufficient data for {ticker_kodu}"}
@@ -779,7 +780,7 @@ class BorsapyProvider:
                 try:
                     ticker = self._get_ticker(ticker_kodu)
                     info = ticker.info
-                    hist = ticker.history(period="1y")
+                    hist = ticker.history(period="1y", adjust=False)
 
                     # Calculate yearly return
                     yillik_getiri = None

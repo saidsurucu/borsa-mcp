@@ -277,7 +277,11 @@ async def get_historical_data(
         description="End date (YYYY-MM-DD) for date range query",
         pattern=r"^\d{4}-\d{2}-\d{2}$",
         default=None
-    )] = None
+    )] = None,
+    adjust: Annotated[bool, Field(
+        description="Split-adjusted prices. False=real trading prices (default), True=split-adjusted for return calculations",
+        default=False
+    )] = False
 ) -> Dict[str, Any]:
     """
     Get historical OHLCV (Open, High, Low, Close, Volume) data.
@@ -287,14 +291,18 @@ async def get_historical_data(
     2. Date range: start_date="2024-01-01", end_date="2024-12-31"
     3. Single day: start_date="2024-10-25", end_date="2024-10-25"
 
+    Price adjustment (BIST only):
+    - adjust=False (default): Real trading prices as seen on the exchange
+    - adjust=True: Split-adjusted prices for accurate return calculations
+
     Examples:
     - get_historical_data("GARAN", "bist", period="3mo")
     - get_historical_data("AAPL", "us", start_date="2024-01-01", end_date="2024-06-30")
     """
-    logger.info(f"get_historical_data: symbol='{symbol}', market='{market}'")
+    logger.info(f"get_historical_data: symbol='{symbol}', market='{market}', adjust={adjust}")
     try:
         return await market_router.get_historical_data(
-            symbol, MarketType(market), period, start_date, end_date
+            symbol, MarketType(market), period, start_date, end_date, adjust=adjust
         )
     except Exception as e:
         logger.exception(f"Error in get_historical_data for '{symbol}'")

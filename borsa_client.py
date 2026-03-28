@@ -312,7 +312,8 @@ class BorsaApiClient:
         ticker_kodu: str,
         zaman_araligi: YFinancePeriodEnum = None,
         start_date: str = None,
-        end_date: str = None
+        end_date: str = None,
+        adjust: bool = False
     ) -> Dict[str, Any]:
         """Delegates historical data fetching to BorsapyProvider for BIST stocks.
 
@@ -321,9 +322,10 @@ class BorsaApiClient:
             zaman_araligi: Time period (optional if start_date/end_date provided)
             start_date: Start date in YYYY-MM-DD format (optional)
             end_date: End date in YYYY-MM-DD format (optional)
+            adjust: If True, return split-adjusted prices. Default False (real prices).
         """
         return await self.borsapy_provider.get_finansal_veri(
-            ticker_kodu, zaman_araligi, start_date, end_date
+            ticker_kodu, zaman_araligi, start_date, end_date, adjust=adjust
         )
         
     async def get_sirket_bilgileri_yfinance(self, ticker_kodu: str) -> Dict[str, Any]:

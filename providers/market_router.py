@@ -382,20 +382,22 @@ class MarketRouter:
         period: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        interval: str = "1d"
+        interval: str = "1d",
+        adjust: bool = False
     ) -> Dict[str, Any]:
         """Get historical OHLCV data. Returns raw dict."""
         source = "unknown"
         data_points = []
 
         if market == MarketType.BIST:
-            source = "yfinance"
+            source = "borsapy"
             ticker = self._get_ticker_with_suffix(symbol, market)
             result = await self._client.get_finansal_veri(
                 ticker,
                 zaman_araligi=period or "1mo",
                 start_date=start_date,
-                end_date=end_date
+                end_date=end_date,
+                adjust=adjust
             )
             if result and result.get("data"):
                 for dp in result["data"]:
