@@ -749,38 +749,46 @@ class MarketRouter:
 
     # --- Analyst Data ---
 
-    async def get_analyst_data(
-        self,
-        symbols: Union[str, List[str]],
-        market: MarketType
-    ) -> Dict[str, Any]:
-        """Get analyst ratings and recommendations. Returns raw dict."""
-        is_multi = isinstance(symbols, list)
-        symbol_list = symbols if is_multi else [symbols]
-        source = "yfinance"
-        warnings = []
-        symbol = symbol_list[0]
+    def _derive_consensus(self, summary: Dict[str, Any]) -> Optional[str]:
+        """Derive consensus from buy/hold/sell counts."""
+        if not summary:
+            return None
+        buy = (summary.get("strong_buy", 0) or 0) + (summary.get("buy", 0) or 0)
+        hold = summary.get("hold", 0) or 0
+        sell = (summary.get("sell", 0) or 0) + (summary.get("strong_sell", 0) or 0)
+        total = buy + hold + sell
+        if total == 0:
+            return None
+        if buy > hold + sell:
+            return "Buy"
+        elif sell > buy + hold:
+            return "Sell"
+        else:
+            return "Hold"
+
+    async def _get_analyst_single(self, symbol: str, market: MarketType) -> Dict[str, Any]:
+        """Get analyst data for a single symbol."""
         summary = None
         ratings = []
         current_price = None
         upside = None
+        mean_target = None
+        low_target = None
+        high_target = None
 
         if market == MarketType.BIST:
             ticker = self._get_ticker_with_suffix(symbol, market)
             result = await self._client.get_analist_verileri_yfinance(ticker)
             if result:
+                if result.get("fiyat_hedefleri"):
+                    fh = result["fiyat_hedefleri"]
+                    if fh and len(fh) > 0:
+                        mean_target = getattr(fh[0], 'ortalama', None)
+                        low_target = getattr(fh[0], 'dusuk', None)
+                        high_target = getattr(fh[0], 'yuksek', None)
+                        current_price = getattr(fh[0], 'guncel', None)
                 if result.get("tavsiye_ozeti"):
                     s = result["tavsiye_ozeti"]
-                    mean_target = None
-                    low_target = None
-                    high_target = None
-                    if result.get("fiyat_hedefleri"):
-                        fh = result["fiyat_hedefleri"]
-                        if fh and len(fh) > 0:
-                            mean_target = getattr(fh[0], 'ortalama', None)
-                            low_target = getattr(fh[0], 'dusuk', None)
-                            high_target = getattr(fh[0], 'yuksek', None)
-                            current_price = getattr(fh[0], 'guncel', None)
                     summary = {
                         "strong_buy": 0,
                         "buy": getattr(s, 'satin_al', 0) or 0,
@@ -790,8 +798,10 @@ class MarketRouter:
                         "mean_target": mean_target,
                         "low_target": low_target,
                         "high_target": high_target,
-                        "consensus": None
                     }
+                    if current_price and mean_target:
+                        upside = ((mean_target - current_price) / current_price) * 100
+                    summary["consensus"] = self._derive_consensus(summary)
 
         elif market == MarketType.US:
             result = await self._client.get_us_analyst_ratings(symbol)
@@ -812,11 +822,11 @@ class MarketRouter:
                         "hold": getattr(s, 'tut', 0) or 0,
                         "sell": getattr(s, 'sat', 0) + getattr(s, 'dusuk_agirlik', 0),
                         "strong_sell": 0,
-                        "mean_target": mean_target if 'mean_target' in dir() else None,
-                        "low_target": low_target if 'low_target' in dir() else None,
-                        "high_target": high_target if 'high_target' in dir() else None,
-                        "consensus": None
+                        "mean_target": mean_target,
+                        "low_target": low_target,
+                        "high_target": high_target,
                     }
+                    summary["consensus"] = self._derive_consensus(summary)
                 if result.get("tavsiyeler"):
                     for r in result["tavsiyeler"][:10]:
                         date_str = getattr(r, 'tarih', None)
@@ -830,12 +840,49 @@ class MarketRouter:
                         })
 
         return {
-            "metadata": self._create_metadata(market, symbol_list, source, warnings=warnings),
             "symbol": symbol.upper(),
             "current_price": current_price,
             "summary": summary,
             "ratings": ratings,
             "upside_potential": upside
+        }
+
+    async def get_analyst_data(
+        self,
+        symbols: Union[str, List[str]],
+        market: MarketType
+    ) -> Dict[str, Any]:
+        """Get analyst ratings and recommendations. Returns raw dict."""
+        import asyncio
+        is_multi = isinstance(symbols, list)
+        symbol_list = symbols if is_multi else [symbols]
+        source = "yfinance"
+        warnings = []
+
+        if not is_multi or len(symbol_list) == 1:
+            symbol = symbol_list[0]
+            single_result = await self._get_analyst_single(symbol, market)
+            single_result["metadata"] = self._create_metadata(market, symbol_list, source, warnings=warnings)
+            return single_result
+
+        # Multi-ticker: fetch all in parallel
+        tasks = [self._get_analyst_single(s, market) for s in symbol_list]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        data = []
+        for i, r in enumerate(results):
+            if isinstance(r, Exception):
+                warnings.append(f"{symbol_list[i]}: {str(r)}")
+            else:
+                data.append(r)
+
+        return {
+            "metadata": self._create_metadata(market, symbol_list, source, warnings=warnings),
+            "tickers": [s.upper() for s in symbol_list],
+            "data": data,
+            "successful_count": len(data),
+            "failed_count": len(symbol_list) - len(data),
+            "warnings": warnings
         }
 
     # --- Dividends ---

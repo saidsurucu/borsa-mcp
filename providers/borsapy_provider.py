@@ -350,11 +350,11 @@ class BorsapyProvider:
                 if targets:
                     # borsapy returns dict with current, high, low, mean
                     fiyat_hedefleri.append(AnalistFiyatHedefi(
-                        tarih=datetime.datetime.now().strftime('%Y-%m-%d'),
-                        hedef_fiyat=targets.get('mean') or targets.get('target'),
-                        en_yuksek_hedef=targets.get('high'),
-                        en_dusuk_hedef=targets.get('low'),
-                        mevcut_fiyat=targets.get('current')
+                        guncel=targets.get('current'),
+                        ortalama=targets.get('mean') or targets.get('target'),
+                        dusuk=targets.get('low'),
+                        yuksek=targets.get('high'),
+                        analist_sayisi=targets.get('numberOfAnalystOpinions')
                     ))
             except Exception as e:
                 logger.debug(f"No price targets for {ticker_kodu}: {e}")
@@ -365,11 +365,11 @@ class BorsapyProvider:
                 recs = ticker.recommendations_summary
                 if recs:
                     ozet = TavsiyeOzeti(
-                        guclu_al=recs.get('strong_buy', 0) or recs.get('strongBuy', 0),
-                        al=recs.get('buy', 0),
+                        satin_al=recs.get('buy', 0) + (recs.get('strong_buy', 0) or recs.get('strongBuy', 0)),
+                        fazla_agirlik=0,
                         tut=recs.get('hold', 0),
-                        sat=recs.get('sell', 0),
-                        guclu_sat=recs.get('strong_sell', 0) or recs.get('strongSell', 0)
+                        dusuk_agirlik=0,
+                        sat=recs.get('sell', 0) + (recs.get('strong_sell', 0) or recs.get('strongSell', 0))
                     )
             except Exception as e:
                 logger.debug(f"No recommendations for {ticker_kodu}: {e}")
