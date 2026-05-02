@@ -24,7 +24,6 @@ from models import (
     FonAramaSonucu,
     FonDetayBilgisi,
     FonPerformansSonucu,
-    FonPortfoySonucu,
     FonKarsilastirmaSonucu,
     FonTaramaKriterleri,
     FonTaramaSonucu,
@@ -626,23 +625,6 @@ class BorsaApiClient:
                 baslangic_tarihi=start_date or "",
                 bitis_tarihi=end_date or "",
                 fiyat_geçmisi=[],
-                veri_sayisi=0,
-                error_message=str(e)
-            )
-    
-    async def get_fund_portfolio(self, fund_code: str, start_date: str = None, end_date: str = None) -> FonPortfoySonucu:
-        """Get portfolio allocation composition of a fund using official TEFAS BindHistoryAllocation API."""
-        try:
-            result = self.tefas_provider.get_fund_portfolio(fund_code, start_date, end_date)
-            return FonPortfoySonucu(**result)
-        except Exception as e:
-            logger.exception(f"Error getting fund portfolio for {fund_code}")
-            return FonPortfoySonucu(
-                fon_kodu=fund_code,
-                baslangic_tarihi=start_date or "",
-                bitis_tarihi=end_date or "",
-                portfoy_geçmisi=[],
-                son_portfoy_dagilimi={},
                 veri_sayisi=0,
                 error_message=str(e)
             )

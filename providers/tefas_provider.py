@@ -104,73 +104,21 @@ class TefasProvider:
             text_norm = text_norm.replace(tr_char, latin_char)
         return text_norm
     
-    def _calculate_data_completeness_score(self, fund_info: dict, fund_return: dict, fund_prices_1a: list, fund_profile: dict = None, fund_allocation: list = None) -> float:
-        """
-        Calculate comprehensive data completeness score based on all available API sections.
-        Returns a score between 0.0 and 1.0 indicating data quality.
-        """
-        score = 0.0
-        total_checks = 0
-        
-        # Essential fund info checks
-        essential_fields = ['SONFIYAT', 'FONUNVAN', 'KURUCU', 'YONETICI', 'FONTUR', 'FONKATEGORI']
-        for field in essential_fields:
-            total_checks += 1
-            if fund_info.get(field):
-                score += 1
-        
-        # Performance data checks
-        if fund_return:
-            total_checks += 1
-            score += 1
-            
-            performance_fields = ['GETIRI1A', 'GETIRI3A', 'GETIRI1Y', 'GETIRI3Y', 'GETIRI5Y']
-            for field in performance_fields:
-                total_checks += 1
-                if fund_return.get(field) is not None:
-                    score += 1
-        
-        # NEW: Fund profile completeness
-        if fund_profile:
-            total_checks += 1
-            score += 1
-            
-            profile_fields = ['ISINKOD', 'SONISSAAT', 'KAPLINK', 'TEFASDURUM']
-            for field in profile_fields:
-                total_checks += 1
-                if fund_profile.get(field):
-                    score += 1
-        
-        # NEW: Portfolio allocation completeness  
-        if fund_allocation:
-            total_checks += 2
-            score += 2  # Bonus for having allocation data
-            
-            # Check if allocation sums to reasonable total
-            total_allocation = sum(item.get('PORTFOYORANI', 0) for item in fund_allocation)
-            if 95 <= total_allocation <= 105:  # Allow some variance
-                total_checks += 1
-                score += 1
-        
-        # Daily return validity check (like in widget: != -100)
-        total_checks += 1
-        if fund_info.get('GUNLUKGETIRI', -100) != -100:
-            score += 1
-        
-        # Price history availability
-        total_checks += 1
-        if fund_prices_1a and len(fund_prices_1a) > 0:
-            score += 1
-        
-        # Additional metrics availability
-        additional_fields = ['PORTBUYUKLUK', 'YATIRIMCISAYI', 'RISKDEGERI']
-        for field in additional_fields:
-            total_checks += 1
-            if fund_info.get(field):
-                score += 1
-        
-        return round(score / total_checks, 2) if total_checks > 0 else 0.0
-    
+    def _calculate_completeness_score(self, info: dict, profile: dict, has_price_history: bool) -> float:
+        """Score 0.0-1.0 indicating how complete the borsapy fund.info payload is."""
+        checks = []
+        for key in ('price', 'name', 'founder', 'manager', 'fund_type', 'category'):
+            checks.append(bool(info.get(key)))
+        for key in ('return_1m', 'return_3m', 'return_1y', 'return_3y', 'return_5y'):
+            checks.append(info.get(key) is not None)
+        for key in ('isin_kod', 'son_islem_saati', 'kap_link', 'tefas_durum'):
+            checks.append(bool(profile.get(key)))
+        checks.append(info.get('daily_return') is not None)
+        checks.append(has_price_history)
+        for key in ('fund_size', 'investor_count', 'risk_value'):
+            checks.append(bool(info.get(key)))
+        return round(sum(1 for c in checks if c) / len(checks), 2) if checks else 0.0
+
     def search_funds_takasbank(self, search_term: str, limit: int = 20) -> Dict[str, Any]:
         """
         Search for funds using Takasbank Excel data.
@@ -354,261 +302,205 @@ class TefasProvider:
     
     def get_fund_detail(self, fund_code: str, include_price_history: bool = False) -> Dict[str, Any]:
         """
-        Get detailed information about a specific fund using the reliable alternative API.
-        Uses GetAllFundAnalyzeData endpoint which provides comprehensive fund data.
-        
+        Fetch detailed fund information via borsapy (TEFAS v2 endpoints).
+
+        Replaces the deprecated GetAllFundAnalyzeData endpoint that started
+        returning 404 after TEFAS's 2026-04 Next.js migration. The returned
+        dict shape matches what FonDetayBilgisi expects so downstream callers
+        do not need to change.
+
         Args:
-            fund_code: TEFAS fund code
-            
+            fund_code: TEFAS fund code (e.g., "AAK", "TGE").
+            include_price_history: If True, also fetch 1w/1mo/3mo/6mo OHLC.
+
         Returns:
-            Dictionary with fund details
-        """
-        # Use only the alternative API (from iOS Scriptable widget) as it's more reliable
-        logger.info(f"Getting fund details for {fund_code} using GetAllFundAnalyzeData API (price_history={include_price_history})")
-        result = self.get_fund_detail_alternative(fund_code, include_price_history)
-        
-        if not result.get('error_message'):
-            logger.info(f"Successfully retrieved fund details for {fund_code}")
-            return result
-        else:
-            logger.error(f"Failed to get fund details for {fund_code}: {result.get('error_message')}")
-            return result
-    
-    def get_fund_detail_alternative(self, fund_code: str, include_price_history: bool = False) -> Dict[str, Any]:
-        """
-        Alternative TEFAS API endpoint for fund details (from iOS Scriptable widget).
-        Uses GetAllFundAnalyzeData endpoint which might be more reliable.
+            Dictionary with fund details (same shape as the legacy method).
         """
         try:
-            # Alternative TEFAS API endpoint
-            detail_url = "https://www.tefas.gov.tr/api/DB/GetAllFundAnalyzeData"
-            
-            # POST data as form-encoded
-            data = {
-                'dil': 'TR',
-                'fonkod': fund_code
-            }
-            
-            headers = {
-                'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
-                'Accept': 'application/json, text/plain, */*',
-                'Accept-Language': 'tr-TR,tr;q=0.9'
-            }
-            
-            response = self.session.post(detail_url, data=data, headers=headers, timeout=10)
-            response.raise_for_status()
-            
-            result = response.json()
-            
-            # Check if we have fund data
-            if not result or not result.get('fundInfo'):
-                return {
-                    'fon_kodu': fund_code,
-                    'fon_adi': '',
-                    'tarih': '',
-                    'fiyat': 0.0,
-                    'tedavuldeki_pay_sayisi': 0.0,
-                    'toplam_deger': 0.0,
-                    'birim_pay_degeri': 0.0,
-                    'yatirimci_sayisi': 0,
-                    'kurulus': '',
-                    'yonetici': '',
-                    'fon_turu': '',
-                    'risk_degeri': 0,
-                    'getiri_1_ay': None,
-                    'getiri_3_ay': None,
-                    'getiri_6_ay': None,
-                    'getiri_yil_basi': None,
-                    'getiri_1_yil': None,
-                    'getiri_3_yil': None,
-                    'getiri_5_yil': None,
-                    'standart_sapma': None,
-                    'sharpe_orani': None,
-                    'alpha': None,
-                    'beta': None,
-                    'tracking_error': None,
-                    'error_message': 'No fund data found in alternative API'
-                }
-            
-            # Extract all available data sections
-            fund_info = result['fundInfo'][0]
-            fund_return = result.get('fundReturn', [{}])[0] if result.get('fundReturn') else {}
-            fund_profile = result.get('fundProfile', [{}])[0] if result.get('fundProfile') else {}
-            fund_allocation = result.get('fundAllocation', [])
-            
-            # Price history data (optional)
-            fund_prices_1h = result.get('fundPrices1H', [])  # 1 haftalık
-            fund_prices_1a = result.get('fundPrices1A', [])  # 1 aylık
-            fund_prices_3a = result.get('fundPrices3A', [])  # 3 aylık
-            fund_prices_6a = result.get('fundPrices6A', [])  # 6 aylık
-            
-            # Calculate additional metrics from price history (like in the widget)
+            fund = bp.Fund(fund_code)
+            info = fund.info
+            if not info:
+                return self._empty_fund_detail(fund_code, "borsapy returned empty fund.info")
+
+            # Risk metrics
+            std_dev = None
+            sharpe_ratio = None
+            try:
+                risk = fund.risk_metrics()
+                sr = risk.get('sharpe_ratio')
+                vol = risk.get('annualized_volatility')
+                sharpe_ratio = float(sr) if sr is not None else None
+                std_dev = float(vol) if vol is not None else None
+            except Exception as e:
+                logger.debug(f"risk_metrics failed for {fund_code}: {e}")
+
+            # Pull recent prices (always need 1mo for daily-change calc)
+            prices_1mo = self._fund_history(fund, '1mo')
+            prices_1w = prices_1mo[-5:] if prices_1mo else []
+            prices_3mo = self._fund_history(fund, '3mo') if include_price_history else []
+            prices_6mo = self._fund_history(fund, '6mo') if include_price_history else []
+
+            current_price = float(info.get('price') or 0)
             previous_day_price = None
             daily_change_amount = None
-            if fund_prices_1a and len(fund_prices_1a) >= 2:
-                try:
-                    current_price = float(fund_info.get('SONFIYAT', 0) or 0)
-                    previous_day_price = float(fund_prices_1a[-2].get('FIYAT', 0))
-                    if previous_day_price > 0:
-                        daily_change_amount = current_price - previous_day_price
-                except (ValueError, IndexError, KeyError):
-                    previous_day_price = None
-                    daily_change_amount = None
-            
-            # Helper function to convert price history
-            def convert_price_history(prices_data):
-                return [
+            if len(prices_1mo) >= 2:
+                previous_day_price = prices_1mo[-2].get('fiyat')
+                if previous_day_price:
+                    daily_change_amount = current_price - previous_day_price
+
+            # fundProfile-equivalent sub-dict (kept for backward compat)
+            fon_profil = {
+                'isin_kod': info.get('isin'),
+                'son_islem_saati': info.get('last_trading_time'),
+                'min_alis': info.get('min_purchase'),
+                'min_satis': info.get('min_redemption'),
+                'max_alis': info.get('max_purchase'),
+                'max_satis': info.get('max_redemption'),
+                'kap_link': info.get('kap_link'),
+                'tefas_durum': info.get('tefas_status'),
+                'cikis_komisyonu': info.get('exit_fee'),
+                'giris_komisyonu': info.get('entry_fee'),
+                'basis_saat': info.get('first_trading_time'),
+                'fon_satis_valor': info.get('sell_valor'),
+                'fon_geri_alis_valor': info.get('buy_valor'),
+                'faiz_icerigi': None,  # not provided by borsapy
+            }
+
+            # Allocation typically None; needs borsapy[allocation] extra to populate
+            allocation = info.get('allocation')
+            portfoy_dagilimi = None
+            if isinstance(allocation, list) and allocation:
+                portfoy_dagilimi = [
                     {
-                        'tarih': datetime.fromisoformat(item.get('TARIH', '').replace('T00:00:00', '')).strftime('%Y-%m-%d') if item.get('TARIH') else '',
-                        'fiyat': float(item.get('FIYAT', 0)),
-                        'kategori_derece': item.get('KATEGORIDERECE'),
-                        'kategori_fon_sayisi': item.get('KATEGORIFONSAY')
+                        'kiymet_tip': item.get('asset_type') or item.get('kiymet_tip'),
+                        'portfoy_orani': item.get('weight') or item.get('portfoy_orani'),
                     }
-                    for item in prices_data
+                    for item in allocation
                 ]
-            
-            # Build comprehensive result with all available data
+
             result_data = {
-                'fon_kodu': fund_code,
-                'fon_adi': fund_info.get('FONUNVAN', fund_info.get('FONADI', '')),
-                'tarih': fund_info.get('TARIH', datetime.now().strftime('%Y-%m-%d')),
-                'fiyat': float(fund_info.get('SONFIYAT', 0) or 0),
-                'tedavuldeki_pay_sayisi': float(fund_info.get('PAYADET', fund_info.get('TEDPAYSAYISI', 0)) or 0),
-                'toplam_deger': float(fund_info.get('PORTBUYUKLUK', fund_info.get('PORTFOYDEGERI', 0)) or 0),
-                'birim_pay_degeri': float(fund_info.get('SONFIYAT', 0) or 0),  # Same as current price
-                'yatirimci_sayisi': int(fund_info.get('YATIRIMCISAYI', fund_info.get('KISISAYISI', 0)) or 0),
-                'kurulus': fund_info.get('KURUCU', ''),
-                'yonetici': fund_info.get('YONETICI', ''),
-                'fon_turu': fund_info.get('FONTUR', fund_info.get('FONTURU', '')),
-                'risk_degeri': int(fund_profile.get('RISKDEGERI', fund_info.get('RISKDEGERI', 0)) or 0),
-                
-                # Performance metrics from fundReturn
-                'getiri_1_ay': fund_return.get('GETIRI1A'),
-                'getiri_3_ay': fund_return.get('GETIRI3A'),
-                'getiri_6_ay': fund_return.get('GETIRI6A'),
-                'getiri_yil_basi': fund_return.get('GETIRIYB'),
-                'getiri_1_yil': fund_return.get('GETIRI1Y', fund_return.get('GETIRI365')),
-                'getiri_3_yil': fund_return.get('GETIRI3Y'),
-                'getiri_5_yil': fund_return.get('GETIRI5Y'),
-                
-                # Enhanced performance data from fundInfo (like in widget)
-                'gunluk_getiri': fund_info.get('GUNLUKGETIRI'),
-                'haftalik_getiri': fund_info.get('HAFTALIKGETIRI'),
+                'fon_kodu': info.get('fund_code', fund_code),
+                'fon_adi': info.get('name', '') or '',
+                'tarih': info.get('date') or datetime.now().strftime('%Y-%m-%d'),
+                'fiyat': current_price,
+                'tedavuldeki_pay_sayisi': None,  # not exposed by borsapy
+                'toplam_deger': float(info.get('fund_size') or 0),
+                'birim_pay_degeri': current_price,
+                'yatirimci_sayisi': int(info.get('investor_count') or 0),
+                'kurulus': info.get('founder', '') or '',
+                'yonetici': info.get('manager', '') or '',
+                'fon_turu': info.get('fund_type', '') or '',
+                'risk_degeri': int(info.get('risk_value') or 0),
+
+                # Performance returns
+                'getiri_1_ay': info.get('return_1m'),
+                'getiri_3_ay': info.get('return_3m'),
+                'getiri_6_ay': info.get('return_6m'),
+                'getiri_yil_basi': info.get('return_ytd'),
+                'getiri_1_yil': info.get('return_1y'),
+                'getiri_3_yil': info.get('return_3y'),
+                'getiri_5_yil': info.get('return_5y'),
+
+                'gunluk_getiri': info.get('daily_return'),
+                'haftalik_getiri': info.get('weekly_return'),
                 'gunluk_degisim_miktar': daily_change_amount,
                 'onceki_gun_fiyat': previous_day_price,
-                
-                # NEW: Category and ranking information from fundInfo
-                'fon_kategori': fund_info.get('FONKATEGORI'),
-                'kategori_derece': fund_info.get('KATEGORIDERECE'),
-                'kategori_fon_sayisi': fund_info.get('KATEGORIFONSAY'),
-                'pazar_payi': fund_info.get('PAZARPAYI'),
-                'kategori_derece_birlesik': fund_info.get('KATEGORIDERECEBIRLESIK'),
-                
-                # NEW: Fund profile information from fundProfile
-                'fon_profil': {
-                    'isin_kod': fund_profile.get('ISINKOD'),
-                    'son_islem_saati': fund_profile.get('SONISSAAT'),
-                    'min_alis': fund_profile.get('MINALIS'),
-                    'min_satis': fund_profile.get('MINSATIS'),
-                    'max_alis': fund_profile.get('MAXALIS'),
-                    'max_satis': fund_profile.get('MAXSATIS'),
-                    'kap_link': fund_profile.get('KAPLINK'),
-                    'tefas_durum': fund_profile.get('TEFASDURUM'),
-                    'cikis_komisyonu': fund_profile.get('CIKISKOMISYONU'),
-                    'giris_komisyonu': fund_profile.get('GIRISKOMISYONU'),
-                    'basis_saat': fund_profile.get('BASISSAAT'),
-                    'fon_satis_valor': fund_profile.get('FONSATISVALOR'),
-                    'fon_geri_alis_valor': fund_profile.get('FONGERIALISVALOR'),
-                    'faiz_icerigi': fund_profile.get('FAIZICERIGI')
-                } if fund_profile else None,
-                
-                # NEW: Portfolio allocation from fundAllocation
-                'portfoy_dagilimi': [
-                    {
-                        'kiymet_tip': item.get('KIYMETTIP'),
-                        'portfoy_orani': item.get('PORTFOYORANI')
-                    }
-                    for item in fund_allocation
-                ] if fund_allocation else None,
-                
-                # Price history metadata
-                'fiyat_gecmisi_1ay_sayisi': len(fund_prices_1a),
-                'fiyat_gecmisi_1ay_mevcut': len(fund_prices_1a) > 0,
-                
-                # Risk metrics - try API first, fallback to borsapy calculation
-                'standart_sapma': fund_info.get('STANDARTSAPMA'),
-                'sharpe_orani': fund_info.get('SHARPEORANI'),
-                'alpha': fund_info.get('ALPHA'),
-                'beta': fund_info.get('BETA'),
-                'tracking_error': fund_info.get('TRACKINGERROR'),
-                
-                # Enhanced API metadata
-                'api_source': 'GetAllFundAnalyzeData',
-                'veri_kalitesi': {
-                    'fiyat_gecmisi_var': len(fund_prices_1a) > 0,
-                    'performans_verisi_var': bool(fund_return),
-                    'profil_verisi_var': bool(fund_profile),
-                    'portfoy_dagilimi_var': bool(fund_allocation),
-                    'gunluk_getiri_gecerli': fund_info.get('GUNLUKGETIRI', -100) != -100,
-                    'veri_tamamligi_skoru': self._calculate_data_completeness_score(fund_info, fund_return, fund_prices_1a)
-                }
-            }
-            
-            # Add optional price history if requested
-            if include_price_history:
-                if fund_prices_1h:
-                    result_data['fiyat_gecmisi_1hafta'] = convert_price_history(fund_prices_1h)
-                if fund_prices_1a:
-                    result_data['fiyat_gecmisi_1ay'] = convert_price_history(fund_prices_1a)
-                if fund_prices_3a:
-                    result_data['fiyat_gecmisi_3ay'] = convert_price_history(fund_prices_3a)
-                if fund_prices_6a:
-                    result_data['fiyat_gecmisi_6ay'] = convert_price_history(fund_prices_6a)
 
-            # Fill missing risk metrics from borsapy if API didn't provide them
-            if result_data.get('sharpe_orani') is None or result_data.get('standart_sapma') is None:
-                try:
-                    bp_fund = bp.Fund(fund_code)
-                    risk = bp_fund.risk_metrics()
-                    if result_data.get('sharpe_orani') is None and risk.get('sharpe_ratio') is not None:
-                        result_data['sharpe_orani'] = float(risk['sharpe_ratio'])
-                    if result_data.get('standart_sapma') is None and risk.get('annualized_volatility') is not None:
-                        result_data['standart_sapma'] = float(risk['annualized_volatility'])
-                except Exception as e:
-                    logger.debug(f"Could not fetch risk metrics from borsapy for {fund_code}: {e}")
+                # Category and ranking
+                'fon_kategori': info.get('category'),
+                'kategori_derece': info.get('category_rank'),
+                'kategori_fon_sayisi': info.get('category_fund_count'),
+                'pazar_payi': info.get('market_share'),
+                'kategori_derece_birlesik': None,  # not in borsapy
 
-            return result_data
-            
-        except Exception as e:
-            logger.error(f"Error getting fund detail (alternative) for {fund_code}: {e}")
-            return {
-                'fon_kodu': fund_code,
-                'fon_adi': '',
-                'tarih': '',
-                'fiyat': 0.0,
-                'tedavuldeki_pay_sayisi': 0.0,
-                'toplam_deger': 0.0,
-                'birim_pay_degeri': 0.0,
-                'yatirimci_sayisi': 0,
-                'kurulus': '',
-                'yonetici': '',
-                'fon_turu': '',
-                'risk_degeri': 0,
-                'getiri_1_ay': None,
-                'getiri_3_ay': None,
-                'getiri_6_ay': None,
-                'getiri_yil_basi': None,
-                'getiri_1_yil': None,
-                'getiri_3_yil': None,
-                'getiri_5_yil': None,
-                'standart_sapma': None,
-                'sharpe_orani': None,
+                'fon_profil': fon_profil,
+                'portfoy_dagilimi': portfoy_dagilimi,
+
+                'fiyat_gecmisi_1ay_sayisi': len(prices_1mo),
+                'fiyat_gecmisi_1ay_mevcut': bool(prices_1mo),
+
+                'standart_sapma': std_dev,
+                'sharpe_orani': sharpe_ratio,
                 'alpha': None,
                 'beta': None,
                 'tracking_error': None,
-                'error_message': f"Alternative TEFAS API error: {str(e)}"
+
+                'api_source': 'borsapy.Fund',
+                'veri_kalitesi': {
+                    'fiyat_gecmisi_var': bool(prices_1mo),
+                    'performans_verisi_var': info.get('return_1y') is not None,
+                    'profil_verisi_var': bool(info.get('isin')),
+                    'portfoy_dagilimi_var': bool(portfoy_dagilimi),
+                    'gunluk_getiri_gecerli': info.get('daily_return') is not None,
+                    'veri_tamamligi_skoru': self._calculate_completeness_score(info, fon_profil, bool(prices_1mo)),
+                },
             }
+
+            if include_price_history:
+                if prices_1w:
+                    result_data['fiyat_gecmisi_1hafta'] = prices_1w
+                if prices_1mo:
+                    result_data['fiyat_gecmisi_1ay'] = prices_1mo
+                if prices_3mo:
+                    result_data['fiyat_gecmisi_3ay'] = prices_3mo
+                if prices_6mo:
+                    result_data['fiyat_gecmisi_6ay'] = prices_6mo
+
+            return result_data
+
+        except Exception as e:
+            logger.error(f"Error getting fund detail (borsapy) for {fund_code}: {e}")
+            return self._empty_fund_detail(fund_code, f"borsapy Fund.info error: {str(e)}")
+
+    def _fund_history(self, fund, period: str) -> List[Dict[str, Any]]:
+        """Convert borsapy Fund.history(period=...) DataFrame to a list of dicts."""
+        try:
+            df = fund.history(period=period)
+            if df is None or df.empty:
+                return []
+            out = []
+            for date_idx, row in df.iterrows():
+                tarih = date_idx.strftime('%Y-%m-%d') if hasattr(date_idx, 'strftime') else str(date_idx)[:10]
+                out.append({
+                    'tarih': tarih,
+                    'fiyat': float(row.get('Price', 0)),
+                    'kategori_derece': None,
+                    'kategori_fon_sayisi': None,
+                })
+            return out
+        except Exception as e:
+            logger.debug(f"Fund.history({period}) failed for {fund.fund_code}: {e}")
+            return []
+
+    def _empty_fund_detail(self, fund_code: str, error_message: str) -> Dict[str, Any]:
+        """Empty/error response shape used when borsapy data is unavailable."""
+        return {
+            'fon_kodu': fund_code,
+            'fon_adi': '',
+            'tarih': '',
+            'fiyat': 0.0,
+            'tedavuldeki_pay_sayisi': None,
+            'toplam_deger': 0.0,
+            'birim_pay_degeri': 0.0,
+            'yatirimci_sayisi': 0,
+            'kurulus': '',
+            'yonetici': '',
+            'fon_turu': '',
+            'risk_degeri': 0,
+            'getiri_1_ay': None,
+            'getiri_3_ay': None,
+            'getiri_6_ay': None,
+            'getiri_yil_basi': None,
+            'getiri_1_yil': None,
+            'getiri_3_yil': None,
+            'getiri_5_yil': None,
+            'standart_sapma': None,
+            'sharpe_orani': None,
+            'alpha': None,
+            'beta': None,
+            'tracking_error': None,
+            'error_message': error_message,
+        }
     
     def get_fund_performance(self, fund_code: str, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -649,17 +541,21 @@ class TefasProvider:
                 }
 
             # Convert DataFrame to list of dicts (newest first)
+            # Note: TEFAS 2026-04 migration removed FundSize/Investors from the
+            # historical price endpoint, so these fields will usually be null.
             price_history = []
             for date_idx, row in df.iterrows():
                 if hasattr(date_idx, 'strftime'):
                     formatted_date = date_idx.strftime('%Y-%m-%d')
                 else:
                     formatted_date = str(date_idx)[:10]
+                fund_size = row.get('FundSize')
+                investors = row.get('Investors')
                 price_history.append({
                     'tarih': formatted_date,
                     'fiyat': float(row.get('Price', 0)),
-                    'toplam_deger': float(row.get('FundSize', 0)),
-                    'yatirimci_sayisi': int(row.get('Investors', 0)),
+                    'toplam_deger': float(fund_size) if pd.notna(fund_size) and fund_size else None,
+                    'yatirimci_sayisi': int(investors) if pd.notna(investors) and investors else None,
                 })
 
             # Sort by date (newest first)
@@ -707,180 +603,6 @@ class TefasProvider:
                 'fiyat_geçmisi': [],
                 'toplam_getiri': None,
                 'yillik_getiri': None,
-                'veri_sayisi': 0,
-                'error_message': str(e)
-            }
-    
-    def get_fund_portfolio(self, fund_code: str, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Get portfolio allocation composition of a fund using official TEFAS BindHistoryAllocation API.
-        
-        Args:
-            fund_code: TEFAS fund code
-            start_date: Start date in YYYY-MM-DD format (default: 1 week ago)
-            end_date: End date in YYYY-MM-DD format (default: today)
-            
-        Returns:
-            Dictionary with portfolio allocation data over time
-        """
-        try:
-            # Default dates if not provided (use short range for allocation data)
-            if not end_date:
-                end_date = datetime.now().strftime('%Y-%m-%d')
-            if not start_date:
-                start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-            
-            # Convert dates to TEFAS format (DD.MM.YYYY)
-            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-            
-            # Official TEFAS portfolio allocation API endpoint
-            allocation_url = "https://www.tefas.gov.tr/api/DB/BindHistoryAllocation"
-            
-            # POST data matching TEFAS website format
-            data = {
-                'fontip': 'YAT',  # Fund type
-                'sfontur': '',     # Sub fund type (empty for all)
-                'fonkod': fund_code,
-                'fongrup': '',     # Fund group (empty for all)
-                'bastarih': start_dt.strftime('%d.%m.%Y'),
-                'bittarih': end_dt.strftime('%d.%m.%Y'),
-                'fonturkod': '',   # Fund type code (empty for all)
-                'fonunvantip': '', # Fund title type (empty for all)
-                'kurucukod': ''    # Founder code (empty for all)
-            }
-            
-            headers = {
-                'Accept': 'application/json, text/javascript, */*; q=0.01',
-                'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                'Origin': 'https://www.tefas.gov.tr',
-                'Referer': 'https://www.tefas.gov.tr/TarihselVeriler.aspx',
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-            
-            response = self.session.post(allocation_url, data=data, headers=headers, timeout=15)
-            response.raise_for_status()
-            
-            result = response.json()
-            
-            # Check if we have data
-            if not result.get('data'):
-                return {
-                    'fon_kodu': fund_code,
-                    'baslangic_tarihi': start_date,
-                    'bitis_tarihi': end_date,
-                    'portfoy_geçmisi': [],
-                    'son_portfoy_dagilimi': {},
-                    'veri_sayisi': 0,
-                    'error_message': 'No allocation data found for this fund'
-                }
-            
-            portfolio_history = []
-            asset_type_mapping = {
-                'BB': 'Banka Bonosu',
-                'BYF': 'Borsa Yatırım Fonu',
-                'D': 'Döviz',
-                'DB': 'Devlet Bonusu',
-                'DT': 'Devlet Tahvili',
-                'DÖT': 'Döviz Ödenekli Tahvil',
-                'EUT': 'Eurobond Tahvil',
-                'FB': 'Finansman Bonosu',
-                'FKB': 'Fon Katılma Belgesi',
-                'GAS': 'Gümüş Alım Satım',
-                'GSYKB': 'Girişim Sermayesi Yatırım Katılma Belgesi',
-                'GSYY': 'Girişim Sermayesi Yatırım',
-                'GYKB': 'Gayrimenkul Yatırım Katılma Belgesi',
-                'GYY': 'Gayrimenkul Yatırım',
-                'HB': 'Hazine Bonosu',
-                'HS': 'Hisse Senedi',
-                'KBA': 'Kira Sertifikası Alım',
-                'KH': 'Katılım Hesabı',
-                'KHAU': 'Katılım Hesabı ABD Doları',
-                'KHD': 'Katılım Hesabı Döviz',
-                'KHTL': 'Katılım Hesabı Türk Lirası',
-                'KKS': 'Kira Sertifikası',
-                'KKSD': 'Kira Sertifikası Döviz',
-                'KKSTL': 'Kira Sertifikası Türk Lirası',
-                'KKSYD': 'Kira Sertifikası Yabancı Döviz',
-                'KM': 'Kıymetli Maden',
-                'KMBYF': 'Kıymetli Maden Borsa Yatırım Fonu',
-                'KMKBA': 'Kıymetli Maden Katılma Belgesi Alım',
-                'KMKKS': 'Kıymetli Maden Kira Sertifikası',
-                'KİBD': 'Kira Sertifikası İpotekli Borçlanma',
-                'OSKS': 'Özel Sektör Kira Sertifikası',
-                'OST': 'Özel Sektör Tahvili',
-                'R': 'Repo',
-                'T': 'Tahvil',
-                'TPP': 'Ters Repo Para Piyasası',
-                'TR': 'Ters Repo',
-                'VDM': 'Vadeli Mevduat',
-                'VM': 'Vadesiz Mevduat',
-                'VMAU': 'Vadesiz Mevduat ABD Doları',
-                'VMD': 'Vadesiz Mevduat Döviz',
-                'VMTL': 'Vadesiz Mevduat Türk Lirası',
-                'VİNT': 'Varlık İpotek Tahvil',
-                'YBA': 'Yabancı Borçlanma Araçları',
-                'YBKB': 'Yabancı Borsa Katılma Belgesi',
-                'YBOSB': 'Yabancı Borsa Özel Sektör Bonusu',
-                'YBYF': 'Yabancı Borsa Yatırım Fonu',
-                'YHS': 'Yabancı Hisse Senedi',
-                'YMK': 'Yabancı Menkul Kıymet',
-                'YYF': 'Yabancı Yatırım Fonu',
-                'ÖKSYD': 'Özel Sektör Kira Sertifikası Yabancı Döviz',
-                'ÖSDB': 'Özel Sektör Devlet Bonusu'
-            }
-            
-            for item in result['data']:
-                # Convert timestamp to readable date
-                timestamp = int(item.get('TARIH', 0))
-                if timestamp > 0:
-                    # Convert milliseconds to seconds
-                    date_obj = datetime.fromtimestamp(timestamp / 1000, tz=self.turkey_tz)
-                    formatted_date = date_obj.strftime('%Y-%m-%d')
-                else:
-                    formatted_date = ''
-                
-                # Extract allocation data
-                allocation_data = {}
-                for key, value in item.items():
-                    if key not in ['TARIH', 'FONKODU', 'FONUNVAN', 'BilFiyat'] and value is not None:
-                        asset_name = asset_type_mapping.get(key, key)
-                        allocation_data[asset_name] = float(value)
-                
-                portfolio_history.append({
-                    'tarih': formatted_date,
-                    'fon_kodu': item.get('FONKODU', fund_code),
-                    'fon_unvan': item.get('FONUNVAN', ''),
-                    'portfoy_dagilimi': allocation_data,
-                    'bil_fiyat': item.get('BilFiyat', '')
-                })
-            
-            # Sort by date (newest first)
-            portfolio_history.sort(key=lambda x: x['tarih'], reverse=True)
-            
-            # Get latest allocation for summary
-            latest_allocation = portfolio_history[0]['portfoy_dagilimi'] if portfolio_history else {}
-            
-            return {
-                'fon_kodu': fund_code,
-                'baslangic_tarihi': start_date,
-                'bitis_tarihi': end_date,
-                'portfoy_geçmisi': portfolio_history,
-                'son_portfoy_dagilimi': latest_allocation,
-                'veri_sayisi': len(portfolio_history),
-                'kaynak': 'TEFAS BindHistoryAllocation API'
-            }
-            
-        except Exception as e:
-            logger.error(f"Error getting portfolio allocation for {fund_code}: {e}")
-            return {
-                'fon_kodu': fund_code,
-                'baslangic_tarihi': start_date or '',
-                'bitis_tarihi': end_date or '',
-                'portfoy_geçmisi': [],
-                'son_portfoy_dagilimi': {},
                 'veri_sayisi': 0,
                 'error_message': str(e)
             }

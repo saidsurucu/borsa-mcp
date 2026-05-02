@@ -168,55 +168,6 @@ class FonPerformansSonucu(BaseModel):
     
     error_message: Optional[str] = Field(None, description="Error message if analysis failed.")
 
-# --- Portfolio Analysis Models ---
-
-class PortfoyVarlik(BaseModel):
-    """Individual portfolio asset."""
-    varlik_adi: str = Field(description="Asset name.")
-    varlik_kodu: Optional[str] = Field(None, description="Asset code/ISIN.")
-    varlik_turu: str = Field(description="Asset type (e.g., 'Hisse Senedi', 'Devlet Tahvili').")
-    oran: float = Field(description="Allocation percentage.")
-    deger: Optional[float] = Field(None, description="Asset value in TL.")
-
-class VarlikGrubu(BaseModel):
-    """Grouped assets by type with metadata."""
-    grup_adi: str = Field(description="Asset group name (e.g., 'Equity', 'Fixed Income').")
-    toplam_oran: float = Field(description="Total allocation percentage for this group.")
-    varlik_sayisi: int = Field(description="Number of assets in this group.")
-    varlıklar: List[PortfoyVarlik] = Field(description="Individual assets in this group.")
-
-class PortfoyTarihselVeri(BaseModel):
-    """Historical portfolio allocation data."""
-    tarih: datetime.date = Field(description="Allocation date.")
-    varlik_turu_kodu: str = Field(description="Asset type code from TEFAS.")
-    varlik_turu_adi: str = Field(description="Human-readable asset type name.")
-    oran: float = Field(description="Allocation percentage on this date.")
-
-class FonPortfoySonucu(BaseModel):
-    """Fund portfolio allocation analysis result."""
-    fon_kodu: Optional[str] = Field(None, description="Fund code.")
-    baslangic_tarihi: Optional[datetime.date] = Field(None, description="Portfolio analysis start date.")
-    bitis_tarihi: Optional[datetime.date] = Field(None, description="Portfolio analysis end date.")
-    
-    # Current allocation (latest date)
-    guncel_portfoy: List[PortfoyVarlik] = Field(default_factory=list, description="Current portfolio allocation.")
-    varlik_gruplari: List[VarlikGrubu] = Field(default_factory=list, description="Assets grouped by type.")
-    
-    # Historical allocation data
-    portfoy_gecmisi: List[PortfoyTarihselVeri] = Field(default_factory=list, description="Historical allocation changes.")
-    
-    # Summary statistics
-    cesitlilik_skoru: Optional[float] = Field(None, description="Diversification score (0-100).")
-    en_buyuk_holding: Optional[PortfoyVarlik] = Field(None, description="Largest individual holding.")
-    grup_sayisi: Optional[int] = Field(None, description="Number of asset groups.")
-    toplam_varlik_sayisi: Optional[int] = Field(None, description="Total number of individual assets.")
-    
-    # Metadata
-    veri_nokta_sayisi: Optional[int] = Field(None, description="Number of historical data points.")
-    kaynak: Optional[str] = Field(None, description="TEFAS API source.")
-    
-    error_message: Optional[str] = Field(None, description="Error message if analysis failed.")
-
 # --- Fund Comparison Models ---
 
 class FonKarsilastirmaOgesi(BaseModel):

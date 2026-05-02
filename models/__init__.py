@@ -107,8 +107,6 @@ from .tefas_models import (
     FonProfil, FonPortfoyDagilimi, FonFiyatGecmisi, FonDetayBilgisi,
     # Performance analysis
     FonFiyatNoktasi, FonPerformansSonucu,
-    # Portfolio analysis
-    PortfoyVarlik, VarlikGrubu, PortfoyTarihselVeri, FonPortfoySonucu,
     # Fund comparison
     FonKarsilastirmaOgesi, FonKarsilastirmaSonucu,
     # Fund screening
@@ -314,7 +312,6 @@ __all__ = [
     "FonBilgisi", "FonAramaSonucu",
     "FonProfil", "FonPortfoyDagilimi", "FonFiyatGecmisi", "FonDetayBilgisi",
     "FonFiyatNoktasi", "FonPerformansSonucu",
-    "PortfoyVarlik", "VarlikGrubu", "PortfoyTarihselVeri", "FonPortfoySonucu",
     "FonKarsilastirmaOgesi", "FonKarsilastirmaSonucu",
     "FonTaramaKriterleri", "TaranmisFon", "FonTaramaSonucu",
     

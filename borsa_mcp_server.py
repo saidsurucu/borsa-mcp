@@ -36,7 +36,6 @@ from models import (
     FonDetayBilgisi,
     FonMevzuatSonucu,
     FonPerformansSonucu,
-    FonPortfoySonucu,
     HizliBilgiSonucu,
     KapHaberDetayi,
     KapHaberleriSonucu,
@@ -1800,123 +1799,6 @@ async def get_fund_performance(
             veri_sayisi=0,
             error_message=f"An unexpected error occurred: {str(e)}"
         )
-
-@app.tool(description="Get Turkish fund portfolio allocation: asset breakdown over time. FUNDS ONLY.")
-async def get_fund_portfolio(
-    fund_code: str = Field(..., description="The TEFAS fund code (e.g., 'TGE', 'AFA', 'IPB', 'AAK')."),
-    start_date: str = Field(None, description="Start date in YYYY-MM-DD format (default: 1 week ago). Example: '2024-06-15'"),
-    end_date: str = Field(None, description="End date in YYYY-MM-DD format (default: today). Example: '2024-06-22'")
-) -> FonPortfoySonucu:
-    """
-    Fetches historical portfolio allocation composition of a Turkish mutual fund using official TEFAS BindHistoryAllocation API.
-    
-    **Enhanced TEFAS API Integration:**
-    Uses the official TEFAS allocation history endpoint (same as TEFAS website), providing
-    comprehensive portfolio allocation data over time with detailed asset type breakdowns.
-    
-    **Portfolio Allocation Data:**
-    - Asset allocation percentages by category over time
-    - Complete asset type mapping (50+ categories)
-    - Historical allocation changes and trends
-    - Investment strategy evolution analysis
-    - Asset concentration and diversification metrics
-    
-    **Asset Categories Tracked:**
-    
-    **Equity & Securities:**
-    - Hisse Senedi (HS) - Domestic equity holdings
-    - Yabancı Hisse Senedi (YHS) - Foreign equity holdings
-    - Borsa Yatırım Fonu (BYF) - ETF holdings
-    - Yabancı Borsa Yatırım Fonu (YBYF) - Foreign ETF holdings
-    
-    **Fixed Income:**
-    - Devlet Tahvili (DT) - Government bonds
-    - Özel Sektör Tahvili (OST) - Corporate bonds
-    - Eurobond Tahvil (EUT) - Eurobond holdings
-    - Yabancı Borçlanma Araçları (YBA) - Foreign debt instruments
-    
-    **Money Market & Cash:**
-    - Vadesiz Mevduat (VM) - Demand deposits
-    - Vadeli Mevduat (VDM) - Time deposits
-    - Ters Repo (TR) - Reverse repo operations
-    - Döviz (D) - Foreign currency holdings
-    
-    **Islamic Finance:**
-    - Kira Sertifikası (KKS) - Lease certificates
-    - Katılım Hesabı (KH) - Participation accounts
-    - Özel Sektör Kira Sertifikası (OSKS) - Private sector lease certificates
-    
-    **Alternative Investments:**
-    - Kıymetli Maden (KM) - Precious metals
-    - Gayrimenkul Yatırım (GYY) - Real estate investments
-    - Girişim Sermayesi Yatırım (GSYY) - Venture capital investments
-    - Yabancı Yatırım Fonu (YYF) - Foreign mutual funds
-    
-    **Time-Series Analysis:**
-    All timestamps converted to Turkey timezone (Europe/Istanbul) with chronological sorting.
-    Data shows allocation evolution over the specified period for strategy analysis.
-    
-    **Use Cases:**
-    
-    **Investment Strategy Analysis:**
-    - Track allocation changes over time
-    - Understand fund manager's investment approach
-    - Analyze response to market conditions
-    - Evaluate strategic asset allocation consistency
-    
-    **Risk Assessment:**
-    - Monitor concentration levels in specific assets
-    - Assess diversification effectiveness
-    - Track foreign currency exposure
-    - Evaluate credit risk through bond allocations
-    
-    **Performance Attribution:**
-    - Correlate allocation changes with performance
-    - Identify best/worst performing allocations
-    - Understand style drift over time
-    - Analyze sector rotation patterns
-    
-    **Due Diligence:**
-    - Verify fund strategy alignment with prospectus
-    - Compare actual vs. stated investment approach
-    - Monitor regulatory compliance
-    - Assess manager consistency
-    
-    **Examples:**
-    - get_fund_portfolio("TGE") → Last week's Garanti equity fund allocations
-    - get_fund_portfolio("AAK", "2024-06-01", "2024-06-22") → ATA multi-asset fund allocation evolution over 3 weeks
-    - get_fund_portfolio("AFO") → Recent allocation data for AK gold fund
-    - get_fund_portfolio("IPB", "2024-06-15", "2024-06-22") → İş Portföy allocation changes over 1 week
-    
-    **Response Format:**
-    Returns historical allocation data with date range, complete allocation history,
-    latest allocation summary, data point count, and source attribution.
-    
-    **Data Quality:**
-    - Official TEFAS timestamps (milliseconds precision)
-    - Complete asset type mapping with Turkish names
-    - Validated fund codes and comprehensive error handling
-    - Default 1-week range for recent allocation analysis
-    """
-    logger.info(f"Tool 'get_fund_portfolio' called with fund_code: '{fund_code}', period: {start_date} to {end_date}")
-    
-    if not fund_code or not fund_code.strip():
-        raise ToolError("Fund code cannot be empty")
-    
-    try:
-        return await borsa_client.get_fund_portfolio(fund_code.strip().upper(), start_date, end_date)
-    except Exception as e:
-        logger.exception(f"Error in tool 'get_fund_portfolio' for fund_code '{fund_code}'.")
-        return FonPortfoySonucu(
-            fon_kodu=fund_code,
-            tarih="",
-            portfoy_detayi=[],
-            varlik_dagilimi={},
-            toplam_varlik=0,
-            error_message=f"An unexpected error occurred: {str(e)}"
-        )
-
-
 
 @app.tool(description="Compare Turkish mutual funds: side-by-side performance analysis. FUNDS ONLY.", task=True)
 async def compare_funds(
