@@ -74,7 +74,7 @@ uv run test_kap_haberleri.py
 uv run test_tefas_provider.py
 ```
 
-## Complete Tool Interface (26 Unified Tools)
+## Complete Tool Interface (28 Unified Tools)
 
 ### Stock Tools (15 tools - BIST + US markets)
 | Tool | Description | Multi-ticker |
@@ -100,7 +100,7 @@ uv run test_tefas_provider.py
 |------|-------------|
 | `get_crypto_market` | Ticker, orderbook, trades, OHLC, exchange info |
 
-### FX & Macro Tools (5 tools)
+### FX & Macro Tools (6 tools)
 | Tool | Description |
 |------|-------------|
 | `get_fx_data` | 65 currencies, metals, commodities via borsapy |
@@ -108,6 +108,7 @@ uv run test_tefas_provider.py
 | `get_bond_yields` | Government bond yields (TR 2Y, 5Y, 10Y) |
 | `get_sector_comparison` | Sector peers and average metrics |
 | `get_macro_data` | Turkish inflation data (TÜFE/ÜFE) and inflation calculator |
+| `get_evds_data` | TCMB EVDS: 145 categories, tens of thousands of macro series (rates, FX, balance of payments, inflation, expectation surveys) — catalog/search free, data fetch needs EVDS_API_KEY |
 
 ### Fund & Index Tools (3 tools)
 | Tool | Description |
@@ -528,6 +529,50 @@ logger.error("Failed operations")
 
 ## Recent Major Updates
 
+### TCMB EVDS Tool (May 2026)
+- **Dependency**: `borsapy>=0.10.0` (was 0.9.0). 0.10.0 introduces full EVDS v3 API wrapper.
+- **New Tool**: `get_evds_data` - unified access to TCMB's Elektronik Veri Dağıtım Sistemi (Electronic Data Distribution System).
+- **Coverage**: 145 categories, thousands of data groups, tens of thousands of macro series:
+  - Interest rates (policy, deposit, weighted average funding)
+  - Exchange rates (CBRT daily, archive series)
+  - Balance of payments, current account, IMF statistics
+  - Inflation (CPI/TÜFE, PPI/ÜFE) with built-in YoY% transform
+  - Money supply, monetary aggregates
+  - Expectation surveys, confidence indices
+  - Real sector statistics
+- **11 Actions in one unified tool**:
+  - **No key required (catalog/discovery)**: `categories`, `datagroups`, `series_list`, `search`, `search_server`, `series_info`, `dashboards`
+  - **EVDS_API_KEY required (data fetch)**: `series`, `multi_series`, `datagroup_data`, `dashboard`
+- **API Key**: Free at https://evds3.tcmb.gov.tr → set `EVDS_API_KEY` env var (borsapy auto-detects)
+- **Data Transformations**: Built-in support for `level`, `pct_change`, `diff`, `yoy_pct`, `yoy_diff`, `moving_avg`, `moving_sum`, `yoy_moving_pct`, `yoy_moving_diff`
+- **Frequency Resampling**: `daily`, `workday`, `weekly`, `biweekly`, `monthly`, `quarterly`, `semiannual`, `annual` with 6 aggregation methods
+- **Files Added**:
+  - `providers/borsapy_evds_provider.py`: BorsapyEVDSProvider with 11 async methods, sync→async via `run_in_executor`
+  - `models/evds_models.py`: 11 Pydantic models (Turkish field names, English Field descriptions)
+  - `test_evds_tool.py`: Smoke test (no-key + with-key paths)
+- **Files Modified**:
+  - `unified_mcp_server.py`: New `get_evds_data` tool (after `get_macro_data`)
+  - `providers/market_router.py`: New `get_evds_data` dispatch method (11-action dispatcher)
+  - `models/__init__.py`: 11 EVDS model exports
+  - `pyproject.toml` + `requirements.txt`: borsapy bump
+- **Coexists with `get_macro_data`**: The simpler tool (HTML scraping, no key) remains for basic TÜFE/ÜFE access.
+- **Usage Examples**:
+  ```python
+  # No key needed
+  get_evds_data(action="categories")                                          # 145 categories
+  get_evds_data(action="datagroups", category_id=2501)                        # FX rate datagroups
+  get_evds_data(action="search", keyword="dolar")                             # client-side fuzzy match
+  get_evds_data(action="search_server", keyword="dolar")                      # TCMB full-text search
+  get_evds_data(action="series_info", series_code="TP.DK.USD.A.YTL")          # series metadata
+  get_evds_data(action="dashboards")                                          # 10 curated home-page panels
+
+  # Key required (set EVDS_API_KEY env var)
+  get_evds_data(action="series", series_code="TP.DK.USD.A.YTL", period="1y")  # USD/TRY daily history
+  get_evds_data(action="series", series_code="TP.FG.J0", formula="yoy_pct")   # CPI YoY%
+  get_evds_data(action="multi_series", series_codes=["TP.DK.USD.A.YTL","TP.DK.EUR.A.YTL"])
+  get_evds_data(action="datagroup_data", datagroup_code="bie_dkdovizgn")      # all 137 FX series in one call
+  ```
+
 ### Unified Server Feature Parity v0.9.0 (January 2026)
 - **Tool Count**: 22 → 26 unified tools (68% reduction from 81 legacy tools)
 - **New Tools**:
@@ -849,22 +894,22 @@ logger.error("Failed operations")
 
 ## Tool Count Summary
 
-### Unified Server (v0.9.0+) - 26 Tools
+### Unified Server (v0.9.0+) - 28 Tools
 | Category | Count | Description |
 |----------|-------|-------------|
 | **Stock Tools** | 15 | BIST + US market data (search, profile, financials, technicals) |
 | **Crypto Tools** | 1 | BtcTurk + Coinbase unified (ticker, orderbook, trades, OHLC) |
-| **FX & Macro** | 5 | FX rates, economic calendar, bonds, sectors, inflation data |
-| **Fund & Index** | 2 | TEFAS funds, stock market indices |
+| **FX & Macro** | 6 | FX rates, economic calendar, bonds, sectors, inflation data, TCMB EVDS |
+| **Fund & Index** | 3 | TEFAS funds, stock screening, stock market indices |
 | **Help & Docs** | 3 | Screener help, scanner help, regulations |
-| **TOTAL** | **26** | **68% reduction from 81 legacy tools** |
+| **TOTAL** | **28** | **65% reduction from 81 legacy tools** |
 
 ### Key Consolidations
-- **81 → 26 tools** via market-based routing
+- **81 → 28 tools** via market-based routing
 - **Multi-ticker support**: 7 tools with parallel batch execution
 - **Unified response models**: Consistent structure across all markets
 - **Single entry point**: `uv run borsa-mcp` for unified server
-- **Enhanced features**: Islamic finance compliance, news detail, fund comparison, macro data
+- **Enhanced features**: Islamic finance compliance, news detail, fund comparison, macro data, **TCMB EVDS access (145 categories, tens of thousands of macro series)**
 
 ### Legacy Server (backwards compatibility) - 81 Tools
 Available via `uv run borsa-mcp-legacy` for backwards compatibility.

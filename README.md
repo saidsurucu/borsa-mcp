@@ -68,10 +68,11 @@ Bitcoin'in TRY fiyatını kontrol et
 
 ## 🎯 Temel Özellikler
 
-**26 Birleşik Araç ile Kapsamlı Finansal Analiz (v0.9.0):**
+**28 Birleşik Araç ile Kapsamlı Finansal Analiz (v0.9.0):**
 
 * 📈 **Hisse Senetleri (BIST + US):** 758 BIST + tüm NYSE/NASDAQ şirketleri, tek araçla `market` parametresi ile
 * 🔍 **Teknik Tarama:** BIST teknik scanner (RSI, MACD, Supertrend, T3) + US screener (23 preset)
+* 🆕 **TCMB EVDS:** 145 kategori, on binlerce makro seri — faiz, döviz, ödemeler dengesi, enflasyon (`get_evds_data`, ücretsiz API key)
 * 🆕 **Makro Veriler:** TCMB enflasyon verileri ve hesaplama araçları (`get_macro_data`)
 * 🎯 **Pivot Points:** 3 direnç & 3 destek seviyesi hesaplama (klasik pivot formülü)
 * 📊 **Endeksler:** BIST + US endeksleri tek araçla (`get_index_data`)
@@ -194,13 +195,47 @@ Bu FastMCP sunucusu LLM modelleri için **26 birleşik araç** sunar. Tüm araç
 | `get_fund_data` | TEFAS fon verileri + `compare_mode` ile karşılaştırma |
 | `get_index_data` | Borsa endeks verileri (BIST + US) |
 
-### Makro & Yardım Araçları (4 araç)
+### Makro & Yardım Araçları (5 araç)
 | Araç | Açıklama |
 |------|----------|
-| `get_macro_data` | TCMB enflasyon verileri ve hesaplama |
+| `get_macro_data` | TCMB enflasyon verileri ve hesaplama (TÜFE/ÜFE, key gerekmez) |
+| `get_evds_data` | TCMB EVDS — 145 kategori, on binlerce makro seri (rates, FX, BoP, expectation surveys); katalog/arama key gerekmez, veri çekme için `EVDS_API_KEY` env var (ücretsiz: https://evds3.tcmb.gov.tr) |
 | `get_screener_help` | Screener presetleri ve filtre dokümantasyonu |
 | `get_scanner_help` | BIST scanner göstergeleri ve presetler |
 | `get_regulations` | Türk yatırım fonu mevzuatı |
+
+#### 🔑 EVDS Kurulumu
+
+`get_evds_data` aracının veri çekme işlemleri (`series`, `multi_series`, `datagroup_data`) için TCMB'den ücretsiz bir API anahtarı gerekir. Katalog gezintisi, arama ve dashboard listeleme anahtar gerektirmeden çalışır.
+
+1. https://evds3.tcmb.gov.tr → "BENİM SAYFAM" → Kayıt Ol
+2. Profilim → API Key Kopyala
+3. Ortam değişkeni olarak ayarla:
+   ```bash
+   export EVDS_API_KEY="your-key-here"
+   ```
+   veya MCP server config'e ekle (Claude Desktop / Cursor):
+   ```json
+   {
+     "mcpServers": {
+       "borsa": {
+         "command": "uv",
+         "args": ["run", "borsa-mcp"],
+         "env": { "EVDS_API_KEY": "your-key-here" }
+       }
+     }
+   }
+   ```
+
+**Örnek kullanım:**
+```python
+get_evds_data(action="categories")                                            # 145 kategori
+get_evds_data(action="search", keyword="dolar")                               # katalog araması
+get_evds_data(action="series", series_code="TP.DK.USD.A.YTL", period="1y")    # USD/TRY günlük
+get_evds_data(action="series", series_code="TP.FG.J0", formula="yoy_pct")     # TÜFE YoY%
+get_evds_data(action="multi_series", series_codes=["TP.DK.USD.A.YTL","TP.DK.EUR.A.YTL"])
+get_evds_data(action="datagroup_data", datagroup_code="bie_dkdovizgn")        # 137 seri tek çağrıda
+```
 
 ### Eski Sunucu (Geriye Uyumluluk)
 

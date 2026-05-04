@@ -54,7 +54,7 @@ app = FastMCP(
     name="BorsaMCP",
     instructions="""Unified MCP server for BIST (Istanbul Stock Exchange), US stocks,
     cryptocurrencies, mutual funds, FX, and economic data.
-    Provides 20 consolidated tools covering stocks, crypto, funds, and macro data."""
+    Provides 28 consolidated tools covering stocks, crypto, funds, FX, macro data, and TCMB EVDS."""
 )
 
 # --- Literal Types for Clean Schema ---
@@ -1537,6 +1537,185 @@ async def get_macro_data(
 
 
 # =============================================================================
+# TCMB EVDS - Elektronik Veri Dağıtım Sistemi (1 tool)
+# =============================================================================
+
+EvdsActionLiteral = Literal[
+    "categories",
+    "datagroups",
+    "series_list",
+    "search",
+    "search_server",
+    "series_info",
+    "dashboards",
+    "dashboard",
+    "series",
+    "multi_series",
+    "datagroup_data",
+]
+
+EvdsPeriodLiteral = Literal["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"]
+EvdsFrequencyLiteral = Literal[
+    "daily", "workday", "weekly", "biweekly", "monthly", "quarterly", "semiannual", "annual"
+]
+EvdsAggregationLiteral = Literal["avg", "min", "max", "first", "last", "sum"]
+EvdsFormulaLiteral = Literal[
+    "level", "pct_change", "diff", "yoy_pct", "yoy_diff",
+    "moving_avg", "moving_sum", "yoy_moving_pct", "yoy_moving_diff",
+]
+
+
+@app.tool(
+    name="get_evds_data",
+    title="TCMB EVDS Macro Data System",
+    description=(
+        "MACRO: TCMB EVDS - 145 categories, tens of thousands of macro series "
+        "(rates, FX, balance of payments, inflation, expectation surveys). "
+        "Use action to browse catalog, search, fetch series, or access dashboards. "
+        "Catalog and search work without a key; data fetch (series, multi_series, "
+        "datagroup_data) requires EVDS_API_KEY env var (free at https://evds3.tcmb.gov.tr)."
+    ),
+    tags={"macro", "tcmb", "evds"},
+    annotations={"readOnlyHint": True, "idempotentHint": True}
+)
+async def get_evds_data(
+    action: Annotated[EvdsActionLiteral, Field(
+        description=(
+            "EVDS operation. No key: categories, datagroups, series_list, search, "
+            "search_server, series_info, dashboards. Key required: series, "
+            "multi_series, datagroup_data, dashboard."
+        ),
+        examples=["categories", "search", "series", "datagroup_data"]
+    )],
+    category_id: Annotated[Optional[int], Field(
+        description="Numeric category ID for action='datagroups'. Get IDs from action='categories'.",
+        default=None,
+        examples=[400401, 2501]
+    )] = None,
+    datagroup_code: Annotated[Optional[str], Field(
+        description="Datagroup code for action='series_list' or 'datagroup_data'.",
+        default=None,
+        examples=["bie_dkdovizgn", "bie_dkdovytl"]
+    )] = None,
+    keyword: Annotated[Optional[str], Field(
+        description="Search keyword for action='search' or 'search_server'.",
+        default=None,
+        examples=["dollar", "inflation", "deposit rate", "dolar"]
+    )] = None,
+    scope: Annotated[Optional[Literal["all", "datagroups", "series"]], Field(
+        description="Scope filter for client-side search (action='search').",
+        default="all"
+    )] = "all",
+    lang: Annotated[Optional[Literal["TR", "EN"]], Field(
+        description="Language for client-side search titles (TR or EN).",
+        default="TR"
+    )] = "TR",
+    series_code: Annotated[Optional[str], Field(
+        description="EVDS series code for action='series' or 'series_info'.",
+        default=None,
+        examples=["TP.DK.USD.A.YTL", "TP.FG.J0", "TP.APIFON4"]
+    )] = None,
+    series_codes: Annotated[Optional[List[str]], Field(
+        description="List of EVDS series codes for action='multi_series' (max 20).",
+        default=None,
+        max_length=20
+    )] = None,
+    period: Annotated[Optional[EvdsPeriodLiteral], Field(
+        description="Time period. Ignored when start_date is provided.",
+        default="1y"
+    )] = "1y",
+    start_date: Annotated[Optional[str], Field(
+        description="Start date YYYY-MM-DD. Overrides 'period' when set.",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        default=None
+    )] = None,
+    end_date: Annotated[Optional[str], Field(
+        description="End date YYYY-MM-DD. Optional with start_date.",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        default=None
+    )] = None,
+    frequency: Annotated[Optional[EvdsFrequencyLiteral], Field(
+        description="Resampling frequency. Defaults to series native frequency.",
+        default=None
+    )] = None,
+    aggregation: Annotated[Optional[EvdsAggregationLiteral], Field(
+        description="Aggregation method when resampling. Defaults to series default.",
+        default=None
+    )] = None,
+    formula: Annotated[Optional[EvdsFormulaLiteral], Field(
+        description="Transformation: raw level, pct_change, year-over-year %, moving avg, etc.",
+        default="level"
+    )] = "level",
+    decimals: Annotated[Optional[int], Field(
+        description="Number of decimal places in returned values (0-6).",
+        default=None,
+        ge=0,
+        le=6
+    )] = None,
+    dashboard_name: Annotated[Optional[str], Field(
+        description="Dashboard slug for action='dashboard' (e.g. 'baslica-gostergeler').",
+        default=None
+    )] = None,
+    dashboard_id: Annotated[Optional[str], Field(
+        description="Dashboard encoded ID (base64-like string) for action='dashboard', alternative to dashboard_name. Get IDs from action='dashboards'.",
+        default=None,
+        examples=["Njk3MjI0ODNmYTZlZDc0NGFhNzVjMjI3"]
+    )] = None,
+    limit: Annotated[Optional[int], Field(
+        description="Max observations / records returned per series (payload safety cap).",
+        default=1000,
+        ge=1,
+        le=5000
+    )] = 1000,
+) -> Dict[str, Any]:
+    """Access TCMB EVDS macro data.
+
+    Catalog actions (no API key): categories, datagroups, series_list, search,
+    search_server, series_info, dashboards.
+
+    Data fetch actions (EVDS_API_KEY required): series, multi_series,
+    datagroup_data, dashboard.
+
+    Free API key at https://evds3.tcmb.gov.tr; set EVDS_API_KEY env var.
+
+    Examples:
+      action='categories'                                                      -> 145 categories
+      action='datagroups', category_id=2501                                    -> FX rate datagroups
+      action='series_list', datagroup_code='bie_dkdovizgn'                     -> 137 FX series
+      action='search', keyword='dollar'                                        -> matching catalog entries
+      action='series', series_code='TP.DK.USD.A.YTL', period='1y'              -> USD/TRY daily history
+      action='series', series_code='TP.FG.J0', period='3y', formula='yoy_pct'  -> CPI YoY%
+      action='multi_series', series_codes=['TP.DK.USD.A.YTL','TP.DK.EUR.A.YTL']
+      action='datagroup_data', datagroup_code='bie_dkdovizgn', period='1mo'    -> all series in one HTTP call
+    """
+    logger.info(f"get_evds_data: action='{action}'")
+    try:
+        return await market_router.get_evds_data(
+            action=action,
+            category_id=category_id,
+            datagroup_code=datagroup_code,
+            keyword=keyword,
+            scope=scope,
+            lang=lang,
+            series_code=series_code,
+            series_codes=series_codes,
+            period=period,
+            start_date=start_date,
+            end_date=end_date,
+            frequency=frequency,
+            aggregation=aggregation,
+            formula=formula,
+            decimals=decimals,
+            dashboard_name=dashboard_name,
+            dashboard_id=dashboard_id,
+            limit=limit,
+        )
+    except Exception as e:
+        logger.exception("Error in get_evds_data")
+        raise ToolError(f"EVDS operation failed: {str(e)}")
+
+
+# =============================================================================
 # HELP TOOLS (3 tools)
 # =============================================================================
 
@@ -1643,7 +1822,7 @@ def main():
     """Main entry point for the unified MCP server."""
 
     # Log server startup
-    logger.info("Starting Unified BorsaMCP server with 26 tools")
+    logger.info("Starting Unified BorsaMCP server with 28 tools")
 
     # Run the server
     app.run()

@@ -252,6 +252,14 @@ from .scanner_models import (
     TaramaSonucu as ScannerTaramaSonucu, TeknikTaramaSonucu, TaramaPresetInfo, TaramaYardimSonucu
 )
 
+# TCMB EVDS models (10 classes)
+from .evds_models import (
+    EvdsKategori, EvdsDataGrubu, EvdsSeriBilgi,
+    EvdsGozlem, EvdsSeriSonucu, EvdsCokluSeriSonucu,
+    EvdsAramaSonucu, EvdsDashboardOzeti, EvdsDashboardSonucu,
+    EvdsKatalogSonucu, EvdsSonucu,
+)
+
 # Export all models for backward compatibility
 __all__ = [
     # Base enums
@@ -399,5 +407,11 @@ __all__ = [
     "BistScreenedStock", "BistScreenerResult", "BistScreenerPresetInfo",
     "BistScreenerPresetsResult", "BistScreenerFilterDocumentation",
     # BIST Technical Scanner Models
-    "ScannerTaramaSonucu", "TeknikTaramaSonucu", "TaramaPresetInfo", "TaramaYardimSonucu"
+    "ScannerTaramaSonucu", "TeknikTaramaSonucu", "TaramaPresetInfo", "TaramaYardimSonucu",
+
+    # TCMB EVDS Models
+    "EvdsKategori", "EvdsDataGrubu", "EvdsSeriBilgi",
+    "EvdsGozlem", "EvdsSeriSonucu", "EvdsCokluSeriSonucu",
+    "EvdsAramaSonucu", "EvdsDashboardOzeti", "EvdsDashboardSonucu",
+    "EvdsKatalogSonucu", "EvdsSonucu",
 ]
