@@ -1210,12 +1210,21 @@ async def get_fund_data(
     836+ funds from Takasbank with:
     - Fund profile: Name, category, management company
     - Returns: daily, weekly, 1m, 3m, 6m, YTD, 1y, 3y, 5y
-    - Custom range return (start_date/end_date)
+    - recent_prices: last ~7 trading days as [{date, price}] at full 6-decimal
+      precision, newest first. Trading days only (holidays/weekends skipped).
+    - Custom range return (start_date/end_date), 6-decimal start/end prices
     - Portfolio allocation (optional)
     - Side-by-side comparison
 
+    IMPORTANT - getting a previous day's actual price:
+    Do NOT derive it from daily_return (a rounded percentage) — that loses
+    precision and the calendar "yesterday" may be a holiday/weekend with no price.
+    Instead read recent_prices directly: index 0 is the last announced price,
+    index 1 the prior trading day, etc. Or pass start_date/end_date and use
+    custom_return.start_price / end_price (also actual prices, 6 decimals).
+
     Examples:
-    - get_fund_data("TPC") → Basic fund info with all returns
+    - get_fund_data("TPC") → Fund info + recent_prices (last 7 trading days)
     - get_fund_data("TPC", include_portfolio=True) → With portfolio
     - get_fund_data("TPC", start_date="2025-01-01") → Custom range return
     - get_fund_data(["AAK", "TI2"], compare_mode=True) → Fund comparison

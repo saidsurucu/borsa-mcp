@@ -1702,6 +1702,7 @@ class MarketRouter:
         portfolio = None
         performance = None
         custom_return = None
+        recent_prices = None
 
         try:
             fund = bp.Fund(symbol.upper())
@@ -1721,23 +1722,55 @@ class MarketRouter:
                     except Exception as e:
                         logger.debug(f"Could not calculate weekly return for {symbol}: {e}")
 
-                # Calculate custom range return if dates provided
+                # Calculate custom range return if dates provided.
+                # TEFAS publishes prices at 6-decimal precision; keep that here so
+                # callers can read the actual announced price instead of deriving it
+                # from a rounded percentage.
                 if start_date:
                     try:
                         hist = fund.history(start=start_date, end=end_date)
-                        if hist is not None and len(hist) >= 2:
-                            first_price = hist['Price'].iloc[0]
-                            last_price = hist['Price'].iloc[-1]
+                        if hist is not None and len(hist) >= 1:
+                            first_price = float(hist['Price'].iloc[0])
+                            last_price = float(hist['Price'].iloc[-1])
+                            actual_start = str(hist.index[0])[:10]
+                            actual_end = str(hist.index[-1])[:10]
                             custom_return = {
-                                "start_date": start_date,
-                                "end_date": end_date or datetime.now().strftime('%Y-%m-%d'),
-                                "start_price": round(first_price, 4),
-                                "end_price": round(last_price, 4),
-                                "return_percent": round(((last_price / first_price) - 1) * 100, 2),
-                                "days": len(hist)
+                                "start_date": actual_start,
+                                "end_date": actual_end,
+                                "start_price": round(first_price, 6),
+                                "end_price": round(last_price, 6),
+                                "return_percent": (
+                                    round(((last_price / first_price) - 1) * 100, 4)
+                                    if len(hist) >= 2 and first_price else None
+                                ),
+                                "days": len(hist),
+                                "requested_start": start_date,
+                                "requested_end": end_date or datetime.now().strftime('%Y-%m-%d'),
                             }
                     except Exception as e:
                         logger.debug(f"Could not calculate custom return for {symbol}: {e}")
+
+                # Recent trading-day prices (actual announced prices, 6-decimal).
+                # Lets callers read "yesterday"/last announced price directly from
+                # the list instead of back-calculating from a rounded daily_return.
+                # history() already returns trading days only, so holidays/weekends
+                # are skipped automatically: recent_prices[0] is the last announced
+                # price, recent_prices[1] the prior trading day, and so on.
+                try:
+                    rp_start = (datetime.now() - timedelta(days=16)).strftime('%Y-%m-%d')
+                    rp_hist = fund.history(start=rp_start)
+                    if rp_hist is not None and len(rp_hist) >= 1:
+                        recent_rows = []
+                        for date_idx, price in rp_hist['Price'].items():
+                            recent_rows.append({
+                                "date": str(date_idx)[:10],
+                                "price": round(float(price), 6),
+                            })
+                        # Newest first, keep last ~7 trading days
+                        recent_rows.sort(key=lambda r: r["date"], reverse=True)
+                        recent_prices = recent_rows[:7]
+                except Exception as e:
+                    logger.debug(f"Could not build recent_prices for {symbol}: {e}")
 
                 fund_info = {
                     "code": info.get("fund_code"),
@@ -1778,7 +1811,8 @@ class MarketRouter:
             "fund": fund_info,
             "portfolio": portfolio,
             "performance_history": performance,
-            "custom_return": custom_return
+            "custom_return": custom_return,
+            "recent_prices": recent_prices
         }
 
     # --- Index Data ---
