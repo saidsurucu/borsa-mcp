@@ -68,7 +68,7 @@ ExchangeLiteral = Literal["btcturk", "coinbase"]
 TimeframeLiteral = Literal["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1W"]
 SecurityTypeLiteral = Literal["equity", "etf", "mutualfund", "index", "future"]
 ScanPresetLiteral = Literal[
-    "oversold", "oversold_moderate", "overbought", "oversold_high_volume",
+    "oversold", "oversold_moderate", "overbought", "overbought_warning", "oversold_high_volume",
     "bb_overbought_sell", "bb_oversold_buy", "bullish_momentum", "bearish_momentum",
     "big_gainers", "big_losers", "momentum_breakout", "ma_squeeze_momentum",
     "macd_positive", "macd_negative", "supertrend_bullish", "supertrend_bearish",
@@ -80,6 +80,7 @@ ScreenPresetLiteral = Literal[
     "small_cap", "high_volume", "momentum", "undervalued", "low_pe",
     "high_dividend_yield", "blue_chip", "tech_sector", "healthcare_sector",
     "financial_sector", "energy_sector", "top_gainers", "top_losers",
+    "most_active",
     "large_etfs", "top_performing_etfs", "low_expense_etfs",
     "large_mutual_funds", "top_performing_funds"
 ]
@@ -165,7 +166,7 @@ async def search_symbol(
 async def get_profile(
     symbol: Annotated[str, Field(
         description="Ticker symbol",
-        pattern=r"^[A-Z0-9]{2,10}$",
+        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
         examples=["GARAN", "AAPL"]
     )],
     market: Annotated[MarketLiteral, Field(
@@ -217,7 +218,7 @@ async def get_profile(
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_quick_info(
-    symbols: Annotated[Union[str, List[str]], Field(
+    symbol: Annotated[Union[str, List[str]], Field(
         description="Ticker(s), max 10: 'GARAN' or ['GARAN', 'AKBNK']",
         examples=["GARAN", ["GARAN", "AKBNK", "THYAO"]]
     )],
@@ -239,11 +240,11 @@ async def get_quick_info(
     - get_quick_info("GARAN", "bist") → Single stock metrics
     - get_quick_info(["GARAN", "AKBNK", "THYAO"], "bist") → Multiple stocks
     """
-    logger.info(f"get_quick_info: symbols='{symbols}', market='{market}'")
+    logger.info(f"get_quick_info: symbol='{symbol}', market='{market}'")
     try:
-        return await market_router.get_quick_info(symbols, MarketType(market))
+        return await market_router.get_quick_info(symbol, MarketType(market))
     except Exception as e:
-        logger.exception(f"Error in get_quick_info for '{symbols}'")
+        logger.exception(f"Error in get_quick_info for '{symbol}'")
         raise ToolError(f"Quick info fetch failed: {str(e)}")
 
 
@@ -257,7 +258,7 @@ async def get_quick_info(
 async def get_historical_data(
     symbol: Annotated[str, Field(
         description="Ticker symbol",
-        pattern=r"^[A-Z0-9-]{2,15}$",
+        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
         examples=["GARAN", "AAPL", "BTCTRY"]
     )],
     market: Annotated[MarketLiteral, Field(
@@ -319,7 +320,7 @@ async def get_historical_data(
 async def get_technical_analysis(
     symbol: Annotated[str, Field(
         description="Ticker symbol",
-        pattern=r"^[A-Z0-9-]{2,15}$",
+        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
         examples=["GARAN", "AAPL", "BTCTRY"]
     )],
     market: Annotated[MarketLiteral, Field(
@@ -362,7 +363,7 @@ async def get_technical_analysis(
 async def get_pivot_points(
     symbol: Annotated[str, Field(
         description="Ticker symbol",
-        pattern=r"^[A-Z0-9]{2,10}$",
+        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
         examples=["GARAN", "AAPL"]
     )],
     market: Annotated[Literal["bist", "us"], Field(
@@ -398,7 +399,7 @@ async def get_pivot_points(
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_analyst_data(
-    symbols: Annotated[Union[str, List[str]], Field(
+    symbol: Annotated[Union[str, List[str]], Field(
         description="Single ticker or list of tickers (max 10)",
         examples=["GARAN", ["GARAN", "AKBNK"]]
     )],
@@ -418,11 +419,11 @@ async def get_analyst_data(
     - get_analyst_data("GARAN", "bist")
     - get_analyst_data("AAPL", "us")
     """
-    logger.info(f"get_analyst_data: symbols='{symbols}', market='{market}'")
+    logger.info(f"get_analyst_data: symbol='{symbol}', market='{market}'")
     try:
-        return await market_router.get_analyst_data(symbols, MarketType(market))
+        return await market_router.get_analyst_data(symbol, MarketType(market))
     except Exception as e:
-        logger.exception(f"Error in get_analyst_data for '{symbols}'")
+        logger.exception(f"Error in get_analyst_data for '{symbol}'")
         raise ToolError(f"Analyst data fetch failed: {str(e)}")
 
 
@@ -434,7 +435,7 @@ async def get_analyst_data(
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_dividends(
-    symbols: Annotated[Union[str, List[str]], Field(
+    symbol: Annotated[Union[str, List[str]], Field(
         description="Single ticker or list of tickers (max 10)",
         examples=["GARAN", ["GARAN", "TUPRS"]]
     )],
@@ -454,11 +455,11 @@ async def get_dividends(
     - get_dividends("TUPRS", "bist") → High-dividend BIST stock
     - get_dividends("AAPL", "us") → Apple dividends
     """
-    logger.info(f"get_dividends: symbols='{symbols}', market='{market}'")
+    logger.info(f"get_dividends: symbol='{symbol}', market='{market}'")
     try:
-        return await market_router.get_dividends(symbols, MarketType(market))
+        return await market_router.get_dividends(symbol, MarketType(market))
     except Exception as e:
-        logger.exception(f"Error in get_dividends for '{symbols}'")
+        logger.exception(f"Error in get_dividends for '{symbol}'")
         raise ToolError(f"Dividend data fetch failed: {str(e)}")
 
 
@@ -470,7 +471,7 @@ async def get_dividends(
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_earnings(
-    symbols: Annotated[Union[str, List[str]], Field(
+    symbol: Annotated[Union[str, List[str]], Field(
         description="Single ticker or list of tickers (max 10)",
         examples=["GARAN", ["GARAN", "THYAO"]]
     )],
@@ -490,11 +491,11 @@ async def get_earnings(
     - get_earnings("GARAN", "bist")
     - get_earnings("AAPL", "us")
     """
-    logger.info(f"get_earnings: symbols='{symbols}', market='{market}'")
+    logger.info(f"get_earnings: symbol='{symbol}', market='{market}'")
     try:
-        return await market_router.get_earnings(symbols, MarketType(market))
+        return await market_router.get_earnings(symbol, MarketType(market))
     except Exception as e:
-        logger.exception(f"Error in get_earnings for '{symbols}'")
+        logger.exception(f"Error in get_earnings for '{symbol}'")
         raise ToolError(f"Earnings data fetch failed: {str(e)}")
 
 
@@ -506,7 +507,7 @@ async def get_earnings(
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_financial_statements(
-    symbols: Annotated[Union[str, List[str]], Field(
+    symbol: Annotated[Union[str, List[str]], Field(
         description="Single ticker or list of tickers (max 10)",
         examples=["SASA", ["SASA", "AKSA", "ALKIM"]]
     )],
@@ -547,14 +548,14 @@ async def get_financial_statements(
     - get_financial_statements("AAPL", "us", "all", "quarterly")
     - get_financial_statements("THYAO", "bist", "income", "quarterly", last_n=20)  # ~5 years of quarters
     """
-    logger.info(f"get_financial_statements: symbols='{symbols}', market='{market}', last_n={last_n}")
+    logger.info(f"get_financial_statements: symbol='{symbol}', market='{market}', last_n={last_n}")
     try:
         return await market_router.get_financial_statements(
-            symbols, MarketType(market),
+            symbol, MarketType(market),
             StatementType(statement_type), PeriodType(period), last_n
         )
     except Exception as e:
-        logger.exception(f"Error in get_financial_statements for '{symbols}'")
+        logger.exception(f"Error in get_financial_statements for '{symbol}'")
         raise ToolError(f"Financial statements fetch failed: {str(e)}")
 
 
@@ -568,7 +569,7 @@ async def get_financial_statements(
 async def get_financial_ratios(
     symbol: Annotated[str, Field(
         description="Ticker symbol",
-        pattern=r"^[A-Z0-9]{2,10}$",
+        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
         examples=["GARAN", "AAPL"]
     )],
     market: Annotated[Literal["bist", "us"], Field(
@@ -611,7 +612,7 @@ async def get_financial_ratios(
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_corporate_actions(
-    symbols: Annotated[Union[str, List[str]], Field(
+    symbol: Annotated[Union[str, List[str]], Field(
         description="Single ticker or list of tickers (max 10)",
         examples=["GARAN", ["GARAN", "THYAO"]]
     )],
@@ -640,13 +641,13 @@ async def get_corporate_actions(
     - get_corporate_actions("GARAN") → All corporate actions
     - get_corporate_actions("THYAO", 2024) → 2024 actions only
     """
-    logger.info(f"get_corporate_actions: symbols='{symbols}'")
+    logger.info(f"get_corporate_actions: symbol='{symbol}'")
     try:
         return await market_router.get_corporate_actions(
-            symbols, MarketType.BIST, year
+            symbol, MarketType.BIST, year
         )
     except Exception as e:
-        logger.exception(f"Error in get_corporate_actions for '{symbols}'")
+        logger.exception(f"Error in get_corporate_actions for '{symbol}'")
         raise ToolError(f"Corporate actions fetch failed: {str(e)}")
 
 
@@ -660,7 +661,7 @@ async def get_corporate_actions(
 async def get_news(
     symbol: Annotated[Optional[str], Field(
         description="Ticker symbol for news list (e.g., GARAN). Optional if news_id is provided.",
-        pattern=r"^[A-Z0-9]{2,10}$",
+        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
         default=None,
         examples=["GARAN", "THYAO"]
     )] = None,
@@ -718,7 +719,7 @@ async def get_news(
 @app.tool(
     name="screen_securities",
     title="Stock Screener",
-    description="Screen stocks/ETFs with 23 presets (value, growth, dividend, sector) or custom filters.",
+    description="Screen stocks/ETFs with 24 presets (value, growth, dividend, sector) or custom filters.",
     tags={"stocks", "screener"},
     annotations={"readOnlyHint": True, "openWorldHint": True}
 )
@@ -747,7 +748,7 @@ async def screen_securities(
     )] = 25
 ) -> Dict[str, Any]:
     """
-    Screen securities with 23 presets or custom filters.
+    Screen securities with 24 presets or custom filters.
 
     Presets:
     - Value: value_stocks, undervalued, low_pe
@@ -839,7 +840,7 @@ async def scan_stocks(
 async def get_sector_comparison(
     symbol: Annotated[str, Field(
         description="Ticker symbol",
-        pattern=r"^[A-Z0-9]{2,10}$",
+        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
         examples=["GARAN", "AAPL"]
     )],
     market: Annotated[Literal["bist", "us"], Field(
@@ -880,7 +881,7 @@ async def get_sector_comparison(
 async def get_crypto_market(
     symbol: Annotated[str, Field(
         description="Trading pair symbol (e.g., BTCTRY, BTC-USD)",
-        pattern=r"^[A-Z0-9-]{3,15}$",
+        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
         examples=["BTCTRY", "ETHTRY", "BTC-USD", "ETH-USD"]
     )],
     exchange: Annotated[ExchangeLiteral, Field(
@@ -928,8 +929,12 @@ async def get_crypto_market(
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_fx_data(
-    symbols: Annotated[Optional[List[str]], Field(
-        description="Specific symbols to fetch (e.g., ['USD', 'EUR', 'gram-altin']). None for all.",
+    symbol: Annotated[Optional[Union[str, List[str]]], Field(
+        description="Symbol(s) to fetch: 'GBP' or ['USD', 'EUR', 'gram-altin']. None for all. Use base codes (GBP, not GBPTRY).",
+        default=None
+    )] = None,
+    data_type: Annotated[Optional[Literal["current", "historical"]], Field(
+        description="'current' for real-time rates (default), 'historical' for OHLC over a date range",
         default=None
     )] = None,
     category: Annotated[Optional[str], Field(
@@ -937,7 +942,7 @@ async def get_fx_data(
         default=None
     )] = None,
     historical: Annotated[bool, Field(
-        description="Get historical OHLC data instead of current rates",
+        description="Deprecated alias for data_type='historical'. Get historical OHLC instead of current rates.",
         default=False
     )] = False,
     start_date: Annotated[Optional[str], Field(
@@ -966,13 +971,17 @@ async def get_fx_data(
 
     Examples:
     - get_fx_data() → All current rates
-    - get_fx_data(["USD", "EUR", "gram-altin"]) → Specific symbols
-    - get_fx_data(["USD"], historical=True, start_date="2024-01-01")
+    - get_fx_data(symbol=["USD", "EUR", "gram-altin"]) → Specific symbols
+    - get_fx_data(symbol="GBP", data_type="current") → Single rate
+    - get_fx_data(symbol="USD", data_type="historical", start_date="2024-01-01")
     """
-    logger.info(f"get_fx_data: symbols='{symbols}', historical={historical}")
+    # Normalize: accept single str or list; map data_type to the historical flag
+    symbols = [symbol] if isinstance(symbol, str) else symbol
+    is_historical = historical or (data_type == "historical")
+    logger.info(f"get_fx_data: symbol='{symbol}', data_type='{data_type}', historical={is_historical}")
     try:
         return await market_router.get_fx_data(
-            symbols, category, historical, start_date, end_date
+            symbols, category, is_historical, start_date, end_date
         )
     except Exception as e:
         logger.exception("Error in get_fx_data")
@@ -1399,7 +1408,7 @@ async def screen_funds(
 async def get_index_data(
     code: Annotated[str, Field(
         description="Index code (e.g., XU100, XU030, XBANK, SPY, QQQ)",
-        pattern=r"^[A-Z0-9]{2,10}$",
+        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
         examples=["XU100", "XU030", "XBANK", "SPY"]
     )],
     market: Annotated[Literal["bist", "us"], Field(
@@ -1722,7 +1731,7 @@ async def get_evds_data(
 @app.tool(
     name="get_screener_help",
     title="Screener Help",
-    description="Get screener documentation: 23 presets, filter fields, operators, and examples.",
+    description="Get screener documentation: 24 presets, filter fields, operators, and examples.",
     tags={"help", "screener"},
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )

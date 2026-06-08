@@ -44,6 +44,7 @@ class PresetScreen(str, Enum):
     ENERGY_SECTOR = "energy_sector"
     TOP_GAINERS = "top_gainers"
     TOP_LOSERS = "top_losers"
+    MOST_ACTIVE = "most_active"
 
 
 class YFScreenProvider:
@@ -235,6 +236,15 @@ class YFScreenProvider:
                 ["lt", ["percentchange", -5]],
                 ["gt", ["intradaymarketcap", 500000000]],
                 ["gt", ["dayvolume", 500000]]
+            ]
+        },
+        "most_active": {
+            "description": "Most actively traded by daily volume (>10M)",
+            "security_type": "equity",
+            "filters": [
+                ["eq", ["region", "us"]],
+                ["gt", ["dayvolume", 10000000]],
+                ["gt", ["intradaymarketcap", 500000000]]
             ]
         },
         # ETF Presets
