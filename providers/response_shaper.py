@@ -36,14 +36,35 @@ def cap_evds_payload(payload: Dict[str, Any], max_total: int = 2000) -> Dict[str
     for key in ("gozlemler", "veriler"):
         rows = payload.get(key)
         if isinstance(rows, list) and len(rows) > max_total:
+            original_total = len(rows)
             payload[key] = rows[-max_total:]
             payload["toplam_gozlem"] = len(payload[key])
             _attach_meta(
                 payload,
-                f"Response truncated to the most recent {max_total} observations. "
+                f"Response truncated to the most recent {max_total} of {original_total} observations. "
                 "Narrow the date range (start_date/end_date), reduce the number of "
                 "series, or use frequency/formula aggregation to fit more history.",
             )
+    return payload
+
+
+def drop_allnull_statement_rows(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove financial-statement line items whose values are null in every period.
+
+    Operates on payload['statements'][*]['data'] ({item: [value per period]}).
+    Partial rows are kept untouched so period alignment is preserved.
+    Mutates payload in place and returns it.
+    """
+    statements = payload.get("statements")
+    if not isinstance(statements, list):
+        return payload
+    for stmt in statements:
+        data = stmt.get("data") if isinstance(stmt, dict) else None
+        if isinstance(data, dict):
+            stmt["data"] = {
+                item: values for item, values in data.items()
+                if not (isinstance(values, list) and values and all(v is None for v in values))
+            }
     return payload
 
 

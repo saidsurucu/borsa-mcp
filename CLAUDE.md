@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **unified MCP (Model Context Protocol) server** for BIST (Istanbul Stock Exchange), US stocks, cryptocurrencies, mutual funds, and FX data. The server consolidates 81 legacy tools into **27 unified, function-based tools** with market routing.
+This is a **unified MCP (Model Context Protocol) server** for BIST (Istanbul Stock Exchange), US stocks, cryptocurrencies, mutual funds, and FX data. The server consolidates 81 legacy tools into **28 unified, function-based tools** with market routing.
 
 **⭐ MAJOR CONSOLIDATION (v0.9.0):**
-- **81 tools → 27 unified tools** (68% reduction)
+- **81 tools → 28 unified tools** (65% reduction)
 - **Market-based routing**: Single tool handles BIST, US, crypto via `market` parameter
 - **Multi-ticker parallel execution**: 75% faster batch queries
 - **Unified response models**: Consistent data structures across all markets
@@ -27,7 +27,7 @@ This is a **unified MCP (Model Context Protocol) server** for BIST (Istanbul Sto
 The project follows a **unified router pattern** with market-based routing:
 
 ### Core Files
-- **unified_mcp_server.py**: Main FastMCP server with 27 unified tools (v0.9.0+)
+- **unified_mcp_server.py**: Main FastMCP server with 28 unified tools (v0.9.0+)
 - **providers/market_router.py**: Market routing layer that dispatches to providers
 - **models/unified_base.py**: Unified response models and enums (84 exports)
 

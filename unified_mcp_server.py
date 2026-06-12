@@ -25,7 +25,7 @@ from fastmcp.server.middleware.caching import ResponseCachingMiddleware, CallToo
 from pydantic import Field
 
 from providers.market_router import market_router
-from providers.response_shaper import strip_nulls, cap_evds_payload, downsample_ohlcv
+from providers.response_shaper import strip_nulls, cap_evds_payload, downsample_ohlcv, drop_allnull_statement_rows
 from models.unified_base import (
     MarketType, StatementType, PeriodType, DataType, RatioSetType, ExchangeType
 )
@@ -655,10 +655,10 @@ async def get_financial_statements(
     """
     logger.info(f"get_financial_statements: symbol='{symbol}', market='{market}', last_n={last_n}")
     try:
-        return strip_nulls(await market_router.get_financial_statements(
+        return strip_nulls(drop_allnull_statement_rows(await market_router.get_financial_statements(
             symbol, MarketType(market),
             StatementType(statement_type), PeriodType(period), last_n
-        ))
+        )))
     except Exception as e:
         logger.exception(f"Error in get_financial_statements for '{symbol}'")
         raise classify_tool_error(e, "Financial statements fetch")

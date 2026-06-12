@@ -1,5 +1,5 @@
 """Tests for providers.response_shaper."""
-from providers.response_shaper import strip_nulls, cap_evds_payload, downsample_ohlcv
+from providers.response_shaper import strip_nulls, cap_evds_payload, downsample_ohlcv, drop_allnull_statement_rows
 
 
 def test_strip_nulls_removes_none_values():
@@ -47,6 +47,8 @@ def test_cap_evds_payload_truncates_gozlemler():
     assert result["gozlemler"][-1]["deger"] == 2999.0
     assert result["meta"]["truncated"] is True
     assert "narrow" in result["meta"]["guidance"].lower() or "reduce" in result["meta"]["guidance"].lower()
+    # original total must appear in guidance
+    assert "3000" in result["meta"]["guidance"]
 
 
 def test_cap_evds_payload_truncates_veriler():
@@ -93,3 +95,26 @@ def test_downsample_ohlcv_exact_multiple_keeps_cap_and_last_point():
     result = downsample_ohlcv({"data_points": points}, max_points=300)
     assert len(result["data_points"]) <= 300
     assert result["data_points"][-1] == points[-1]
+
+
+def test_drop_allnull_statement_rows():
+    payload = {
+        "statements": [{
+            "symbol": "GARAN",
+            "periods": ["2024", "2023"],
+            "data": {
+                "Total Assets": [100.0, 90.0],
+                "Total Debt": [None, None],
+                "Cash": [50.0, None],
+            },
+        }]
+    }
+    result = drop_allnull_statement_rows(payload)
+    data = result["statements"][0]["data"]
+    assert "Total Debt" not in data
+    assert data["Total Assets"] == [100.0, 90.0]
+    assert data["Cash"] == [50.0, None]  # partial rows kept, alignment preserved
+
+
+def test_drop_allnull_statement_rows_no_statements_key():
+    assert drop_allnull_statement_rows({"error": "x"}) == {"error": "x"}
