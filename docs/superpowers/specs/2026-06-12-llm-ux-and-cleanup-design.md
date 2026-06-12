@@ -71,8 +71,9 @@ root-level `test_*.py`/`debug_*.py` scripts, stale result JSON/CSV artifacts.
 A single post-processing step applied in `unified_mcp_server.py` tool bodies (not in
 providers) before returning a payload:
 
-- `strip_nulls(payload)` — recursively drop `None`-valued keys and empty lists/dicts
-  from dict payloads. Applied to every tool's response. (Biggest cheap win.)
+- `strip_nulls(payload)` — recursively drop `None`-valued keys from dict payloads.
+  Empty lists/dicts are KEPT (they meaningfully signal "no results"). Applied to
+  every tool's response. (Biggest cheap win.)
 - Per-tool caps with truncation metadata. When a cap fires, the response gains
   `meta: {truncated: true, guidance: "<how to narrow>"}` (English text):
   - `get_evds_data`: cap total returned observations at **2,000 per call** across all
