@@ -247,83 +247,40 @@ class CompactJSONOptimizer:
             return data
     
     @staticmethod
-    def apply_compact_optimizations(data: Any, 
+    def apply_compact_optimizations(data: Any,
                                   remove_nulls: bool = True,
                                   shorten_fields: bool = True,
                                   shorten_enums: bool = True,
-                                  optimize_numbers: bool = True,
-                                  array_format: bool = False) -> Any:
+                                  optimize_numbers: bool = True) -> Any:
         """
         Apply all compact JSON optimizations to the data.
-        
+
         Args:
             data: The data structure to optimize
             remove_nulls: Whether to remove null values
             shorten_fields: Whether to shorten field names
             shorten_enums: Whether to shorten enum values
             optimize_numbers: Whether to optimize numeric precision
-            array_format: Whether to convert OHLCV data to array format
-            
+
         Returns:
             Optimized data structure
         """
         result = data
-        
-        # Apply array format optimization first (most impactful)
-        if array_format:
-            result = CompactJSONOptimizer.apply_array_format_optimization(result)
-        
+
         if remove_nulls:
             result = CompactJSONOptimizer.remove_null_values(result)
-        
+
         if shorten_fields:
             result = CompactJSONOptimizer.shorten_field_names(result)
-        
+
         if shorten_enums:
             result = CompactJSONOptimizer.shorten_enum_values(result)
-        
+
         if optimize_numbers:
             result = CompactJSONOptimizer.optimize_numeric_precision(result)
-        
+
         return result
-    
-    @staticmethod
-    def apply_array_format_optimization(data: Any) -> Any:
-        """
-        Apply array format optimization to OHLCV data.
-        
-        Args:
-            data: The data structure to optimize
-            
-        Returns:
-            Data structure with array format optimization applied
-        """
-        try:
-            from array_format_optimizer import ArrayFormatOptimizer
-            
-            # Determine data type based on structure
-            if isinstance(data, dict):
-                # Stock/Index OHLCV data
-                if 'veri_noktalari' in data:
-                    return ArrayFormatOptimizer.optimize_data_to_arrays(data, "ohlcv")
-                
-                # Crypto OHLCV data
-                elif 'ohlc_data' in data or 'klines' in data or 'kline_data' in data:
-                    return ArrayFormatOptimizer.optimize_data_to_arrays(data, "crypto")
-                
-                # Fund performance data
-                elif 'fiyat_noktalari' in data:
-                    return ArrayFormatOptimizer.optimize_data_to_arrays(data, "fund")
-            
-            return data
-            
-        except ImportError:
-            logger.warning("ArrayFormatOptimizer not available, skipping array format optimization")
-            return data
-        except Exception as e:
-            logger.error(f"Error applying array format optimization: {e}")
-            return data
-    
+
     @staticmethod
     def estimate_token_savings(original_data: Any, optimized_data: Any) -> Dict[str, Any]:
         """

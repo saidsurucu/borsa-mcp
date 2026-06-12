@@ -26,12 +26,11 @@ dependencies = [
 
 [project.scripts]
 borsa-mcp = "unified_mcp_server:main"
-borsa-mcp-legacy = "borsa_mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["providers*", "models*"]
 
 [tool.setuptools]
-py-modules = ["unified_mcp_server", "borsa_mcp_server", "borsa_client", "borsa_models", "fon_mevzuat_kisa", "token_optimizer", "compact_json_optimizer", "array_format_optimizer"]
+py-modules = ["unified_mcp_server", "borsa_client", "borsa_models", "fon_mevzuat_kisa", "token_optimizer", "compact_json_optimizer"]
 include-package-data = true
