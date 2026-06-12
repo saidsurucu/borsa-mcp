@@ -107,6 +107,37 @@ app.add_middleware(cache_middleware)
 
 
 # =============================================================================
+# ERROR CLASSIFICATION HELPER
+# =============================================================================
+
+def classify_tool_error(e: Exception, context: str) -> ToolError:
+    """Map an exception to a ToolError whose message tells the LLM what to try next.
+
+    Always returns (never raises); callers `raise classify_tool_error(e, "...")`.
+    """
+    msg = str(e)
+    lower = msg.lower()
+
+    if "evds_api_key" in lower:
+        suggestion = (
+            "Catalog actions (categories, datagroups, series_list, search, "
+            "search_server, series_info, dashboards) work without a key; data "
+            "actions need the EVDS_API_KEY env var (free key at "
+            "https://evds3.tcmb.gov.tr)."
+        )
+    elif any(t in lower for t in ("not found", "no data", "invalid ticker", "unknown symbol", "delisted")):
+        suggestion = "Verify the symbol with search_symbol first, and confirm the market parameter matches it."
+    elif any(t in lower for t in ("429", "too many requests", "rate limit")):
+        suggestion = "The data source is rate limiting. Retry once after a short wait; if it persists, narrow the query."
+    elif any(t in lower for t in ("timed out", "timeout", "connection")):
+        suggestion = "Transient network issue. Retry once; if it persists, the upstream source may be down."
+    else:
+        suggestion = "If the symbol or parameters look wrong, check the tool description for valid values."
+
+    return ToolError(f"{context} failed: {msg} | Try: {suggestion}")
+
+
+# =============================================================================
 # UNIFIED STOCK TOOLS (12 tools covering BIST + US)
 # =============================================================================
 
@@ -154,7 +185,7 @@ async def search_symbol(
         return strip_nulls(await market_router.search_symbol(query, MarketType(market), limit))
     except Exception as e:
         logger.exception(f"Error in search_symbol for '{query}'")
-        raise ToolError(f"Search failed: {str(e)}")
+        raise classify_tool_error(e, "Search")
 
 
 @app.tool(
@@ -208,7 +239,7 @@ async def get_profile(
         return strip_nulls(result)
     except Exception as e:
         logger.exception(f"Error in get_profile for '{symbol}'")
-        raise ToolError(f"Profile fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Profile fetch")
 
 
 @app.tool(
@@ -246,7 +277,7 @@ async def get_quick_info(
         return strip_nulls(await market_router.get_quick_info(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_quick_info for '{symbol}'")
-        raise ToolError(f"Quick info fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Quick info fetch")
 
 
 @app.tool(
@@ -310,7 +341,7 @@ async def get_historical_data(
         ))
     except Exception as e:
         logger.exception(f"Error in get_historical_data for '{symbol}'")
-        raise ToolError(f"Historical data fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Historical data fetch")
 
 
 @app.tool(
@@ -353,7 +384,7 @@ async def get_technical_analysis(
         ))
     except Exception as e:
         logger.exception(f"Error in get_technical_analysis for '{symbol}'")
-        raise ToolError(f"Technical analysis failed: {str(e)}")
+        raise classify_tool_error(e, "Technical analysis")
 
 
 @app.tool(
@@ -391,7 +422,7 @@ async def get_pivot_points(
         return strip_nulls(await market_router.get_pivot_points(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_pivot_points for '{symbol}'")
-        raise ToolError(f"Pivot points calculation failed: {str(e)}")
+        raise classify_tool_error(e, "Pivot points calculation")
 
 
 @app.tool(
@@ -427,7 +458,7 @@ async def get_analyst_data(
         return strip_nulls(await market_router.get_analyst_data(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_analyst_data for '{symbol}'")
-        raise ToolError(f"Analyst data fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Analyst data fetch")
 
 
 @app.tool(
@@ -463,7 +494,7 @@ async def get_dividends(
         return strip_nulls(await market_router.get_dividends(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_dividends for '{symbol}'")
-        raise ToolError(f"Dividend data fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Dividend data fetch")
 
 
 @app.tool(
@@ -499,7 +530,7 @@ async def get_earnings(
         return strip_nulls(await market_router.get_earnings(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_earnings for '{symbol}'")
-        raise ToolError(f"Earnings data fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Earnings data fetch")
 
 
 @app.tool(
@@ -559,7 +590,7 @@ async def get_financial_statements(
         ))
     except Exception as e:
         logger.exception(f"Error in get_financial_statements for '{symbol}'")
-        raise ToolError(f"Financial statements fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Financial statements fetch")
 
 
 @app.tool(
@@ -604,7 +635,7 @@ async def get_financial_ratios(
         ))
     except Exception as e:
         logger.exception(f"Error in get_financial_ratios for '{symbol}'")
-        raise ToolError(f"Financial ratios calculation failed: {str(e)}")
+        raise classify_tool_error(e, "Financial ratios calculation")
 
 
 @app.tool(
@@ -651,7 +682,7 @@ async def get_corporate_actions(
         ))
     except Exception as e:
         logger.exception(f"Error in get_corporate_actions for '{symbol}'")
-        raise ToolError(f"Corporate actions fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Corporate actions fetch")
 
 
 @app.tool(
@@ -710,9 +741,11 @@ async def get_news(
             return strip_nulls(await market_router.get_news(symbol, MarketType.BIST, limit))
         else:
             raise ToolError("Either symbol or news_id must be provided")
+    except ToolError:
+        raise
     except Exception as e:
         logger.exception(f"Error in get_news")
-        raise ToolError(f"News fetch failed: {str(e)}")
+        raise classify_tool_error(e, "News fetch")
 
 
 # =============================================================================
@@ -774,7 +807,7 @@ async def screen_securities(
         ))
     except Exception as e:
         logger.exception("Error in screen_securities")
-        raise ToolError(f"Screening failed: {str(e)}")
+        raise classify_tool_error(e, "Screening")
 
 
 @app.tool(
@@ -830,7 +863,7 @@ async def scan_stocks(
         ))
     except Exception as e:
         logger.exception("Error in scan_stocks")
-        raise ToolError(f"Scanning failed: {str(e)}")
+        raise classify_tool_error(e, "Scanning")
 
 
 @app.tool(
@@ -867,7 +900,7 @@ async def get_sector_comparison(
         return strip_nulls(await market_router.get_sector_comparison(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_sector_comparison for '{symbol}'")
-        raise ToolError(f"Sector comparison failed: {str(e)}")
+        raise classify_tool_error(e, "Sector comparison")
 
 
 # =============================================================================
@@ -917,7 +950,7 @@ async def get_crypto_market(
         ))
     except Exception as e:
         logger.exception(f"Error in get_crypto_market for '{symbol}'")
-        raise ToolError(f"Crypto market data fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Crypto market data fetch")
 
 
 # =============================================================================
@@ -988,7 +1021,7 @@ async def get_fx_data(
         ))
     except Exception as e:
         logger.exception("Error in get_fx_data")
-        raise ToolError(f"FX data fetch failed: {str(e)}")
+        raise classify_tool_error(e, "FX data fetch")
 
 
 # =============================================================================
@@ -1098,7 +1131,7 @@ async def get_economic_calendar(
         })
     except Exception as e:
         logger.exception("Error in get_economic_calendar")
-        raise ToolError(f"Economic calendar fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Economic calendar fetch")
 
 
 @app.tool(
@@ -1160,7 +1193,7 @@ async def get_bond_yields(
         })
     except Exception as e:
         logger.exception("Error in get_bond_yields")
-        raise ToolError(f"Bond yields fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Bond yields fetch")
 
 
 # =============================================================================
@@ -1248,7 +1281,7 @@ async def get_fund_data(
             ))
     except Exception as e:
         logger.exception(f"Error in get_fund_data for '{symbol}'")
-        raise ToolError(f"Fund data fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Fund data fetch")
 
 
 @app.tool(
@@ -1403,7 +1436,7 @@ async def screen_funds(
 
     except Exception as e:
         logger.exception(f"Error in screen_funds")
-        raise ToolError(f"Fund screening failed: {str(e)}")
+        raise classify_tool_error(e, "Fund screening")
 
 
 # =============================================================================
@@ -1453,7 +1486,7 @@ async def get_index_data(
         return strip_nulls(await market_router.get_index_data(code, MarketType(market), include_components))
     except Exception as e:
         logger.exception(f"Error in get_index_data for '{code}'")
-        raise ToolError(f"Index data fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Index data fetch")
 
 
 # =============================================================================
@@ -1554,7 +1587,7 @@ async def get_macro_data(
         ))
     except Exception as e:
         logger.exception("Error in get_macro_data")
-        raise ToolError(f"Macro data fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Macro data fetch")
 
 
 # =============================================================================
@@ -1739,7 +1772,7 @@ async def get_evds_data(
         ))
     except Exception as e:
         logger.exception("Error in get_evds_data")
-        raise ToolError(f"EVDS operation failed: {str(e)}")
+        raise classify_tool_error(e, "EVDS operation")
 
 
 # =============================================================================
@@ -1776,7 +1809,7 @@ async def get_screener_help(
         return strip_nulls(await market_router.get_screener_help(MarketType(market)))
     except Exception as e:
         logger.exception("Error in get_screener_help")
-        raise ToolError(f"Screener help fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Screener help fetch")
 
 
 @app.tool(
@@ -1805,7 +1838,7 @@ async def get_scanner_help() -> Dict[str, Any]:
         return strip_nulls(await market_router.get_scanner_help())
     except Exception as e:
         logger.exception("Error in get_scanner_help")
-        raise ToolError(f"Scanner help fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Scanner help fetch")
 
 
 @app.tool(
@@ -1838,7 +1871,7 @@ async def get_regulations(
         return strip_nulls(await market_router.get_regulations(regulation_type))
     except Exception as e:
         logger.exception("Error in get_regulations")
-        raise ToolError(f"Regulations fetch failed: {str(e)}")
+        raise classify_tool_error(e, "Regulations fetch")
 
 
 # =============================================================================
