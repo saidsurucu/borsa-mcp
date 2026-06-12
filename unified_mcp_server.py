@@ -138,6 +138,75 @@ def classify_tool_error(e: Exception, context: str) -> ToolError:
 
 
 # =============================================================================
+# UP-FRONT PARAMETER VALIDATORS
+# =============================================================================
+
+_EVDS_REQUIRED_PARAMS: Dict[str, List[str]] = {
+    "categories": [],
+    "datagroups": ["category_id"],
+    "series_list": ["datagroup_code"],
+    "search": ["keyword"],
+    "search_server": ["keyword"],
+    "series_info": ["series_code"],
+    "dashboards": [],
+    "dashboard": [],  # dashboard_name OR dashboard_id, checked below
+    "series": ["series_code"],
+    "multi_series": ["series_codes"],
+    "datagroup_data": ["datagroup_code"],
+}
+
+
+def validate_evds_params(action: str, params: Dict[str, Any]) -> None:
+    """Raise ToolError if required params for this EVDS action are missing."""
+    required = _EVDS_REQUIRED_PARAMS.get(action)
+    if required is None:
+        raise ToolError(
+            f"Unknown EVDS action '{action}'. | Try: one of {sorted(_EVDS_REQUIRED_PARAMS)}."
+        )
+    missing = [name for name in required if not params.get(name)]
+    if missing:
+        raise ToolError(
+            f"action='{action}' requires {', '.join(missing)}. | Try: provide "
+            f"{', '.join(missing)}; discover valid values via action='categories', "
+            "'datagroups', 'series_list' or 'search'."
+        )
+    if action == "dashboard" and not (params.get("dashboard_name") or params.get("dashboard_id")):
+        raise ToolError(
+            "action='dashboard' requires dashboard_name or dashboard_id. "
+            "| Try: list them via action='dashboards' first."
+        )
+
+
+def validate_screen_params(preset: Any, custom_filters: Any) -> None:
+    """preset and custom_filters are mutually exclusive."""
+    if preset is not None and custom_filters is not None:
+        raise ToolError(
+            "Provide only one of 'preset' or 'custom_filters', not both. "
+            "| Try: drop custom_filters to use the preset, or drop preset to screen with custom filters."
+        )
+
+
+def fund_flags_warning(is_multi: bool, include_portfolio: bool, include_performance: bool) -> Optional[str]:
+    """Warning text when single-fund-only flags are used in multi-fund mode."""
+    if is_multi and (include_portfolio or include_performance):
+        return (
+            "include_portfolio/include_performance apply to single-fund queries only "
+            "and were ignored in comparison mode. Query one fund at a time to get them."
+        )
+    return None
+
+
+def timeframe_warning(market: str, timeframe: str) -> Optional[str]:
+    """Warning when timeframe is ignored for stock markets (always daily)."""
+    if market in ("bist", "us") and timeframe != "1d":
+        return (
+            f"timeframe='{timeframe}' is ignored for market='{market}': stock technical "
+            "analysis is computed on daily data. Timeframe applies to crypto markets only."
+        )
+    return None
+
+
+# =============================================================================
 # UNIFIED STOCK TOOLS (12 tools covering BIST + US)
 # =============================================================================
 
@@ -379,9 +448,11 @@ async def get_technical_analysis(
     """
     logger.info(f"get_technical_analysis: symbol='{symbol}', market='{market}'")
     try:
-        return strip_nulls(await market_router.get_technical_analysis(
-            symbol, MarketType(market), timeframe
-        ))
+        result = await market_router.get_technical_analysis(symbol, MarketType(market), timeframe)
+        warning = timeframe_warning(market, timeframe)
+        if warning:
+            result.setdefault("warnings", []).append(warning)
+        return strip_nulls(result)
     except Exception as e:
         logger.exception(f"Error in get_technical_analysis for '{symbol}'")
         raise classify_tool_error(e, "Technical analysis")
@@ -800,6 +871,7 @@ async def screen_securities(
     - screen_securities("us", preset="tech_sector")
     - screen_securities("bist", preset="dividend_stocks")
     """
+    validate_screen_params(preset, custom_filters)
     logger.info(f"screen_securities: market='{market}', preset='{preset}'")
     try:
         return strip_nulls(await market_router.screen_securities(
@@ -1272,7 +1344,11 @@ async def get_fund_data(
 
         # Comparison mode - multiple funds
         if is_multi or compare_mode:
-            return strip_nulls(await market_router.compare_funds(symbol_list))
+            result = await market_router.compare_funds(symbol_list)
+            warning = fund_flags_warning(True, include_portfolio, include_performance)
+            if warning:
+                result.setdefault("warnings", []).append(warning)
+            return strip_nulls(result)
         else:
             # Single fund mode
             return strip_nulls(await market_router.get_fund_data(
@@ -1627,7 +1703,10 @@ EvdsFormulaLiteral = Literal[
         "(rates, FX, balance of payments, inflation, expectation surveys). "
         "Use action to browse catalog, search, fetch series, or access dashboards. "
         "Catalog and search work without a key; data fetch (series, multi_series, "
-        "datagroup_data) requires EVDS_API_KEY env var (free at https://evds3.tcmb.gov.tr)."
+        "datagroup_data) requires EVDS_API_KEY env var (free at https://evds3.tcmb.gov.tr). "
+        "Required params by action: datagroups→category_id; series_list/datagroup_data→"
+        "datagroup_code; search/search_server→keyword; series/series_info→series_code; "
+        "multi_series→series_codes; dashboard→dashboard_name or dashboard_id."
     ),
     tags={"macro", "tcmb", "evds"},
     annotations={"readOnlyHint": True, "idempotentHint": True}
@@ -1746,6 +1825,15 @@ async def get_evds_data(
       action='multi_series', series_codes=['TP.DK.USD.A.YTL','TP.DK.EUR.A.YTL']
       action='datagroup_data', datagroup_code='bie_dkdovizgn', period='1mo'    -> all series in one HTTP call
     """
+    validate_evds_params(action, {
+        "category_id": category_id,
+        "datagroup_code": datagroup_code,
+        "keyword": keyword,
+        "series_code": series_code,
+        "series_codes": series_codes,
+        "dashboard_name": dashboard_name,
+        "dashboard_id": dashboard_id,
+    })
     logger.info(f"get_evds_data: action='{action}'")
     try:
         return strip_nulls(cap_evds_payload(
