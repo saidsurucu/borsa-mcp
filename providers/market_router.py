@@ -2223,79 +2223,71 @@ class MarketRouter:
             payload = await p.get_categories()
         elif action == "datagroups":
             if category_id is None:
-                payload = {"error_message": "category_id is required for action='datagroups'"}
-            else:
-                payload = await p.get_datagroups(category_id)
+                raise ValueError("category_id is required for action='datagroups'")
+            payload = await p.get_datagroups(category_id)
         elif action == "series_list":
             if not datagroup_code:
-                payload = {"error_message": "datagroup_code is required for action='series_list'"}
-            else:
-                payload = await p.get_series_list(datagroup_code)
+                raise ValueError("datagroup_code is required for action='series_list'")
+            payload = await p.get_series_list(datagroup_code)
         elif action == "search":
             if not keyword:
-                payload = {"error_message": "keyword is required for action='search'"}
-            else:
-                payload = await p.search(keyword, scope=scope or "all", lang=lang or "TR", limit=limit or 200)
+                raise ValueError("keyword is required for action='search'")
+            payload = await p.search(keyword, scope=scope or "all", lang=lang or "TR", limit=limit or 200)
         elif action == "search_server":
             if not keyword:
-                payload = {"error_message": "keyword is required for action='search_server'"}
-            else:
-                payload = await p.search_server(keyword, limit=limit or 100)
+                raise ValueError("keyword is required for action='search_server'")
+            payload = await p.search_server(keyword, limit=limit or 100)
         elif action == "series_info":
             if not series_code:
-                payload = {"error_message": "series_code is required for action='series_info'"}
-            else:
-                payload = await p.get_series_info(series_code)
+                raise ValueError("series_code is required for action='series_info'")
+            payload = await p.get_series_info(series_code)
         elif action == "dashboards":
             payload = await p.list_dashboards()
         elif action == "dashboard":
             payload = await p.get_dashboard(name=dashboard_name, dashboard_id=dashboard_id)
         elif action == "series":
             if not series_code:
-                payload = {"error_message": "series_code is required for action='series'"}
-            else:
-                payload = await p.get_series(
-                    series_code,
-                    period=period,
-                    start_date=start_date,
-                    end_date=end_date,
-                    frequency=frequency,
-                    aggregation=aggregation,
-                    formula=formula,
-                    decimals=decimals,
-                    limit=limit,
-                )
+                raise ValueError("series_code is required for action='series'")
+            payload = await p.get_series(
+                series_code,
+                period=period,
+                start_date=start_date,
+                end_date=end_date,
+                frequency=frequency,
+                aggregation=aggregation,
+                formula=formula,
+                decimals=decimals,
+                limit=limit,
+            )
         elif action == "multi_series":
             if not series_codes:
-                payload = {"error_message": "series_codes is required for action='multi_series'"}
-            else:
-                payload = await p.get_multi_series(
-                    series_codes,
-                    period=period,
-                    start_date=start_date,
-                    end_date=end_date,
-                    frequency=frequency,
-                    aggregation=aggregation,
-                    formula=formula,
-                    decimals=decimals,
-                    limit=limit,
-                )
+                raise ValueError("series_codes is required for action='multi_series'")
+            payload = await p.get_multi_series(
+                series_codes,
+                period=period,
+                start_date=start_date,
+                end_date=end_date,
+                frequency=frequency,
+                aggregation=aggregation,
+                formula=formula,
+                decimals=decimals,
+                limit=limit,
+            )
         elif action == "datagroup_data":
             if not datagroup_code:
-                payload = {"error_message": "datagroup_code is required for action='datagroup_data'"}
-            else:
-                payload = await p.get_datagroup_data(
-                    datagroup_code,
-                    period=period,
-                    start_date=start_date,
-                    end_date=end_date,
-                    frequency=frequency,
-                    aggregation=aggregation,
-                    formula=formula,
-                    limit=limit,
-                )
+                raise ValueError("datagroup_code is required for action='datagroup_data'")
+            payload = await p.get_datagroup_data(
+                datagroup_code,
+                period=period,
+                start_date=start_date,
+                end_date=end_date,
+                frequency=frequency,
+                aggregation=aggregation,
+                formula=formula,
+                limit=limit,
+            )
         else:
-            payload = {"error_message": f"Unknown EVDS action: {action}"}
+            raise ValueError(f"Unknown EVDS action: {action}")
 
         return {
             "metadata": self._create_metadata(MarketType.FX, [action], "tcmb_evds"),

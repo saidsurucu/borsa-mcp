@@ -31,6 +31,14 @@ borsa-mcp = "unified_mcp_server:main"
 where = ["."]
 include = ["providers*", "models*"]
 
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=1.4.0",
+]
+
 [tool.setuptools]
 py-modules = ["unified_mcp_server", "borsa_client", "borsa_models", "fon_mevzuat_kisa", "token_optimizer", "compact_json_optimizer"]
 include-package-data = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
