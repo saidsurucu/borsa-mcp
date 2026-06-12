@@ -237,10 +237,6 @@ get_evds_data(action="multi_series", series_codes=["TP.DK.USD.A.YTL","TP.DK.EUR.
 get_evds_data(action="datagroup_data", datagroup_code="bie_dkdovizgn")        # 137 seri tek çağrıda
 ```
 
-### Eski Sunucu (Geriye Uyumluluk)
-
-Legacy sunucu (81 araç) `borsa-mcp-legacy` komutu ile hala kullanılabilir.
-
 ---
 
 ## 🔍 Veri Kaynakları & Kapsam
