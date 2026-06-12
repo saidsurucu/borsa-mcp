@@ -30,7 +30,6 @@ The project follows a **unified router pattern** with market-based routing:
 - **unified_mcp_server.py**: Main FastMCP server with 27 unified tools (v0.9.0+)
 - **providers/market_router.py**: Market routing layer that dispatches to providers
 - **models/unified_base.py**: Unified response models and enums (84 exports)
-- **borsa_mcp_server.py**: Legacy server with 81 tools (kept as fallback)
 
 ### Provider Layer
 - **providers/**: Data provider modules
@@ -51,13 +50,9 @@ The project follows a **unified router pattern** with market-based routing:
 ## Key Development Commands
 
 ```bash
-# Run the unified MCP server (22 tools)
+# Run the unified MCP server (28 tools)
 uv run python unified_mcp_server.py
 uv run borsa-mcp  # Entry point
-
-# Run legacy server (81 tools) - for backwards compatibility
-uv run python borsa_mcp_server.py
-uv run borsa-mcp-legacy
 
 # Install dependencies
 uv pip install -r requirements.txt
@@ -68,10 +63,8 @@ rm -rf build/ && uv build
 # Test unified server
 uv run python -c "from unified_mcp_server import app; print('Server OK')"
 
-# Test legacy functionality
-uv run test_mcp_server.py
-uv run test_kap_haberleri.py
-uv run test_tefas_provider.py
+# Run curated tests
+uv run python -m pytest tests/ -q
 ```
 
 ## Complete Tool Interface (28 Unified Tools)
@@ -125,183 +118,6 @@ uv run test_tefas_provider.py
 | `get_regulations` | Turkish fund regulation documentation |
 
 ---
-
-## Legacy Tool Interface (81 tools - backwards compatibility)
-
-**Use `borsa-mcp-legacy` command for legacy interface.**
-
-### Core Company & Financial Data (Legacy)
-- `find_ticker_code`: Search 793 BIST companies using KAP
-- `get_sirket_profili`: Company profile with financial metrics
-- `get_bilanco`: Balance sheet (annual/quarterly) ⭐ **Multi-ticker support**
-- `get_kar_zarar_tablosu`: Income statement ⭐ **Multi-ticker support**
-- `get_nakit_akisi_tablosu`: Cash flow statement ⭐ **Multi-ticker support**
-- `get_finansal_oranlar`: Financial ratios (F/K, FD/FAVÖK, FD/Satışlar, PD/DD) ⭐ **Multi-ticker support**
-- `get_finansal_veri`: Historical OHLCV data
-
-### Advanced Analysis Tools (Legacy)
-- `get_analist_tahminleri`: Analyst recommendations and price targets ⭐ **Multi-ticker support**
-- `get_temettu_ve_aksiyonlar`: Dividends and corporate actions ⭐ **Multi-ticker support**
-- `get_hizli_bilgi`: Key metrics (P/E, P/B, ROE) ⭐ **Multi-ticker support**
-- `get_kazanc_takvimi`: Earnings calendar ⭐ **Multi-ticker support**
-- `get_teknik_analiz`: Technical analysis with indicators
-- `get_pivot_points`: Daily pivot points with 3 resistance and 3 support levels
-- `get_sektor_karsilastirmasi`: Sector analysis
-- `get_kap_haberleri`: KAP news and announcements
-- `get_kap_haber_detayi`: Detailed KAP news content
-
-### İş Yatırım Corporate Actions Tools ⭐ **NEW**
-- `get_sermaye_artirimlari`: Capital increases (Bedelli, Bedelsiz, IPO) ⭐ **Multi-ticker support**
-  - Type 01: Bedelli Sermaye Artırımı (Rights Issue)
-  - Type 02: Bedelsiz Sermaye Artırımı (Bonus Issue)
-  - Type 03: Bedelli + Bedelsiz Combined
-  - Type 05: Birincil Halka Arz (IPO)
-  - Type 06: Rüçhan Hakkı Kısıtlanarak (Restricted Rights)
-- `get_isyatirim_temettu`: Dividend history from İş Yatırım ⭐ **Multi-ticker support**
-  - Gross/net dividend rates (%)
-  - Total dividend amounts (TL)
-  - Distribution dates
-
-### BIST Index Tools
-- `get_endeks_kodu`: Search 66 BIST indices
-- `get_endeks_sirketleri`: Company information for indices
-
-### BIST Technical Scanner Tools (borsapy 0.6.4+)
-- `scan_bist_teknik`: Scan stocks by technical indicators (RSI, MACD, Supertrend, T3)
-  - **Supported Indices**: XU030, XU100, XBANK, XUSIN, XUMAL, XUHIZ, XUTEK, XHOLD, XGIDA, XELKT, XILTM, XK100, XK050, XK030
-  - **TradingView Fields**: RSI (0-100), macd, volume, change (%), close, sma_50, ema_20, bb_upper, bb_lower
-  - **Local Fields (0.6.4+)**: supertrend, supertrend_direction (1=bullish, -1=bearish), t3, tilson_t3
-  - **Operators**: >, <, >=, <=, ==, and, or
-  - **Timeframes**: 1d (daily), 1h (hourly), 4h (4-hour), 1W (weekly)
-  - **Examples**: "RSI < 30", "supertrend_direction == 1", "close > t3"
-- `scan_bist_preset`: Scan stocks using 22 preset strategies
-  - **Reversal**: oversold, oversold_moderate, overbought, oversold_high_volume, bb_overbought_sell, bb_oversold_buy
-  - **Momentum**: bullish_momentum, bearish_momentum, big_gainers, big_losers, momentum_breakout, ma_squeeze_momentum
-  - **Trend**: macd_positive, macd_negative
-  - **Supertrend (0.6.4+)**: supertrend_bullish, supertrend_bearish, supertrend_bullish_oversold
-  - **Tilson T3 (0.6.4+)**: t3_bullish, t3_bearish, t3_bullish_momentum
-  - **Volume**: high_volume (>10M)
-- `get_scan_yardim`: Get available indicators, operators, presets for technical scanning
-
-### Islamic Finance & ESG Tools
-- `get_katilim_finans_uygunluk`: Participation finance compatibility
-
-### TEFAS Fund Tools
-- `search_funds`: Search Turkish funds with category filtering
-- `get_fund_detail`: Comprehensive fund information
-- `get_fund_performance`: Historical performance data
-- `get_fund_portfolio`: Portfolio allocation analysis
-- `compare_funds`: Multi-fund comparison
-
-### Fund Regulation Tools
-- `get_fon_mevzuati`: Turkish fund regulation guide
-
-### BtcTurk Cryptocurrency Tools
-- `get_kripto_exchange_info`: Trading pairs and currencies
-- `get_kripto_ticker`: Real-time crypto prices
-- `get_kripto_orderbook`: Order book depth
-- `get_kripto_trades`: Trade history
-- `get_kripto_ohlc`: OHLC data
-- `get_kripto_kline`: Candlestick data
-- `get_kripto_teknik_analiz`: Technical analysis
-
-### Coinbase Global Cryptocurrency Tools
-- `get_coinbase_exchange_info`: Global trading pairs
-- `get_coinbase_ticker`: Global crypto prices
-- `get_coinbase_orderbook`: Global order book
-- `get_coinbase_trades`: Global trade history
-- `get_coinbase_ohlc`: Global OHLC data
-- `get_coinbase_server_time`: Server time
-- `get_coinbase_teknik_analiz`: Global technical analysis
-
-### borsapy Currency & Commodities Tools
-- `get_dovizcom_guncel`: Current exchange rates via borsapy (65 currencies, metals, commodities)
-- `get_dovizcom_dakikalik`: Minute-by-minute data via borsapy
-- `get_dovizcom_arsiv`: Historical OHLC data via borsapy
-- **Legacy Fallback**: WTI, diesel, gasoline, lpg use direct doviz.com scraping
-
-### borsapy Economic Calendar Tools
-- `get_economic_calendar`: Economic events via borsapy (TR, US, EU, DE, GB, JP, CN)
-
-### Bond Yields Tools
-- `get_tahvil_faizleri`: Turkish government bond yields (2Y, 5Y, 10Y) from Doviz.com
-
-### US Stock Market Tools (NEW)
-- `search_us_stock`: Search/validate US stock ticker (AAPL, MSFT, GOOGL, SPY)
-- `get_us_company_profile`: Company profile with financials (sector, market cap, P/E)
-- `get_us_quick_info`: Quick metrics (P/E, P/B, ROE, 52w range) ⭐ **Multi-ticker support**
-- `get_us_stock_data`: Historical OHLCV data with date range support
-- `get_us_analyst_ratings`: Analyst ratings (buy/sell/hold, price targets) ⭐ **Multi-ticker support**
-- `get_us_dividends`: Dividends & stock splits history ⭐ **Multi-ticker support**
-- `get_us_earnings`: Earnings calendar (dates, EPS, surprises) ⭐ **Multi-ticker support**
-- `get_us_technical_analysis`: Technical analysis (RSI, MACD, Bollinger, trends)
-- `get_us_pivot_points`: Pivot points (support/resistance R1-R3, S1-S3)
-
-### US Stock Screener Tools (NEW)
-- `screen_us_securities`: Screen US stocks/ETFs/funds with 23 presets or custom filters
-  - **Security Types**: equity, etf, mutualfund, index, future
-  - **23 Presets**:
-    - **Equity (18)**: value_stocks, growth_stocks, dividend_stocks, large_cap, mid_cap, small_cap, high_volume, momentum, undervalued, low_pe, high_dividend_yield, blue_chip, tech_sector, healthcare_sector, financial_sector, energy_sector, top_gainers, top_losers
-    - **ETF (3)**: large_etfs, top_performing_etfs, low_expense_etfs
-    - **Mutual Fund (2)**: large_mutual_funds, top_performing_funds
-  - **Custom Filters**: eq/gt/lt/btwn operators with 20+ filter fields
-  - **Pagination**: limit/offset for large result sets
-- `get_us_screener_presets`: List all 23 preset screens with descriptions
-- `get_us_screener_filters`: Get documentation for custom filter fields and operators (separate fields for equity vs ETF/mutual fund)
-
-### Buffett Value Investing Tools
-
-**⭐ Consolidated Tool (NEW - Recommended)**
-- `calculate_buffett_value_analysis`: Complete Buffett analysis (4 metrics in 1 call)
-  - **Owner Earnings**: Real cash flow to shareholders
-  - **OE Yield**: Cash return % (>10% target)
-  - **DCF Fisher**: Inflation-adjusted intrinsic value
-  - **Safety Margin**: Moat-adjusted buy signal
-  - **Buffett Score**: STRONG_BUY | BUY | HOLD | AVOID
-  - **Auto Insights**: 3-5 key strengths
-  - **Auto Warnings**: 0-3 concerns
-  - **Single API call**: All 4 metrics from one data fetch
-
-**⚠️ Individual Tools (DEPRECATED - Use consolidated tool above)**
-- `calculate_owner_earnings`: Calculate Owner Earnings (use buffett_value_analysis instead)
-- `calculate_oe_yield`: Calculate OE Yield (use buffett_value_analysis instead)
-- `calculate_dcf_fisher`: Calculate DCF Fisher (use buffett_value_analysis instead)
-- `calculate_safety_margin`: Calculate Safety Margin (use buffett_value_analysis instead)
-
-### Financial Ratios Tools (Consolidated)
-
-**⭐ Consolidated Tools (NEW - Recommended)**
-
-**Group 1: Core Financial Health (5 metrics in 1 call)**
-- `calculate_core_financial_health`: Complete core financial analysis
-  - **ROE**: Return on Equity (profitability metric, >15% excellent)
-  - **ROIC**: Return on Invested Capital (capital efficiency, >15% excellent)
-  - **Debt Ratios**: 4 debt metrics (D/E, D/A, Interest Coverage, Debt Service)
-  - **FCF Margin**: Free Cash Flow margin (cash generation, >10% excellent)
-  - **Earnings Quality**: CF/NI ratio, accruals, working capital impact
-  - **Overall Health Score**: STRONG | GOOD | AVERAGE | WEAK
-  - **Auto Insights**: Strengths (2-5 items) + Concerns (0-3 items)
-  - **Efficiency**: Single API call, 75-85% faster than 5 separate calls
-
-**Group 2: Advanced Metrics (2 metrics in 1 call)**
-- `calculate_advanced_metrics`: Advanced financial stability analysis
-  - **Altman Z-Score**: Bankruptcy risk prediction (>2.99 safe, 1.81-2.99 grey, <1.81 distress)
-  - **Real Growth - Revenue**: Inflation-adjusted revenue growth (Fisher equation)
-  - **Real Growth - Earnings**: Inflation-adjusted earnings growth (Fisher equation)
-  - **Financial Stability**: SAFE | GREY | DISTRESS (from Z-Score)
-  - **Growth Quality**: STRONG | MODERATE | WEAK | NEGATIVE
-  - **Key Findings**: 2-4 critical insights automatically generated
-  - **Efficiency**: Single API call, 75-85% faster than 3 separate calls
-
-**Phase 4: Comprehensive Analysis (11 metrics in 1 tool)**
-- `calculate_comprehensive_analysis`: Single comprehensive financial health assessment
-  - **Liquidity Metrics (5)**: Current Ratio, Quick Ratio, OCF Ratio, Cash Conversion Cycle, Debt/EBITDA
-  - **Profitability Margins (3)**: Gross Margin, Operating Margin, Net Profit Margin
-  - **Valuation Metrics (2)**: EV/EBITDA, Graham Number with discount calculation
-  - **Composite Scores (2)**: Piotroski F-Score (simplified), Magic Formula (Earnings Yield + ROIC)
-  - **No Overall Score**: Each metric independently assessed (EXCELLENT/GOOD/AVERAGE/POOR)
-  - **Interpretation**: Auto-generated strengths and weaknesses summary
-  - **Efficiency**: Single tool call, one data fetch for all 11 metrics
 
 ## Data Sources & Coverage
 
@@ -503,11 +319,7 @@ async def test_tool_functionality(mcp_server):
 ```
 
 ### Test Files
-- `test_mcp_server.py`: Validates all tools load
-- `test_kap_haberleri.py`: Tests KAP news
-- `test_tefas_provider.py`: Tests fund functionality
-- `test_btcturk_kripto.py`: Tests crypto tools
-- `test_dovizcom_provider.py`: Tests currency tools
+Curated tests live in `tests/` (tracked in git). Local-only ad-hoc scripts are in `tests/adhoc/` (gitignored).
 
 ## Performance Considerations
 
@@ -519,7 +331,7 @@ async def test_tool_functionality(mcp_server):
 
 ## Logging
 
-Logs written to `logs/borsa_mcp_server.log` with UTF-8 encoding.
+Logs written to `logs/borsa_mcp.log` with UTF-8 encoding.
 
 ```python
 logger.info("Successful operations")
@@ -528,6 +340,13 @@ logger.error("Failed operations")
 ```
 
 ## Recent Major Updates
+
+### LLM-UX Hardening + Legacy Removal (June 2026)
+- **Legacy server removed**: `borsa_mcp_server.py` and the `borsa-mcp-legacy` entry point are gone; the 28-tool unified server is the only interface.
+- **Response shaping** (`providers/response_shaper.py`): all tool responses are recursively null-stripped; `get_evds_data` observations are capped at 2,000/call (default `limit` now 100); `get_historical_data` auto-downsamples beyond 300 points. Truncation adds `meta: {truncated, guidance}`.
+- **Actionable errors**: `classify_tool_error` maps failures to suggestions (unknown symbol → use search_symbol; missing EVDS_API_KEY → setup hint; rate limit/timeout → retry guidance). EVDS routing now raises on missing params instead of returning error payloads inside successful responses.
+- **Parameter validation**: EVDS action→required-param map enforced up front (and documented in the tool description); `screen_securities` rejects preset+custom_filters together; `get_fund_data` and `get_technical_analysis` warn when flags are ignored.
+- **Tests**: curated tests live in `tests/` (tracked; run `uv run python -m pytest tests/ -q --ignore=tests/adhoc`); old ad-hoc scripts in `tests/adhoc/` (gitignored, local-only).
 
 ### TCMB EVDS Tool (May 2026)
 - **Dependency**: `borsapy>=0.10.0` (was 0.9.0). 0.10.0 introduces full EVDS v3 API wrapper.
@@ -911,5 +730,3 @@ logger.error("Failed operations")
 - **Single entry point**: `uv run borsa-mcp` for unified server
 - **Enhanced features**: Islamic finance compliance, news detail, fund comparison, macro data, **TCMB EVDS access (145 categories, tens of thousands of macro series)**
 
-### Legacy Server (backwards compatibility) - 81 Tools
-Available via `uv run borsa-mcp-legacy` for backwards compatibility.
