@@ -2210,7 +2210,7 @@ class MarketRouter:
         decimals: Optional[int] = None,
         dashboard_name: Optional[str] = None,
         dashboard_id: Optional[str] = None,
-        limit: Optional[int] = 1000,
+        limit: Optional[int] = 100,
     ) -> Dict[str, Any]:
         """Route a get_evds_data call to BorsapyEVDSProvider. Returns raw dict."""
         from providers.borsapy_evds_provider import BorsapyEVDSProvider

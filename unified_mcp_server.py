@@ -25,6 +25,7 @@ from fastmcp.server.middleware.caching import ResponseCachingMiddleware, CallToo
 from pydantic import Field
 
 from providers.market_router import market_router
+from providers.response_shaper import strip_nulls, cap_evds_payload, downsample_ohlcv
 from models.unified_base import (
     MarketType, StatementType, PeriodType, DataType, RatioSetType, ExchangeType
 )
@@ -150,7 +151,7 @@ async def search_symbol(
     """
     logger.info(f"search_symbol: query='{query}', market='{market}'")
     try:
-        return await market_router.search_symbol(query, MarketType(market), limit)
+        return strip_nulls(await market_router.search_symbol(query, MarketType(market), limit))
     except Exception as e:
         logger.exception(f"Error in search_symbol for '{query}'")
         raise ToolError(f"Search failed: {str(e)}")
@@ -204,7 +205,7 @@ async def get_profile(
             except Exception as e:
                 logger.warning(f"Failed to fetch Islamic compliance for {symbol}: {e}")
 
-        return result
+        return strip_nulls(result)
     except Exception as e:
         logger.exception(f"Error in get_profile for '{symbol}'")
         raise ToolError(f"Profile fetch failed: {str(e)}")
@@ -242,7 +243,7 @@ async def get_quick_info(
     """
     logger.info(f"get_quick_info: symbol='{symbol}', market='{market}'")
     try:
-        return await market_router.get_quick_info(symbol, MarketType(market))
+        return strip_nulls(await market_router.get_quick_info(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_quick_info for '{symbol}'")
         raise ToolError(f"Quick info fetch failed: {str(e)}")
@@ -302,9 +303,11 @@ async def get_historical_data(
     """
     logger.info(f"get_historical_data: symbol='{symbol}', market='{market}', adjust={adjust}")
     try:
-        return await market_router.get_historical_data(
-            symbol, MarketType(market), period, start_date, end_date, adjust=adjust
-        )
+        return strip_nulls(downsample_ohlcv(
+            await market_router.get_historical_data(
+                symbol, MarketType(market), period, start_date, end_date, adjust=adjust
+            )
+        ))
     except Exception as e:
         logger.exception(f"Error in get_historical_data for '{symbol}'")
         raise ToolError(f"Historical data fetch failed: {str(e)}")
@@ -345,9 +348,9 @@ async def get_technical_analysis(
     """
     logger.info(f"get_technical_analysis: symbol='{symbol}', market='{market}'")
     try:
-        return await market_router.get_technical_analysis(
+        return strip_nulls(await market_router.get_technical_analysis(
             symbol, MarketType(market), timeframe
-        )
+        ))
     except Exception as e:
         logger.exception(f"Error in get_technical_analysis for '{symbol}'")
         raise ToolError(f"Technical analysis failed: {str(e)}")
@@ -385,7 +388,7 @@ async def get_pivot_points(
     """
     logger.info(f"get_pivot_points: symbol='{symbol}', market='{market}'")
     try:
-        return await market_router.get_pivot_points(symbol, MarketType(market))
+        return strip_nulls(await market_router.get_pivot_points(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_pivot_points for '{symbol}'")
         raise ToolError(f"Pivot points calculation failed: {str(e)}")
@@ -421,7 +424,7 @@ async def get_analyst_data(
     """
     logger.info(f"get_analyst_data: symbol='{symbol}', market='{market}'")
     try:
-        return await market_router.get_analyst_data(symbol, MarketType(market))
+        return strip_nulls(await market_router.get_analyst_data(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_analyst_data for '{symbol}'")
         raise ToolError(f"Analyst data fetch failed: {str(e)}")
@@ -457,7 +460,7 @@ async def get_dividends(
     """
     logger.info(f"get_dividends: symbol='{symbol}', market='{market}'")
     try:
-        return await market_router.get_dividends(symbol, MarketType(market))
+        return strip_nulls(await market_router.get_dividends(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_dividends for '{symbol}'")
         raise ToolError(f"Dividend data fetch failed: {str(e)}")
@@ -493,7 +496,7 @@ async def get_earnings(
     """
     logger.info(f"get_earnings: symbol='{symbol}', market='{market}'")
     try:
-        return await market_router.get_earnings(symbol, MarketType(market))
+        return strip_nulls(await market_router.get_earnings(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_earnings for '{symbol}'")
         raise ToolError(f"Earnings data fetch failed: {str(e)}")
@@ -550,10 +553,10 @@ async def get_financial_statements(
     """
     logger.info(f"get_financial_statements: symbol='{symbol}', market='{market}', last_n={last_n}")
     try:
-        return await market_router.get_financial_statements(
+        return strip_nulls(await market_router.get_financial_statements(
             symbol, MarketType(market),
             StatementType(statement_type), PeriodType(period), last_n
-        )
+        ))
     except Exception as e:
         logger.exception(f"Error in get_financial_statements for '{symbol}'")
         raise ToolError(f"Financial statements fetch failed: {str(e)}")
@@ -596,9 +599,9 @@ async def get_financial_ratios(
     """
     logger.info(f"get_financial_ratios: symbol='{symbol}', market='{market}'")
     try:
-        return await market_router.get_financial_ratios(
+        return strip_nulls(await market_router.get_financial_ratios(
             symbol, MarketType(market), RatioSetType(ratio_set)
-        )
+        ))
     except Exception as e:
         logger.exception(f"Error in get_financial_ratios for '{symbol}'")
         raise ToolError(f"Financial ratios calculation failed: {str(e)}")
@@ -643,9 +646,9 @@ async def get_corporate_actions(
     """
     logger.info(f"get_corporate_actions: symbol='{symbol}'")
     try:
-        return await market_router.get_corporate_actions(
+        return strip_nulls(await market_router.get_corporate_actions(
             symbol, MarketType.BIST, year
-        )
+        ))
     except Exception as e:
         logger.exception(f"Error in get_corporate_actions for '{symbol}'")
         raise ToolError(f"Corporate actions fetch failed: {str(e)}")
@@ -701,10 +704,10 @@ async def get_news(
     try:
         if news_id:
             # Detail mode - fetch full news content
-            return await market_router.get_news_detail(news_id, page)
+            return strip_nulls(await market_router.get_news_detail(news_id, page))
         elif symbol:
             # List mode - fetch news list
-            return await market_router.get_news(symbol, MarketType.BIST, limit)
+            return strip_nulls(await market_router.get_news(symbol, MarketType.BIST, limit))
         else:
             raise ToolError("Either symbol or news_id must be provided")
     except Exception as e:
@@ -766,9 +769,9 @@ async def screen_securities(
     """
     logger.info(f"screen_securities: market='{market}', preset='{preset}'")
     try:
-        return await market_router.screen_securities(
+        return strip_nulls(await market_router.screen_securities(
             MarketType(market), preset, security_type, custom_filters, limit
-        )
+        ))
     except Exception as e:
         logger.exception("Error in screen_securities")
         raise ToolError(f"Screening failed: {str(e)}")
@@ -822,9 +825,9 @@ async def scan_stocks(
     try:
         if not condition and not preset:
             preset = "oversold"  # Default preset
-        return await market_router.scan_stocks(
+        return strip_nulls(await market_router.scan_stocks(
             index, MarketType.BIST, condition, preset, timeframe
-        )
+        ))
     except Exception as e:
         logger.exception("Error in scan_stocks")
         raise ToolError(f"Scanning failed: {str(e)}")
@@ -861,7 +864,7 @@ async def get_sector_comparison(
     """
     logger.info(f"get_sector_comparison: symbol='{symbol}', market='{market}'")
     try:
-        return await market_router.get_sector_comparison(symbol, MarketType(market))
+        return strip_nulls(await market_router.get_sector_comparison(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_sector_comparison for '{symbol}'")
         raise ToolError(f"Sector comparison failed: {str(e)}")
@@ -909,9 +912,9 @@ async def get_crypto_market(
     """
     logger.info(f"get_crypto_market: symbol='{symbol}', exchange='{exchange}'")
     try:
-        return await market_router.get_crypto_market(
+        return strip_nulls(await market_router.get_crypto_market(
             symbol, ExchangeType(exchange), DataType(data_type)
-        )
+        ))
     except Exception as e:
         logger.exception(f"Error in get_crypto_market for '{symbol}'")
         raise ToolError(f"Crypto market data fetch failed: {str(e)}")
@@ -980,9 +983,9 @@ async def get_fx_data(
     is_historical = historical or (data_type == "historical")
     logger.info(f"get_fx_data: symbol='{symbol}', data_type='{data_type}', historical={is_historical}")
     try:
-        return await market_router.get_fx_data(
+        return strip_nulls(await market_router.get_fx_data(
             symbols, category, is_historical, start_date, end_date
-        )
+        ))
     except Exception as e:
         logger.exception("Error in get_fx_data")
         raise ToolError(f"FX data fetch failed: {str(e)}")
@@ -1082,7 +1085,7 @@ async def get_economic_calendar(
                             "previous": e.get('prior')
                         })
 
-        return {
+        return strip_nulls({
             "metadata": {
                 "market": "fx",
                 "symbols": ["calendar"],
@@ -1092,7 +1095,7 @@ async def get_economic_calendar(
             "events": events,
             "period": period,
             "country_filter": country
-        }
+        })
     except Exception as e:
         logger.exception("Error in get_economic_calendar")
         raise ToolError(f"Economic calendar fetch failed: {str(e)}")
@@ -1144,7 +1147,7 @@ async def get_bond_yields(
             if result.get("tahvil_lookup"):
                 risk_free = result["tahvil_lookup"].get("10Y")
 
-        return {
+        return strip_nulls({
             "metadata": {
                 "market": "fx",
                 "symbols": ["bonds"],
@@ -1154,7 +1157,7 @@ async def get_bond_yields(
             "country": country,
             "yields": yields,
             "risk_free_rate": risk_free
-        }
+        })
     except Exception as e:
         logger.exception("Error in get_bond_yields")
         raise ToolError(f"Bond yields fetch failed: {str(e)}")
@@ -1236,13 +1239,13 @@ async def get_fund_data(
 
         # Comparison mode - multiple funds
         if is_multi or compare_mode:
-            return await market_router.compare_funds(symbol_list)
+            return strip_nulls(await market_router.compare_funds(symbol_list))
         else:
             # Single fund mode
-            return await market_router.get_fund_data(
+            return strip_nulls(await market_router.get_fund_data(
                 symbol_list[0], include_portfolio, include_performance,
                 start_date, end_date
-            )
+            ))
     except Exception as e:
         logger.exception(f"Error in get_fund_data for '{symbol}'")
         raise ToolError(f"Fund data fetch failed: {str(e)}")
@@ -1312,11 +1315,11 @@ async def screen_funds(
         )
 
         if df is None or len(df) == 0:
-            return {
+            return strip_nulls({
                 "metadata": {"source": "borsapy", "timestamp": datetime.now().isoformat()},
                 "funds": [],
                 "total_count": 0
-            }
+            })
 
         # Step 1: Filter funds by category first (fast - only fetches info)
         candidates = []
@@ -1386,7 +1389,7 @@ async def screen_funds(
         # Apply limit
         funds = funds[:limit]
 
-        return {
+        return strip_nulls({
             "metadata": {
                 "source": "borsapy",
                 "timestamp": datetime.now().isoformat(),
@@ -1396,7 +1399,7 @@ async def screen_funds(
             },
             "funds": funds,
             "total_count": len(funds)
-        }
+        })
 
     except Exception as e:
         logger.exception(f"Error in screen_funds")
@@ -1447,7 +1450,7 @@ async def get_index_data(
     """
     logger.info(f"get_index_data: code='{code}', market='{market}'")
     try:
-        return await market_router.get_index_data(code, MarketType(market), include_components)
+        return strip_nulls(await market_router.get_index_data(code, MarketType(market), include_components))
     except Exception as e:
         logger.exception(f"Error in get_index_data for '{code}'")
         raise ToolError(f"Index data fetch failed: {str(e)}")
@@ -1537,7 +1540,7 @@ async def get_macro_data(
     """
     logger.info(f"get_macro_data: data_type='{data_type}'")
     try:
-        return await market_router.get_macro_data(
+        return strip_nulls(await market_router.get_macro_data(
             data_type=data_type,
             inflation_type=inflation_type,
             start_date=start_date,
@@ -1548,7 +1551,7 @@ async def get_macro_data(
             end_month=end_month,
             basket_value=basket_value,
             limit=limit
-        )
+        ))
     except Exception as e:
         logger.exception("Error in get_macro_data")
         raise ToolError(f"Macro data fetch failed: {str(e)}")
@@ -1680,11 +1683,15 @@ async def get_evds_data(
         examples=["Njk3MjI0ODNmYTZlZDc0NGFhNzVjMjI3"]
     )] = None,
     limit: Annotated[Optional[int], Field(
-        description="Max observations / records returned per series (payload safety cap).",
-        default=1000,
+        description=(
+            "Max observations / records returned per series (payload safety cap). "
+            "Default 100 keeps responses compact; raise it (max 5000) only when "
+            "long history is genuinely needed."
+        ),
+        default=100,
         ge=1,
         le=5000
-    )] = 1000,
+    )] = 100,
 ) -> Dict[str, Any]:
     """Access TCMB EVDS macro data.
 
@@ -1708,26 +1715,28 @@ async def get_evds_data(
     """
     logger.info(f"get_evds_data: action='{action}'")
     try:
-        return await market_router.get_evds_data(
-            action=action,
-            category_id=category_id,
-            datagroup_code=datagroup_code,
-            keyword=keyword,
-            scope=scope,
-            lang=lang,
-            series_code=series_code,
-            series_codes=series_codes,
-            period=period,
-            start_date=start_date,
-            end_date=end_date,
-            frequency=frequency,
-            aggregation=aggregation,
-            formula=formula,
-            decimals=decimals,
-            dashboard_name=dashboard_name,
-            dashboard_id=dashboard_id,
-            limit=limit,
-        )
+        return strip_nulls(cap_evds_payload(
+            await market_router.get_evds_data(
+                action=action,
+                category_id=category_id,
+                datagroup_code=datagroup_code,
+                keyword=keyword,
+                scope=scope,
+                lang=lang,
+                series_code=series_code,
+                series_codes=series_codes,
+                period=period,
+                start_date=start_date,
+                end_date=end_date,
+                frequency=frequency,
+                aggregation=aggregation,
+                formula=formula,
+                decimals=decimals,
+                dashboard_name=dashboard_name,
+                dashboard_id=dashboard_id,
+                limit=limit,
+            )
+        ))
     except Exception as e:
         logger.exception("Error in get_evds_data")
         raise ToolError(f"EVDS operation failed: {str(e)}")
@@ -1764,7 +1773,7 @@ async def get_screener_help(
     """
     logger.info(f"get_screener_help: market='{market}'")
     try:
-        return await market_router.get_screener_help(MarketType(market))
+        return strip_nulls(await market_router.get_screener_help(MarketType(market)))
     except Exception as e:
         logger.exception("Error in get_screener_help")
         raise ToolError(f"Screener help fetch failed: {str(e)}")
@@ -1793,7 +1802,7 @@ async def get_scanner_help() -> Dict[str, Any]:
     """
     logger.info("get_scanner_help")
     try:
-        return await market_router.get_scanner_help()
+        return strip_nulls(await market_router.get_scanner_help())
     except Exception as e:
         logger.exception("Error in get_scanner_help")
         raise ToolError(f"Scanner help fetch failed: {str(e)}")
@@ -1826,7 +1835,7 @@ async def get_regulations(
     """
     logger.info(f"get_regulations: type='{regulation_type}'")
     try:
-        return await market_router.get_regulations(regulation_type)
+        return strip_nulls(await market_router.get_regulations(regulation_type))
     except Exception as e:
         logger.exception("Error in get_regulations")
         raise ToolError(f"Regulations fetch failed: {str(e)}")
