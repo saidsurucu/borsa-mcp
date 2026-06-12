@@ -5,7 +5,7 @@ Applied at tool boundaries in unified_mcp_server.py before payloads are
 returned to the LLM. Removes null fields, caps oversized series, and attaches
 truncation guidance. Never renames or restructures existing fields.
 """
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 
 def strip_nulls(payload: Any) -> Any:
@@ -31,6 +31,7 @@ def cap_evds_payload(payload: Dict[str, Any], max_total: int = 2000) -> Dict[str
     """Cap EVDS observation lists ('gozlemler' or 'veriler') at max_total rows.
 
     Keeps the most recent rows (tail). Adds meta.truncated/guidance when fired.
+    Mutates payload in place and returns it.
     """
     for key in ("gozlemler", "veriler"):
         rows = payload.get(key)
@@ -50,7 +51,7 @@ def downsample_ohlcv(payload: Dict[str, Any], max_points: int = 300) -> Dict[str
     """Downsample 'data_points' OHLCV lists by stride so len <= max_points.
 
     The final (most recent) point is always preserved exactly. Adds
-    meta.truncated/guidance when fired.
+    meta.truncated/guidance when fired. Mutates payload in place and returns it.
     """
     points = payload.get("data_points")
     if not isinstance(points, list) or len(points) <= max_points:

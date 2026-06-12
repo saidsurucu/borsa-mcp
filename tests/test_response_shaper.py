@@ -1,5 +1,5 @@
 """Tests for providers.response_shaper."""
-from providers.response_shaper import strip_nulls
+from providers.response_shaper import strip_nulls, cap_evds_payload, downsample_ohlcv
 
 
 def test_strip_nulls_removes_none_values():
@@ -27,8 +27,6 @@ def test_strip_nulls_non_dict_passthrough():
     assert strip_nulls([1, None, 2]) == [1, None, 2]  # only dict keys are stripped
     assert strip_nulls("text") == "text"
 
-
-from providers.response_shaper import cap_evds_payload, downsample_ohlcv
 
 def _obs(n):
     return [{"tarih": f"2024-01-{i + 1:02d}", "deger": float(i)} for i in range(n)]
@@ -86,3 +84,12 @@ def test_downsample_ohlcv_reduces_points_and_flags():
 def test_downsample_ohlcv_no_data_points_key():
     payload = {"error": "x"}
     assert downsample_ohlcv(payload, max_points=300) == {"error": "x"}
+
+
+def test_downsample_ohlcv_exact_multiple_keeps_cap_and_last_point():
+    # 600 points with max 300: stride sampling would land on index 598, so the
+    # drop-then-append branch must fire and the cap must hold exactly.
+    points = _points(600)
+    result = downsample_ohlcv({"data_points": points}, max_points=300)
+    assert len(result["data_points"]) <= 300
+    assert result["data_points"][-1] == points[-1]
