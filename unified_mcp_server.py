@@ -1285,7 +1285,7 @@ async def get_fund_data(
         examples=["AAK", ["AAK", "TI2", "ZBE"]]
     )],
     include_portfolio: Annotated[bool, Field(
-        description="Include portfolio allocation breakdown (single fund only)",
+        description="Include portfolio allocation breakdown (single fund only). NOTE: since the 2026-04 TEFAS migration the JSON feed no longer exposes allocation, so this currently returns portfolio=null with a warning explaining how to enable it.",
         default=False
     )] = False,
     include_performance: Annotated[bool, Field(

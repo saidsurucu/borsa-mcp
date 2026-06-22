@@ -1703,6 +1703,7 @@ class MarketRouter:
         performance = None
         custom_return = None
         recent_prices = None
+        warnings = []
 
         try:
             fund = bp.Fund(symbol.upper())
@@ -1796,17 +1797,32 @@ class MarketRouter:
                     "kap_link": info.get("kap_link")
                 }
 
-                # Portfolio allocation from borsapy
-                if include_portfolio and info.get("allocation"):
-                    portfolio = [
-                        {"asset_type": a.get("asset_type"), "asset_name": a.get("asset_name"), "weight": a.get("weight")}
-                        for a in info.get("allocation", [])
-                    ]
+                # Portfolio allocation from borsapy.
+                # NOTE: TEFAS migrated (2026-04) to an Akamai-protected Next.js
+                # SSR site, so info["allocation"] is no longer populated by the
+                # JSON path and comes back None for every fund. Surface an
+                # actionable warning instead of silently returning portfolio=null.
+                if include_portfolio:
+                    allocation = info.get("allocation")
+                    if allocation:
+                        portfolio = [
+                            {"asset_type": a.get("asset_type"), "asset_name": a.get("asset_name"), "weight": a.get("weight")}
+                            for a in allocation
+                        ]
+                    else:
+                        warnings.append(
+                            "Portfolio allocation is unavailable from the TEFAS JSON "
+                            "feed since the 2026-04 TEFAS migration to an Akamai-protected "
+                            "SSR site. To enable asset-type breakdown install the "
+                            "borsapy[allocation] extra (Scrapling + chromium); for "
+                            "individual holdings use borsapy Fund.get_holdings() with an "
+                            "OpenRouter API key."
+                        )
 
         except Exception as e:
             logger.warning(f"borsapy fund error for {symbol}: {e}")
 
-        return {
+        result = {
             "metadata": self._create_metadata(MarketType.FUND, symbol, source),
             "fund": fund_info,
             "portfolio": portfolio,
@@ -1814,6 +1830,9 @@ class MarketRouter:
             "custom_return": custom_return,
             "recent_prices": recent_prices
         }
+        if warnings:
+            result["warnings"] = warnings
+        return result
 
     # --- Index Data ---
 
