@@ -450,7 +450,7 @@ class BorsapyScannerProvider:
             loop = asyncio.get_event_loop()
             df = await loop.run_in_executor(
                 None,
-                lambda: bp.scan(index_upper, condition)
+                lambda: bp.scan(index_upper, condition, interval=interval)
             )
 
             # Convert DataFrame to list of TaramaSonucu
