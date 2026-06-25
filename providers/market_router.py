@@ -1188,6 +1188,27 @@ class MarketRouter:
                             "ev_ebitda": result.get("fd_favok"),
                             "ev_sales": result.get("fd_satislar")
                         }
+
+                        # Fallback: borsapy/İş Yatırım frequently omits trailingPE for
+                        # BIST names (e.g. ASELS), which then gets null-stripped from the
+                        # response and looks like missing data. İş Yatırım's own net
+                        # income (netProceeds) is parent-only/solo, so deriving P/E from
+                        # it is misleading; yfinance reports a consolidated trailing P/E,
+                        # so backfill F/K from there instead of leaving it absent.
+                        if valuation.get("pe_ratio") is None:
+                            try:
+                                yf_result = await self._client.yfinance_provider.get_hizli_bilgi(symbol, market="BIST")
+                                bilgi = yf_result.get("bilgiler") if yf_result else None
+                                yf_pe = getattr(bilgi, "pe_ratio", None) if bilgi else None
+                                if yf_pe:
+                                    valuation["pe_ratio"] = round(float(yf_pe), 2)
+                                    ratio_warnings.append(
+                                        "F/K (P/E) not provided by İş Yatırım; sourced from Yahoo Finance (consolidated trailing P/E)."
+                                    )
+                                    if current_price is None:
+                                        current_price = getattr(bilgi, "last_price", None)
+                            except Exception as fallback_err:
+                                logger.debug(f"yfinance P/E fallback failed for {symbol}: {fallback_err}")
                 except Exception as e:
                     ratio_warnings.append(f"Valuation ratios error: {str(e)}")
 
