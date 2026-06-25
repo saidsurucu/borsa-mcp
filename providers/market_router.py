@@ -2013,9 +2013,9 @@ class MarketRouter:
 
         if result:
             title = result.get("baslik", "")
-            content = result.get("icerik", "")
-            summary = result.get("ozet", "")
-            url = result.get("url", news_id)
+            content = result.get("markdown_icerik", "")
+            summary = result.get("belge_turu", "")
+            url = result.get("haber_url", news_id)
             published_date = result.get("tarih", "")
             symbols = result.get("semboller", [])
             total_pages = result.get("toplam_sayfa", 1)
