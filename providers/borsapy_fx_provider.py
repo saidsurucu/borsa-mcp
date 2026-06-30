@@ -3,6 +3,7 @@ Borsapy FX Provider
 Primary provider for currency, precious metals, and commodity data via borsapy library.
 Includes legacy fallback for assets not available in borsapy (WTI, diesel, gasoline, lpg).
 """
+import asyncio
 import logging
 import httpx
 from typing import Optional
@@ -95,6 +96,12 @@ class BorsapyFXProvider:
         """Get the borsapy asset name from our asset code."""
         return self.ASSET_MAPPING.get(asset, asset)
 
+    @staticmethod
+    async def _run_sync(fn, *args, **kwargs):
+        """Run a blocking borsapy call off the event loop so it doesn't stall the server."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, lambda: fn(*args, **kwargs))
+
     async def get_asset_current(self, asset: str) -> DovizcomGuncelSonucu:
         """
         Get current rate/price for an asset.
@@ -119,8 +126,8 @@ class BorsapyFXProvider:
             borsapy_asset = self._get_borsapy_asset(asset)
             logger.info(f"Fetching {asset} via borsapy (mapped to: {borsapy_asset})")
 
-            fx = bp.FX(borsapy_asset)
-            current_data = fx.current
+            fx = await self._run_sync(bp.FX, borsapy_asset)
+            current_data = await self._run_sync(lambda: fx.current)
 
             # Extract value - borsapy returns dict with 'buy', 'sell', 'last' etc.
             if isinstance(current_data, dict):
@@ -200,9 +207,9 @@ class BorsapyFXProvider:
             borsapy_asset = self._get_borsapy_asset(asset)
             logger.info(f"Fetching {asset} minute data via borsapy TradingView (mapped to: {borsapy_asset})")
 
-            fx = bp.FX(borsapy_asset)
+            fx = await self._run_sync(bp.FX, borsapy_asset)
             # Get intraday data - borsapy 0.5.3+ supports interval parameter
-            df = fx.history(period="1g", interval="1m")
+            df = await self._run_sync(lambda: fx.history(period="1g", interval="1m"))
 
             if df is None or df.empty:
                 return DovizcomDakikalikSonucu(
@@ -293,8 +300,8 @@ class BorsapyFXProvider:
             borsapy_asset = self._get_borsapy_asset(asset)
             logger.info(f"Fetching {asset} historical data via borsapy ({start_date} to {end_date})")
 
-            fx = bp.FX(borsapy_asset)
-            df = fx.history(start=start_date, end=end_date)
+            fx = await self._run_sync(bp.FX, borsapy_asset)
+            df = await self._run_sync(lambda: fx.history(start=start_date, end=end_date))
 
             if df is None or df.empty:
                 return DovizcomArsivSonucu(

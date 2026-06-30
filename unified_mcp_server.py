@@ -1409,19 +1409,79 @@ async def screen_funds(
     - screen_funds(category="Para Piyasası", sort_by="weekly_return") → Money market funds by weekly return
     - screen_funds(min_return_1y=50, limit=10) → Top 10 funds with >50% yearly return
     """
+    import asyncio
     import borsapy as bp
     from datetime import datetime, timedelta
 
     logger.info(f"screen_funds: type={fund_type}, category={category}, sort_by={sort_by}")
 
+    # borsapy/TEFAS calls are synchronous and network-bound; offload them so they
+    # don't block the event loop and run the per-fund fan-out concurrently.
+    loop = asyncio.get_event_loop()
+    # TEFAS detail fetches go through borsapy's shared HTTP session; keep the
+    # fan-out bounded so we don't trip its rate limits (higher values cause
+    # read timeouts and dropped funds). 8 is complete and reliable in practice.
+    enrich_sema = asyncio.Semaphore(8)
+
+    # Return fields already present in the borsapy screen_funds dataframe. When the
+    # caller sorts by one of these and applies no category filter, we can rank on
+    # the dataframe up front and only enrich a small buffer instead of every fund.
+    DF_SORT_FIELDS = {"return_1m", "return_3m", "return_6m", "return_1y", "return_3y"}
+
+    async def _enrich(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        fund_code = row.get('fund_code')
+        if not fund_code:
+            return None
+        async with enrich_sema:
+            try:
+                fund = await loop.run_in_executor(None, bp.Fund, fund_code)
+                info = await loop.run_in_executor(None, lambda: fund.info)
+            except Exception as e:
+                logger.debug(f"Error getting fund {fund_code}: {e}")
+                return None
+        fund_category = info.get('category', '')
+        if category and category.lower() not in fund_category.lower():
+            return None
+        return {
+            "code": fund_code,
+            "name": info.get('name', row.get('name', '')),
+            "category": fund_category,
+            "daily_return": info.get('daily_return'),
+            "return_1m": info.get('return_1m') or row.get('return_1m'),
+            "return_3m": info.get('return_3m') or row.get('return_3m'),
+            "return_6m": info.get('return_6m') or row.get('return_6m'),
+            "return_1y": info.get('return_1y') or row.get('return_1y'),
+            "return_3y": info.get('return_3y') or row.get('return_3y'),
+            "fund_size": info.get('fund_size'),
+            "investor_count": info.get('investor_count'),
+            "_fund": fund,  # Keep reference for weekly calc
+        }
+
+    async def _weekly_return(candidate: Dict[str, Any]) -> Dict[str, Any]:
+        fund = candidate.pop('_fund', None)
+        weekly_return = None
+        if fund:
+            async with enrich_sema:
+                try:
+                    start = (datetime.now() - timedelta(days=10)).strftime('%Y-%m-%d')
+                    hist = await loop.run_in_executor(None, lambda: fund.history(start=start))
+                    if hist is not None and len(hist) >= 2:
+                        first_price = hist['Price'].iloc[0]
+                        last_price = hist['Price'].iloc[-1]
+                        weekly_return = round(((last_price / first_price) - 1) * 100, 4)
+                except Exception:
+                    pass
+        candidate['weekly_return'] = weekly_return
+        return candidate
+
     try:
         # Get base fund list from borsapy
-        df = bp.screen_funds(
+        df = await loop.run_in_executor(None, lambda: bp.screen_funds(
             fund_type=fund_type,
             min_return_1m=min_return_1m,
             min_return_1y=min_return_1y,
             limit=500  # Get all funds to cover all categories (Para Piyasası, etc.)
-        )
+        ))
 
         if df is None or len(df) == 0:
             return strip_nulls({
@@ -1430,66 +1490,36 @@ async def screen_funds(
                 "total_count": 0
             })
 
-        # Step 1: Filter funds by category first (fast - only fetches info)
-        candidates = []
-        for _, row in df.iterrows():
-            fund_code = row.get('fund_code')
-            if not fund_code:
-                continue
+        rows = [dict(row) for _, row in df.iterrows() if row.get('fund_code')]
 
-            try:
-                fund = bp.Fund(fund_code)
-                info = fund.info
+        # When ranking by a dataframe field with no category filter, sort up front
+        # and only enrich a buffer of the top funds — this avoids fetching detailed
+        # info for every fund (the dominant cost). Category filtering and
+        # weekly_return sorting still require scanning the full list.
+        if not category and sort_by in DF_SORT_FIELDS:
+            rows.sort(key=lambda r: (r.get(sort_by) if r.get(sort_by) is not None else -999999), reverse=True)
+            rows = rows[:limit * 2]
 
-                # Category filter
-                fund_category = info.get('category', '')
-                if category and category.lower() not in fund_category.lower():
-                    continue
+        # Step 1: Enrich (and category-filter) funds concurrently with bounded fan-out.
+        enriched = await asyncio.gather(*(_enrich(row) for row in rows))
+        candidates = [c for c in enriched if c is not None]
 
-                candidates.append({
-                    "code": fund_code,
-                    "name": info.get('name', row.get('name', '')),
-                    "category": fund_category,
-                    "daily_return": info.get('daily_return'),
-                    "return_1m": info.get('return_1m') or row.get('return_1m'),
-                    "return_3m": info.get('return_3m') or row.get('return_3m'),
-                    "return_6m": info.get('return_6m') or row.get('return_6m'),
-                    "return_1y": info.get('return_1y') or row.get('return_1y'),
-                    "return_3y": info.get('return_3y') or row.get('return_3y'),
-                    "fund_size": info.get('fund_size'),
-                    "investor_count": info.get('investor_count'),
-                    "_fund": fund  # Keep reference for weekly calc
-                })
-            except Exception as e:
-                logger.debug(f"Error getting fund {fund_code}: {e}")
-
-        # Step 2: Calculate weekly return
-        # If sorting by weekly_return, calculate for all candidates
-        # Otherwise, only calculate for top candidates to save time
+        # Step 2: Calculate weekly return.
+        # When sorting by weekly_return it is the sort key, so it must be computed
+        # for every candidate. Otherwise the final ranking is already fixed by the
+        # dataframe field, so weekly is only a display value — compute it just for
+        # the funds we actually return to avoid extra network calls.
         if sort_by != "weekly_return":
             candidates.sort(key=lambda x: x.get(sort_by) or -999999, reverse=True)
-            to_process = candidates[:limit * 2]  # Buffer for filtering
+            to_process = candidates[:limit]
         else:
-            to_process = candidates  # Need all for weekly_return sort
+            to_process = candidates
 
-        funds = []
-        for c in to_process:
-            fund = c.pop('_fund', None)
-            weekly_return = None
+        funds = list(await asyncio.gather(*(_weekly_return(c) for c in to_process)))
 
-            # Calculate weekly return (5 business days)
-            if fund:
-                try:
-                    hist = fund.history(start=(datetime.now() - timedelta(days=10)).strftime('%Y-%m-%d'))
-                    if hist is not None and len(hist) >= 2:
-                        first_price = hist['Price'].iloc[0]
-                        last_price = hist['Price'].iloc[-1]
-                        weekly_return = round(((last_price / first_price) - 1) * 100, 4)
-                except Exception:
-                    pass
-
-            c['weekly_return'] = weekly_return
-            funds.append(c)
+        # Drop any lingering fund references for candidates we didn't process.
+        for c in candidates:
+            c.pop('_fund', None)
 
         # Sort by requested field
         if sort_by and funds:

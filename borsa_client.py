@@ -647,7 +647,12 @@ class BorsaApiClient:
     async def screen_funds(self, criteria: FonTaramaKriterleri) -> FonTaramaSonucu:
         """Screen funds based on various criteria."""
         try:
-            result = self.tefas_provider.screen_funds(criteria.dict(exclude_none=True))
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                self.tefas_provider.screen_funds,
+                criteria.dict(exclude_none=True)
+            )
             return FonTaramaSonucu(**result)
         except Exception as e:
             logger.exception("Error screening funds")
@@ -667,13 +672,17 @@ class BorsaApiClient:
         Uses the same endpoint as TEFAS website's fund comparison page.
         """
         try:
-            result = self.tefas_provider.compare_funds_advanced(
-                fund_codes=fund_codes,
-                fund_type=fund_type,
-                start_date=start_date,
-                end_date=end_date,
-                periods=periods,
-                founder=founder
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                lambda: self.tefas_provider.compare_funds_advanced(
+                    fund_codes=fund_codes,
+                    fund_type=fund_type,
+                    start_date=start_date,
+                    end_date=end_date,
+                    periods=periods,
+                    founder=founder
+                )
             )
             return result
         except Exception as e:
