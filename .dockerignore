@@ -64,3 +64,28 @@ docs/_build/
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Tests (never needed in the image; Dockerfile COPY is selective but be defensive)
+tests/
+test_*.py
+*_test.py
+conftest.py
+
+# Sample/binary assets and local artifacts
+*.png
+*.jpeg
+*.jpg
+*.gif
+*.db
+*.sqlite
+
+# Tooling / agent caches
+.serena/
+.claude/
+.mypy_cache/
+.ruff_cache/
+
+# Deploy artifacts (not needed inside the image)
+fly.toml
+deploy-cloudrun.sh
+MIGRATION.md

@@ -1,0 +1,77 @@
+# .gcloudignore — controls what `gcloud run deploy --source .` uploads to Cloud Build.
+#
+# IMPORTANT: When this file exists, gcloud uses ONLY these rules and IGNORES
+# .gitignore. We need our own copy because .gitignore lists `borsa_models.py`
+# (a tracked, required module) — gcloud's upload has no "tracked-file override",
+# so relying on .gitignore would drop borsa_models.py from the build context and
+# the container would crash with `ModuleNotFoundError: No module named 'borsa_models'`.
+#
+# Rule of thumb: KEEP everything the Dockerfile COPYs (root *.py, providers/,
+# models/, pyproject.toml, README.md, requirements.txt); exclude the rest.
+
+# VCS / tooling
+.git/
+.gitignore
+.github/
+
+# Python caches / build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Logs and local data
+logs/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+db.sqlite3*
+
+# Tests (not needed in the runtime image)
+tests/
+
+# Local-only ad-hoc scripts and debug files (mirror .gitignore intent, minus borsa_models.py)
+hello.py
+debug_client.py
+debug_grafik.py
+debug*.py
+
+# Agent / editor tooling
+.serena/
+.claude/
+.vscode/
+.idea/
+.DS_Store
+
+# Docs / sample artifacts not needed at runtime
+*.png
+*.jpeg
+*.jpg
+*.gif
+tcmb_inflation_test_results.json
+tcmb_inflation_data.csv
+trading_economics_test_results.json
+test_unified_results.json
+CLAUDE.md
+mcp_servers_config.json
+fast-mcp-docs.md
+
+# Deploy artifacts (not needed inside the image)
+fly.toml
+deploy-cloudrun.sh
+MIGRATION.md
