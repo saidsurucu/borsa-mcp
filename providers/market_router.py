@@ -5,6 +5,7 @@ Uses BorsaApiClient as the underlying service layer.
 
 NOTE: This module returns raw dicts, not Pydantic models, to avoid validation overhead.
 """
+import asyncio
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 import logging
@@ -1673,8 +1674,16 @@ class MarketRouter:
                 ]
         else:
             if symbols:
-                for sym in symbols:
-                    result = await self._client.get_dovizcom_guncel_kur(sym)
+                # Fetch all symbols concurrently instead of serially; each
+                # get_dovizcom_guncel_kur is an independent network round-trip.
+                results = await asyncio.gather(
+                    *(self._client.get_dovizcom_guncel_kur(sym) for sym in symbols),
+                    return_exceptions=True
+                )
+                for sym, result in zip(symbols, results):
+                    if isinstance(result, Exception):
+                        logger.warning(f"FX fetch failed for {sym}: {result}")
+                        continue
                     if result and result.guncel_deger is not None:
                         ts = result.son_guncelleme
                         timestamp_str = ts.isoformat() if ts else None
@@ -1726,9 +1735,10 @@ class MarketRouter:
         recent_prices = None
         warnings = []
 
+        loop = asyncio.get_event_loop()
         try:
-            fund = bp.Fund(symbol.upper())
-            info = fund.info
+            fund = await loop.run_in_executor(None, bp.Fund, symbol.upper())
+            info = await loop.run_in_executor(None, lambda: fund.info)
 
             if info:
                 # Calculate weekly return from history if not provided
@@ -1736,7 +1746,7 @@ class MarketRouter:
                 if weekly_return is None:
                     try:
                         week_start = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-                        hist = fund.history(start=week_start)
+                        hist = await loop.run_in_executor(None, lambda: fund.history(start=week_start))
                         if hist is not None and len(hist) >= 2:
                             first_price = hist['Price'].iloc[0]
                             last_price = hist['Price'].iloc[-1]
@@ -1750,7 +1760,7 @@ class MarketRouter:
                 # from a rounded percentage.
                 if start_date:
                     try:
-                        hist = fund.history(start=start_date, end=end_date)
+                        hist = await loop.run_in_executor(None, lambda: fund.history(start=start_date, end=end_date))
                         if hist is not None and len(hist) >= 1:
                             first_price = float(hist['Price'].iloc[0])
                             last_price = float(hist['Price'].iloc[-1])
@@ -1780,7 +1790,7 @@ class MarketRouter:
                 # price, recent_prices[1] the prior trading day, and so on.
                 try:
                     rp_start = (datetime.now() - timedelta(days=16)).strftime('%Y-%m-%d')
-                    rp_hist = fund.history(start=rp_start)
+                    rp_hist = await loop.run_in_executor(None, lambda: fund.history(start=rp_start))
                     if rp_hist is not None and len(rp_hist) >= 1:
                         recent_rows = []
                         for date_idx, price in rp_hist['Price'].items():
