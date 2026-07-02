@@ -341,6 +341,15 @@ logger.error("Failed operations")
 
 ## Recent Major Updates
 
+### Markdown/TSV Tool Output (July 2026)
+- **All 28 tools now return markdown text instead of JSON** for token savings.
+- New module `providers/markdown_renderer.py` (`render_markdown`): scalar fields as `key: value` lines, homogeneous dict lists as TSV code blocks, nested dicts as subheadings.
+- Financial statements render as a `Kalem` × periods TSV matrix; long prose fields (news detail content) pass through as markdown body.
+- Numbers: floats max 4 decimals (ratio-like keys 2), integers untouched (no K/M/B).
+- `meta.truncated` guidance and `warnings` are preserved as trailing `> Not: ...` lines.
+- Renderer never raises; unknown structures fall back to compact JSON. Applied at tool boundaries via `shape()` in `unified_mcp_server.py` (chain: `strip_nulls → existing shapers → render_markdown`).
+- Design: `docs/superpowers/specs/2026-07-02-markdown-output-design.md`.
+
 ### LLM-UX Hardening + Legacy Removal (June 2026)
 - **Legacy server removed**: `borsa_mcp_server.py` and the `borsa-mcp-legacy` entry point are gone; the 28-tool unified server is the only interface.
 - **Response shaping** (`providers/response_shaper.py`): all tool responses are recursively null-stripped; `get_evds_data` observations are capped at 2,000/call (default `limit` now 100); `get_historical_data` auto-downsamples beyond 300 points. Truncation adds `meta: {truncated, guidance}`.
