@@ -15,6 +15,9 @@ RATIO_KEY_HINTS = ("oran", "ratio", "yield", "pct", "change", "yuzde", "getiri")
 
 EMPTY_RESULT_LINE = "Sonuç bulunamadı."
 
+# String fields at least this long render as a markdown body, not a cell.
+PROSE_MIN_CHARS = 200
+
 
 def fmt_number(value: Any, key: str = "") -> str:
     """Compact string form of a value. Floats capped at 4 decimals
@@ -49,7 +52,17 @@ def _sanitize_cell(value: Any, key: str = "") -> str:
 def render_markdown(payload: Dict[str, Any]) -> str:
     """Render a shaped tool payload as compact markdown. Never raises."""
     try:
-        body = _render_dict(payload, level=2)
+        work = dict(payload)
+        notes: List[str] = []
+        meta = work.pop("meta", None)
+        if isinstance(meta, dict) and meta.get("guidance"):
+            notes.append(str(meta["guidance"]))
+        warnings = work.pop("warnings", None)
+        if isinstance(warnings, list):
+            notes.extend(str(w) for w in warnings)
+        body = _render_dict(work, level=2)
+        for note in notes:
+            body.append(f"> Not: {_sanitize_cell(note)}")
         text = "\n".join(body).strip()
         return text or EMPTY_RESULT_LINE
     except Exception:
@@ -62,6 +75,13 @@ def render_markdown(payload: Dict[str, Any]) -> str:
 def _render_dict(d: Dict[str, Any], level: int) -> List[str]:
     lines: List[str] = []
     for key, value in d.items():
+        if key == "statements" and _is_statement_list(value):
+            for stmt in value:
+                lines.extend(_render_statement(stmt, level))
+            continue
+        if isinstance(value, str) and len(value) >= PROSE_MIN_CHARS:
+            lines.extend(["", value, ""])
+            continue
         lines.extend(_render_value(str(key), value, level))
     return lines
 
@@ -95,5 +115,36 @@ def _render_table(rows: List[Dict[str, Any]]) -> List[str]:
     lines = ["```tsv", "\t".join(columns)]
     for row in rows:
         lines.append("\t".join(_sanitize_cell(row.get(col), col) for col in columns))
+    lines.append("```")
+    return lines
+
+
+def _is_statement_list(value: Any) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) > 0
+        and all(
+            isinstance(s, dict)
+            and isinstance(s.get("data"), dict)
+            and isinstance(s.get("periods"), list)
+            for s in value
+        )
+    )
+
+
+def _render_statement(stmt: Dict[str, Any], level: int) -> List[str]:
+    periods = [str(p) for p in stmt["periods"]]
+    data: Dict[str, Any] = stmt["data"]
+    lines: List[str] = []
+    for key, value in stmt.items():
+        if key in ("data", "periods"):
+            continue
+        lines.extend(_render_value(str(key), value, level))
+    lines.extend(["```tsv", "\t".join(["Kalem"] + periods)])
+    for item, values in data.items():
+        cells = [_sanitize_cell(item)]
+        row_values = values if isinstance(values, list) else [values]
+        cells.extend(_sanitize_cell(v, item) for v in row_values)
+        lines.append("\t".join(cells))
     lines.append("```")
     return lines

@@ -111,3 +111,45 @@ def test_deep_nesting_increases_heading_level():
     assert "## a" in out
     assert "### b" in out
     assert "c: 1" in out
+
+
+# --- meta / warnings / special cases ---
+
+def test_meta_and_warnings_become_trailing_blockquotes():
+    out = render_markdown({
+        "symbol": "GARAN",
+        "meta": {"truncated": True, "guidance": "Narrow the date range."},
+        "warnings": ["ISCTR: boom"],
+    })
+    lines = out.splitlines()
+    assert "> Not: Narrow the date range." in lines
+    assert "> Not: ISCTR: boom" in lines
+    # blockquotes come last
+    assert lines[-1].startswith("> Not:")
+    assert "## meta" not in out
+
+
+def test_long_content_field_renders_as_body():
+    body = "# ASELSAN\n\nŞirketimiz sözleşme imzalamıştır. " + "x" * 300
+    out = render_markdown({"title": "ASELSAN KAP", "content": body, "total_pages": 1})
+    assert "title: ASELSAN KAP" in out
+    assert "content:" not in out
+    assert "Şirketimiz sözleşme imzalamıştır." in out
+    # body keeps its newlines (not cell-sanitized)
+    assert "# ASELSAN\n" in out
+
+
+def test_financial_statements_render_as_period_matrix():
+    out = render_markdown({"statements": [{
+        "symbol": "GARAN",
+        "statement_type": "balance_sheet",
+        "periods": ["2024", "2023"],
+        "data": {
+            "Total Assets": [100.0, 90.0],
+            "Cash": [50.5, None],
+        },
+    }]})
+    assert "Kalem\t2024\t2023" in out
+    assert "Total Assets\t100\t90" in out
+    assert "Cash\t50.5\t" in out
+    assert "symbol: GARAN" in out
