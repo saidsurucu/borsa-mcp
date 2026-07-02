@@ -67,5 +67,33 @@ def _render_dict(d: Dict[str, Any], level: int) -> List[str]:
 
 
 def _render_value(key: str, value: Any, level: int) -> List[str]:
-    # Task 2 extends this for dicts and lists.
+    if isinstance(value, dict):
+        heading = "#" * min(level, 6)
+        return [f"{heading} {key}"] + _render_dict(value, level + 1)
+    if isinstance(value, list):
+        if not value:
+            return [f"{key}: {EMPTY_RESULT_LINE}"]
+        if all(isinstance(item, dict) for item in value):
+            if len(value) == 1:
+                heading = "#" * min(level, 6)
+                return [f"{heading} {key}"] + _render_dict(value[0], level + 1)
+            return [f"{'#' * min(level, 6)} {key}"] + _render_table(value)
+        if all(not isinstance(item, (dict, list)) for item in value):
+            joined = ", ".join(_sanitize_cell(item, key) for item in value)
+            return [f"{key}: {joined}"]
+        # heterogeneous / list of lists: compact JSON fallback for the subtree
+        return [f"{key}: {_sanitize_cell(value, key)}"]
     return [f"{key}: {_sanitize_cell(value, key)}"]
+
+
+def _render_table(rows: List[Dict[str, Any]]) -> List[str]:
+    columns: List[str] = []
+    for row in rows:
+        for col in row:
+            if col not in columns:
+                columns.append(col)
+    lines = ["```tsv", "\t".join(columns)]
+    for row in rows:
+        lines.append("\t".join(_sanitize_cell(row.get(col), col) for col in columns))
+    lines.append("```")
+    return lines

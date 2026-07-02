@@ -51,3 +51,63 @@ def test_render_never_raises():
             raise RuntimeError("boom")
     out = render_markdown({"x": Weird()})
     assert isinstance(out, str)
+
+
+# --- TSV tables and containers ---
+
+def test_list_of_dicts_renders_tsv_block():
+    out = render_markdown({"data_points": [
+        {"date": "2026-06-30", "close": 45.8, "volume": 12500000},
+        {"date": "2026-07-01", "close": 46.2, "volume": 9800000},
+    ]})
+    assert "```tsv" in out
+    assert "date\tclose\tvolume" in out
+    assert "2026-06-30\t45.8\t12500000" in out
+    assert out.count("```") == 2
+
+
+def test_table_columns_are_union_of_keys():
+    out = render_markdown({"rows": [
+        {"a": 1, "b": 2},
+        {"a": 3, "c": 4},
+    ]})
+    assert "a\tb\tc" in out
+    # missing values are empty cells
+    assert "3\t\t4" in out
+
+
+def test_table_cells_sanitize_tabs_and_newlines():
+    out = render_markdown({"rows": [
+        {"name": "line1\nline2", "note": "tab\there"},
+        {"name": "x", "note": "y"},
+    ]})
+    assert "line1 line2\ttab here" in out
+
+
+def test_single_dict_list_renders_as_nested_not_table():
+    out = render_markdown({"results": [{"symbol": "GARAN", "price": 45.8}]})
+    assert "```tsv" not in out
+    assert "symbol: GARAN" in out
+
+
+def test_scalar_list_renders_inline():
+    out = render_markdown({"tickers": ["GARAN", "AKBNK", "THYAO"]})
+    assert "tickers: GARAN, AKBNK, THYAO" in out
+
+
+def test_empty_list_renders_empty_marker():
+    out = render_markdown({"results": []})
+    assert "results: Sonuç bulunamadı." in out
+
+
+def test_nested_dict_renders_subheading():
+    out = render_markdown({"symbol": "GARAN", "valuation": {"pe": 5.2, "pb": 1.1}})
+    assert "## valuation" in out
+    assert "pe: 5.2" in out
+
+
+def test_deep_nesting_increases_heading_level():
+    out = render_markdown({"a": {"b": {"c": 1}}})
+    assert "## a" in out
+    assert "### b" in out
+    assert "c: 1" in out
