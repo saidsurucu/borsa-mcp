@@ -221,6 +221,7 @@ def shape(payload: Dict[str, Any]) -> str:
     title="Search Symbols",
     description="Search stocks, indices, funds, or crypto by name/symbol across BIST, US, crypto, and fund markets.",
     tags={"stocks", "crypto", "funds", "search"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "openWorldHint": True}
 )
 async def search_symbol(
@@ -268,6 +269,7 @@ async def search_symbol(
     title="Company Profile",
     description="Get company profile with sector, financials, key metrics, and optional Islamic compliance (BIST).",
     tags={"stocks", "profile"},
+    output_schema=None,
     annotations={"readOnlyHint": True}
 )
 async def get_profile(
@@ -322,6 +324,7 @@ async def get_profile(
     title="Quick Stock Info",
     description="Get key metrics (P/E, P/B, ROE, 52w range) for one or multiple stocks. Batch support up to 10.",
     tags={"stocks", "metrics", "multi-ticker"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_quick_info(
@@ -360,6 +363,7 @@ async def get_quick_info(
     title="Historical Price Data",
     description="Get OHLCV price history with date range or period (1d-5y). Supports BIST, US, and crypto.",
     tags={"stocks", "crypto", "historical"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_historical_data(
@@ -424,6 +428,7 @@ async def get_historical_data(
     title="Technical Analysis",
     description="Get technical indicators: RSI, MACD, Bollinger Bands, moving averages, and trend signals.",
     tags={"stocks", "crypto", "technical"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_technical_analysis(
@@ -469,6 +474,7 @@ async def get_technical_analysis(
     title="Pivot Points",
     description="Get classic pivot points with 7 levels: PP, S1-S3, R1-R3, and distance to nearest levels.",
     tags={"stocks", "technical"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_pivot_points(
@@ -507,6 +513,7 @@ async def get_pivot_points(
     title="Analyst Ratings",
     description="Get analyst ratings, price targets, and buy/sell/hold recommendations. Batch support up to 10.",
     tags={"stocks", "analyst", "multi-ticker"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_analyst_data(
@@ -543,6 +550,7 @@ async def get_analyst_data(
     title="Dividend History",
     description="Get dividend yield, history, payout ratio, and stock splits. Batch support up to 10.",
     tags={"stocks", "dividends", "multi-ticker"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_dividends(
@@ -579,6 +587,7 @@ async def get_dividends(
     title="Earnings Calendar",
     description="Get earnings dates, EPS history, surprises, and growth estimates. Batch support up to 10.",
     tags={"stocks", "earnings", "multi-ticker"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_earnings(
@@ -615,6 +624,7 @@ async def get_earnings(
     title="Financial Statements",
     description="Get balance sheet, income statement, and cash flow (annual/quarterly). Batch support up to 10.",
     tags={"stocks", "financials", "multi-ticker"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_financial_statements(
@@ -675,6 +685,7 @@ async def get_financial_statements(
     title="Financial Ratios",
     description="Get ratios: valuation (P/E, EV/EBITDA), Buffett analysis, health metrics, or comprehensive.",
     tags={"stocks", "ratios", "analysis"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_financial_ratios(
@@ -720,6 +731,7 @@ async def get_financial_ratios(
     title="Corporate Actions",
     description="Get BIST corporate actions: capital increases (bedelli/bedelsiz), IPOs, dividends. Batch up to 10.",
     tags={"stocks", "corporate-actions", "multi-ticker"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_corporate_actions(
@@ -767,6 +779,7 @@ async def get_corporate_actions(
     title="KAP News",
     description="Get KAP news list for a BIST stock, or fetch full news content by news_id.",
     tags={"stocks", "news"},
+    output_schema=None,
     annotations={"readOnlyHint": True}
 )
 async def get_news(
@@ -834,6 +847,7 @@ async def get_news(
     title="Stock Screener",
     description="Screen stocks/ETFs with 24 presets (value, growth, dividend, sector) or custom filters.",
     tags={"stocks", "screener"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "openWorldHint": True}
 )
 async def screen_securities(
@@ -893,6 +907,7 @@ async def screen_securities(
     title="Technical Stock Scanner",
     description="Scan BIST stocks by technical indicators (RSI, MACD, Supertrend, T3). Use preset or custom condition.",
     tags={"stocks", "scanner", "technical"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "openWorldHint": True}
 )
 async def scan_stocks(
@@ -949,6 +964,7 @@ async def scan_stocks(
     title="Sector Comparison",
     description="Get sector peers, average P/E and P/B, and comparative positioning for a stock.",
     tags={"stocks", "sector"},
+    output_schema=None,
     annotations={"readOnlyHint": True}
 )
 async def get_sector_comparison(
@@ -990,6 +1006,7 @@ async def get_sector_comparison(
     title="Crypto Market Data",
     description="Get crypto ticker, orderbook, trades, or OHLC from BtcTurk (TRY) or Coinbase (USD).",
     tags={"crypto", "market"},
+    output_schema=None,
     annotations={"readOnlyHint": True}
 )
 async def get_crypto_market(
@@ -1040,6 +1057,7 @@ async def get_crypto_market(
     title="FX & Commodities",
     description="Get FX rates (65 currencies), precious metals, and commodities. Current or historical OHLC.",
     tags={"fx", "commodities"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_fx_data(
@@ -1111,6 +1129,7 @@ async def get_fx_data(
     title="Economic Calendar",
     description="Get economic events for TR, US, EU, DE, GB, JP, CN with importance filter.",
     tags={"macro", "calendar"},
+    output_schema=None,
     annotations={"readOnlyHint": True}
 )
 async def get_economic_calendar(
@@ -1217,6 +1236,7 @@ async def get_economic_calendar(
     title="Bond Yields",
     description="Get Turkish government bond yields (2Y, 5Y, 10Y) and risk-free rate for DCF calculations.",
     tags={"bonds", "macro"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_bond_yields(
@@ -1283,6 +1303,7 @@ async def get_bond_yields(
     title="Mutual Fund Data",
     description="Get TEFAS fund info with returns (daily/weekly/1m/3m/6m/1y/3y/5y), portfolio, or compare funds. Supports custom date range.",
     tags={"funds"},
+    output_schema=None,
     annotations={"readOnlyHint": True}
 )
 async def get_fund_data(
@@ -1371,6 +1392,7 @@ async def get_fund_data(
     title="Screen Turkish Mutual Funds",
     description="Screen and filter TEFAS funds by type, category, returns, and sort criteria. Find top performing funds.",
     tags={"funds", "screener"},
+    output_schema=None,
     annotations={"readOnlyHint": True}
 )
 async def screen_funds(
@@ -1560,6 +1582,7 @@ async def screen_funds(
     title="Stock Index Data",
     description="Get index value, change, and optionally component stocks (BIST: XU100, XU030; US: SPY, QQQ).",
     tags={"stocks", "index"},
+    output_schema=None,
     annotations={"readOnlyHint": True}
 )
 async def get_index_data(
@@ -1614,6 +1637,7 @@ InflationTypeLiteral = Literal["tufe", "ufe"]
     title="Macro Inflation Data",
     description="Get Turkish TÜFE/ÜFE inflation data or calculate cumulative inflation between dates.",
     tags={"macro", "inflation"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_macro_data(
@@ -1745,6 +1769,7 @@ EvdsFormulaLiteral = Literal[
         "multi_series→series_codes; dashboard→dashboard_name or dashboard_id."
     ),
     tags={"macro", "tcmb", "evds"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_evds_data(
@@ -1908,6 +1933,7 @@ async def get_evds_data(
     title="Screener Help",
     description="Get screener documentation: 24 presets, filter fields, operators, and examples.",
     tags={"help", "screener"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_screener_help(
@@ -1941,6 +1967,7 @@ async def get_screener_help(
     title="Scanner Help",
     description="Get scanner documentation: indicators (RSI, MACD, Supertrend, T3), operators, 22 presets.",
     tags={"help", "scanner"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_scanner_help() -> str:
@@ -1970,6 +1997,7 @@ async def get_scanner_help() -> str:
     title="Fund Regulations",
     description="Get Turkish investment fund regulations (CMB rules) documentation.",
     tags={"regulations", "help"},
+    output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_regulations(
