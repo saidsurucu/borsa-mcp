@@ -886,18 +886,45 @@ class MarketRouter:
             "warnings": warnings
         }
 
+    # --- Multi-ticker fan-out ---
+
+    async def _fan_out_multi(
+        self,
+        symbol_list: List[str],
+        market: MarketType,
+        source: str,
+        fetch_one,
+        warnings: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """Run a per-symbol fetch in parallel and build the multi-ticker envelope."""
+        warnings = warnings if warnings is not None else []
+        results = await asyncio.gather(
+            *(fetch_one(s) for s in symbol_list), return_exceptions=True
+        )
+        data = []
+        for sym, r in zip(symbol_list, results):
+            if isinstance(r, Exception):
+                warnings.append(f"{sym}: {r}")
+            else:
+                data.append(r)
+        return {
+            "metadata": self._create_metadata(
+                market, symbol_list, source,
+                successful=len(data),
+                failed=len(symbol_list) - len(data),
+                warnings=warnings
+            ),
+            "tickers": [s.upper() for s in symbol_list],
+            "data": data,
+            "successful_count": len(data),
+            "failed_count": len(symbol_list) - len(data),
+            "warnings": warnings
+        }
+
     # --- Dividends ---
 
-    async def get_dividends(
-        self,
-        symbols: Union[str, List[str]],
-        market: MarketType
-    ) -> Dict[str, Any]:
-        """Get dividend history and information. Returns raw dict."""
-        is_multi = isinstance(symbols, list)
-        symbol_list = symbols if is_multi else [symbols]
-        source = "unknown"
-        symbol = symbol_list[0]
+    async def _get_dividends_single(self, symbol: str, market: MarketType) -> Dict[str, Any]:
+        """Get dividend history for a single symbol (no metadata)."""
         dividend_history = []
         stock_splits = []
         current_yield = None
@@ -906,7 +933,6 @@ class MarketRouter:
         payout_ratio = None
 
         if market == MarketType.BIST:
-            source = "yfinance"
             ticker = self._get_ticker_with_suffix(symbol, market)
             result = await self._client.get_temettu_ve_aksiyonlar_yfinance(ticker)
             if result:
@@ -929,7 +955,6 @@ class MarketRouter:
                         })
 
         elif market == MarketType.US:
-            source = "yfinance"
             result = await self._client.get_us_dividends(symbol)
             if result:
                 if result.get("toplam_temettu_12ay"):
@@ -951,7 +976,6 @@ class MarketRouter:
                         })
 
         return {
-            "metadata": self._create_metadata(market, symbol_list, source),
             "symbol": symbol.upper(),
             "current_yield": current_yield,
             "annual_dividend": annual_dividend,
@@ -961,18 +985,33 @@ class MarketRouter:
             "stock_splits": stock_splits
         }
 
-    # --- Earnings ---
-
-    async def get_earnings(
+    async def get_dividends(
         self,
         symbols: Union[str, List[str]],
         market: MarketType
     ) -> Dict[str, Any]:
-        """Get earnings calendar and history. Returns raw dict."""
+        """Get dividend history and information. Returns raw dict."""
         is_multi = isinstance(symbols, list)
         symbol_list = symbols if is_multi else [symbols]
         source = "yfinance"
-        symbol = symbol_list[0]
+
+        if not is_multi or len(symbol_list) == 1:
+            single_result = await self._get_dividends_single(symbol_list[0], market)
+            return {
+                "metadata": self._create_metadata(market, symbol_list, source),
+                **single_result
+            }
+
+        return await self._fan_out_multi(
+            symbol_list, market, source,
+            lambda s: self._get_dividends_single(s, market)
+        )
+
+    # --- Earnings ---
+
+    async def _get_earnings_single(self, symbol: str, market: MarketType) -> Dict[str, Any]:
+        """Get earnings data for a single symbol (no metadata). "_source" is popped by the caller."""
+        source = "yfinance"
         next_date = None
         earnings_history = []
         growth_estimates = None
@@ -1058,35 +1097,53 @@ class MarketRouter:
                     }
 
         return {
-            "metadata": self._create_metadata(market, symbol_list, source),
+            "_source": source,
             "symbol": symbol.upper(),
             "next_earnings_date": next_date,
             "earnings_history": earnings_history,
             "growth_estimates": growth_estimates
         }
 
-    # --- Financial Statements ---
-
-    async def get_financial_statements(
+    async def get_earnings(
         self,
         symbols: Union[str, List[str]],
-        market: MarketType,
-        statement_type: StatementType = StatementType.ALL,
-        period: PeriodType = PeriodType.ANNUAL,
-        last_n: int = None
+        market: MarketType
     ) -> Dict[str, Any]:
-        """Get financial statements (balance sheet, income, cash flow). Returns raw dict."""
+        """Get earnings calendar and history. Returns raw dict."""
         is_multi = isinstance(symbols, list)
         symbol_list = symbols if is_multi else [symbols]
-        source = "unknown"
+
+        if not is_multi or len(symbol_list) == 1:
+            single_result = await self._get_earnings_single(symbol_list[0], market)
+            source = single_result.pop("_source")
+            return {
+                "metadata": self._create_metadata(market, symbol_list, source),
+                **single_result
+            }
+
+        async def fetch_one(sym):
+            result = await self._get_earnings_single(sym, market)
+            result.pop("_source")
+            return result
+
+        return await self._fan_out_multi(symbol_list, market, "yfinance", fetch_one)
+
+    # --- Financial Statements ---
+
+    async def _get_financial_statements_single(
+        self,
+        symbol: str,
+        market: MarketType,
+        statement_type: StatementType,
+        period: PeriodType,
+        last_n: int = None
+    ) -> Dict[str, Any]:
+        """Get financial statements for a single symbol (no metadata)."""
         statements = []
         warnings = []
-
-        symbol = symbol_list[0]
         period_str = "annual" if period == PeriodType.ANNUAL else "quarterly"
 
         if market == MarketType.BIST:
-            source = "borsapy"
             types_to_fetch = []
             if statement_type in [StatementType.BALANCE, StatementType.ALL]:
                 types_to_fetch.append(("balance", self._client.get_bilanco))
@@ -1119,7 +1176,6 @@ class MarketRouter:
                     warnings.append(f"Failed to fetch {stmt_name}: {str(e)}")
 
         elif market == MarketType.US:
-            source = "yfinance"
             types_to_fetch = []
             if statement_type in [StatementType.BALANCE, StatementType.ALL]:
                 types_to_fetch.append(("balance", self._client.get_us_balance_sheet))
@@ -1152,9 +1208,46 @@ class MarketRouter:
                     warnings.append(f"Failed to fetch {stmt_name}: {str(e)}")
 
         return {
-            "metadata": self._create_metadata(market, symbol_list, source, warnings=warnings),
-            "statements": statements
+            "symbol": symbol.upper(),
+            "statements": statements,
+            "warnings": warnings
         }
+
+    async def get_financial_statements(
+        self,
+        symbols: Union[str, List[str]],
+        market: MarketType,
+        statement_type: StatementType = StatementType.ALL,
+        period: PeriodType = PeriodType.ANNUAL,
+        last_n: int = None
+    ) -> Dict[str, Any]:
+        """Get financial statements (balance sheet, income, cash flow). Returns raw dict."""
+        is_multi = isinstance(symbols, list)
+        symbol_list = symbols if is_multi else [symbols]
+        source = "borsapy" if market == MarketType.BIST else "yfinance"
+
+        if not is_multi or len(symbol_list) == 1:
+            single_result = await self._get_financial_statements_single(
+                symbol_list[0], market, statement_type, period, last_n
+            )
+            return {
+                "metadata": self._create_metadata(
+                    market, symbol_list, source, warnings=single_result["warnings"]
+                ),
+                "statements": single_result["statements"]
+            }
+
+        warnings = []
+
+        async def fetch_one(sym):
+            result = await self._get_financial_statements_single(
+                sym, market, statement_type, period, last_n
+            )
+            for w in result.pop("warnings"):
+                warnings.append(f"{sym}: {w}")
+            return result
+
+        return await self._fan_out_multi(symbol_list, market, source, fetch_one, warnings=warnings)
 
     # --- Financial Ratios ---
 
@@ -1312,20 +1405,15 @@ class MarketRouter:
 
     # --- Corporate Actions ---
 
-    async def get_corporate_actions(
+    async def _get_corporate_actions_single(
         self,
-        symbols: Union[str, List[str]],
-        market: MarketType = MarketType.BIST,
+        symbol: str,
+        market: MarketType,
         year: Optional[int] = None
     ) -> Dict[str, Any]:
-        """Get corporate actions (capital increases, dividends). Returns raw dict."""
-        is_multi = isinstance(symbols, list)
-        symbol_list = symbols if is_multi else [symbols]
-        source = "isyatirim"
+        """Get corporate actions for a single symbol (no metadata)."""
         capital_increases = []
         dividend_history = []
-
-        symbol = symbol_list[0]
 
         if market == MarketType.BIST:
             try:
@@ -1362,11 +1450,33 @@ class MarketRouter:
                 logger.warning(f"Error fetching dividend history: {e}")
 
         return {
-            "metadata": self._create_metadata(market, symbol_list, source),
             "symbol": symbol.upper(),
             "capital_increases": capital_increases,
             "dividend_history": dividend_history
         }
+
+    async def get_corporate_actions(
+        self,
+        symbols: Union[str, List[str]],
+        market: MarketType = MarketType.BIST,
+        year: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Get corporate actions (capital increases, dividends). Returns raw dict."""
+        is_multi = isinstance(symbols, list)
+        symbol_list = symbols if is_multi else [symbols]
+        source = "isyatirim"
+
+        if not is_multi or len(symbol_list) == 1:
+            single_result = await self._get_corporate_actions_single(symbol_list[0], market, year)
+            return {
+                "metadata": self._create_metadata(market, symbol_list, source),
+                **single_result
+            }
+
+        return await self._fan_out_multi(
+            symbol_list, market, source,
+            lambda s: self._get_corporate_actions_single(s, market, year)
+        )
 
     # --- News ---
 
