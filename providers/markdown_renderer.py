@@ -60,6 +60,14 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         warnings = work.pop("warnings", None)
         if isinstance(warnings, list):
             notes.extend(str(w) for w in warnings)
+        # Hoist nested metadata.warnings (multi-ticker failures, etc.) to blockquotes.
+        # Shallow-copy the metadata dict so we never mutate the caller's payload.
+        if isinstance(work.get("metadata"), dict):
+            meta_copy = dict(work["metadata"])
+            nested_warnings = meta_copy.pop("warnings", None)
+            if isinstance(nested_warnings, list):
+                notes.extend(str(w) for w in nested_warnings)
+            work["metadata"] = meta_copy
         body = _render_dict(work, level=2)
         for note in notes:
             body.append(f"> Not: {_sanitize_cell(note)}")

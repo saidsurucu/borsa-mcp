@@ -139,6 +139,31 @@ def test_long_content_field_renders_as_body():
     assert "# ASELSAN\n" in out
 
 
+def test_nested_metadata_warnings_hoisted_to_blockquotes():
+    out = render_markdown({
+        "data": [{"symbol": "GARAN", "price": 45.8}],
+        "metadata": {"market": "bist", "warnings": ["ISCTR: not found"]},
+    })
+    assert "> Not: ISCTR: not found" in out
+    assert "warnings:" not in out
+
+
+def test_empty_warnings_lists_disappear():
+    out = render_markdown({
+        "symbol": "GARAN",
+        "warnings": [],
+        "metadata": {"market": "bist", "warnings": []},
+    })
+    assert "warnings" not in out
+    assert "Sonuç bulunamadı." not in out
+
+
+def test_render_does_not_mutate_input_payload():
+    payload = {"metadata": {"market": "bist", "warnings": ["w1"]}}
+    render_markdown(payload)
+    assert payload["metadata"]["warnings"] == ["w1"]
+
+
 def test_financial_statements_render_as_period_matrix():
     out = render_markdown({"statements": [{
         "symbol": "GARAN",
