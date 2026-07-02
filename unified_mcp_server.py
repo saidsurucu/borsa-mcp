@@ -26,6 +26,7 @@ from pydantic import Field
 
 from providers.market_router import market_router
 from providers.response_shaper import strip_nulls, cap_evds_payload, downsample_ohlcv, drop_allnull_statement_rows
+from providers.markdown_renderer import render_markdown
 from models.unified_base import (
     MarketType, StatementType, PeriodType, DataType, RatioSetType, ExchangeType
 )
@@ -206,6 +207,11 @@ def timeframe_warning(market: str, timeframe: str) -> Optional[str]:
     return None
 
 
+def shape(payload: Dict[str, Any]) -> str:
+    """Final tool-boundary step: strip nulls, then render compact markdown."""
+    return render_markdown(strip_nulls(payload))
+
+
 # =============================================================================
 # UNIFIED STOCK TOOLS (12 tools covering BIST + US)
 # =============================================================================
@@ -233,7 +239,7 @@ async def search_symbol(
         ge=1,
         le=50
     )] = 10
-) -> Dict[str, Any]:
+) -> str:
     """
     Search for symbols across different markets.
 
@@ -251,7 +257,7 @@ async def search_symbol(
     """
     logger.info(f"search_symbol: query='{query}', market='{market}'")
     try:
-        return strip_nulls(await market_router.search_symbol(query, MarketType(market), limit))
+        return shape(await market_router.search_symbol(query, MarketType(market), limit))
     except Exception as e:
         logger.exception(f"Error in search_symbol for '{query}'")
         raise classify_tool_error(e, "Search")
@@ -278,7 +284,7 @@ async def get_profile(
         description="Include Sharia compliance info (BIST only)",
         default=False
     )] = False
-) -> Dict[str, Any]:
+) -> str:
     """
     Get detailed company profile including:
     - Business description and sector
@@ -305,7 +311,7 @@ async def get_profile(
             except Exception as e:
                 logger.warning(f"Failed to fetch Islamic compliance for {symbol}: {e}")
 
-        return strip_nulls(result)
+        return shape(result)
     except Exception as e:
         logger.exception(f"Error in get_profile for '{symbol}'")
         raise classify_tool_error(e, "Profile fetch")
@@ -327,7 +333,7 @@ async def get_quick_info(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> Dict[str, Any]:
+) -> str:
     """
     Get quick metrics for one or more stocks:
     - Current price and change %
@@ -343,7 +349,7 @@ async def get_quick_info(
     """
     logger.info(f"get_quick_info: symbol='{symbol}', market='{market}'")
     try:
-        return strip_nulls(await market_router.get_quick_info(symbol, MarketType(market)))
+        return shape(await market_router.get_quick_info(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_quick_info for '{symbol}'")
         raise classify_tool_error(e, "Quick info fetch")
@@ -384,7 +390,7 @@ async def get_historical_data(
         description="Split-adjusted prices. False=real trading prices (default), True=split-adjusted for return calculations",
         default=False
     )] = False
-) -> Dict[str, Any]:
+) -> str:
     """
     Get historical OHLCV (Open, High, Low, Close, Volume) data.
 
@@ -403,7 +409,7 @@ async def get_historical_data(
     """
     logger.info(f"get_historical_data: symbol='{symbol}', market='{market}', adjust={adjust}")
     try:
-        return strip_nulls(downsample_ohlcv(
+        return shape(downsample_ohlcv(
             await market_router.get_historical_data(
                 symbol, MarketType(market), period, start_date, end_date, adjust=adjust
             )
@@ -434,7 +440,7 @@ async def get_technical_analysis(
         description="Analysis timeframe: 1d (daily), 1h (hourly), 4h, 1W (weekly)",
         default="1d"
     )] = "1d"
-) -> Dict[str, Any]:
+) -> str:
     """
     Get technical analysis with indicators and signals:
     - Moving averages: SMA/EMA 5, 10, 20, 50, 200
@@ -452,7 +458,7 @@ async def get_technical_analysis(
         warning = timeframe_warning(market, timeframe)
         if warning:
             result.setdefault("warnings", []).append(warning)
-        return strip_nulls(result)
+        return shape(result)
     except Exception as e:
         logger.exception(f"Error in get_technical_analysis for '{symbol}'")
         raise classify_tool_error(e, "Technical analysis")
@@ -475,7 +481,7 @@ async def get_pivot_points(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> Dict[str, Any]:
+) -> str:
     """
     Get classic pivot points with 7 levels:
     - Pivot Point (PP)
@@ -490,7 +496,7 @@ async def get_pivot_points(
     """
     logger.info(f"get_pivot_points: symbol='{symbol}', market='{market}'")
     try:
-        return strip_nulls(await market_router.get_pivot_points(symbol, MarketType(market)))
+        return shape(await market_router.get_pivot_points(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_pivot_points for '{symbol}'")
         raise classify_tool_error(e, "Pivot points calculation")
@@ -512,7 +518,7 @@ async def get_analyst_data(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> Dict[str, Any]:
+) -> str:
     """
     Get analyst recommendations and price targets:
     - Rating summary: Strong Buy, Buy, Hold, Sell, Strong Sell counts
@@ -526,7 +532,7 @@ async def get_analyst_data(
     """
     logger.info(f"get_analyst_data: symbol='{symbol}', market='{market}'")
     try:
-        return strip_nulls(await market_router.get_analyst_data(symbol, MarketType(market)))
+        return shape(await market_router.get_analyst_data(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_analyst_data for '{symbol}'")
         raise classify_tool_error(e, "Analyst data fetch")
@@ -548,7 +554,7 @@ async def get_dividends(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> Dict[str, Any]:
+) -> str:
     """
     Get dividend information:
     - Current yield and annual dividend
@@ -562,7 +568,7 @@ async def get_dividends(
     """
     logger.info(f"get_dividends: symbol='{symbol}', market='{market}'")
     try:
-        return strip_nulls(await market_router.get_dividends(symbol, MarketType(market)))
+        return shape(await market_router.get_dividends(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_dividends for '{symbol}'")
         raise classify_tool_error(e, "Dividend data fetch")
@@ -584,7 +590,7 @@ async def get_earnings(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> Dict[str, Any]:
+) -> str:
     """
     Get earnings calendar and history:
     - Next earnings announcement date
@@ -598,7 +604,7 @@ async def get_earnings(
     """
     logger.info(f"get_earnings: symbol='{symbol}', market='{market}'")
     try:
-        return strip_nulls(await market_router.get_earnings(symbol, MarketType(market)))
+        return shape(await market_router.get_earnings(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_earnings for '{symbol}'")
         raise classify_tool_error(e, "Earnings data fetch")
@@ -635,7 +641,7 @@ async def get_financial_statements(
         le=40,
         examples=[4, 8, 12, 20]
     )] = None
-) -> Dict[str, Any]:
+) -> str:
     """
     Get financial statements:
     - Balance Sheet: Assets, liabilities, equity
@@ -655,7 +661,7 @@ async def get_financial_statements(
     """
     logger.info(f"get_financial_statements: symbol='{symbol}', market='{market}', last_n={last_n}")
     try:
-        return strip_nulls(drop_allnull_statement_rows(await market_router.get_financial_statements(
+        return shape(drop_allnull_statement_rows(await market_router.get_financial_statements(
             symbol, MarketType(market),
             StatementType(statement_type), PeriodType(period), last_n
         )))
@@ -685,7 +691,7 @@ async def get_financial_ratios(
         description="Ratio set: valuation, buffett, core_health, advanced, comprehensive",
         default="valuation"
     )] = "valuation"
-) -> Dict[str, Any]:
+) -> str:
     """
     Get financial ratios and analysis:
 
@@ -701,7 +707,7 @@ async def get_financial_ratios(
     """
     logger.info(f"get_financial_ratios: symbol='{symbol}', market='{market}'")
     try:
-        return strip_nulls(await market_router.get_financial_ratios(
+        return shape(await market_router.get_financial_ratios(
             symbol, MarketType(market), RatioSetType(ratio_set)
         ))
     except Exception as e:
@@ -727,7 +733,7 @@ async def get_corporate_actions(
         ge=2000,
         le=2030
     )] = None
-) -> Dict[str, Any]:
+) -> str:
     """
     Get BIST corporate actions:
 
@@ -748,7 +754,7 @@ async def get_corporate_actions(
     """
     logger.info(f"get_corporate_actions: symbol='{symbol}'")
     try:
-        return strip_nulls(await market_router.get_corporate_actions(
+        return shape(await market_router.get_corporate_actions(
             symbol, MarketType.BIST, year
         ))
     except Exception as e:
@@ -786,7 +792,7 @@ async def get_news(
         default=1,
         ge=1
     )] = 1
-) -> Dict[str, Any]:
+) -> str:
     """
     Get KAP (Public Disclosure Platform) news for BIST stocks.
 
@@ -806,10 +812,10 @@ async def get_news(
     try:
         if news_id:
             # Detail mode - fetch full news content
-            return strip_nulls(await market_router.get_news_detail(news_id, page))
+            return shape(await market_router.get_news_detail(news_id, page))
         elif symbol:
             # List mode - fetch news list
-            return strip_nulls(await market_router.get_news(symbol, MarketType.BIST, limit))
+            return shape(await market_router.get_news(symbol, MarketType.BIST, limit))
         else:
             raise ToolError("Either symbol or news_id must be provided")
     except ToolError:
@@ -853,7 +859,7 @@ async def screen_securities(
         ge=1,
         le=250
     )] = 25
-) -> Dict[str, Any]:
+) -> str:
     """
     Screen securities with 24 presets or custom filters.
 
@@ -874,7 +880,7 @@ async def screen_securities(
     validate_screen_params(preset, custom_filters)
     logger.info(f"screen_securities: market='{market}', preset='{preset}'")
     try:
-        return strip_nulls(await market_router.screen_securities(
+        return shape(await market_router.screen_securities(
             MarketType(market), preset, security_type, custom_filters, limit
         ))
     except Exception as e:
@@ -906,7 +912,7 @@ async def scan_stocks(
         description="Timeframe: 1d, 1h, 4h, 1W",
         default="1d"
     )] = "1d"
-) -> Dict[str, Any]:
+) -> str:
     """
     Scan BIST stocks by technical conditions using TradingView data.
 
@@ -930,7 +936,7 @@ async def scan_stocks(
     try:
         if not condition and not preset:
             preset = "oversold"  # Default preset
-        return strip_nulls(await market_router.scan_stocks(
+        return shape(await market_router.scan_stocks(
             index, MarketType.BIST, condition, preset, timeframe
         ))
     except Exception as e:
@@ -955,7 +961,7 @@ async def get_sector_comparison(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> Dict[str, Any]:
+) -> str:
     """
     Get sector comparison for a stock:
     - Sector and industry classification
@@ -969,7 +975,7 @@ async def get_sector_comparison(
     """
     logger.info(f"get_sector_comparison: symbol='{symbol}', market='{market}'")
     try:
-        return strip_nulls(await market_router.get_sector_comparison(symbol, MarketType(market)))
+        return shape(await market_router.get_sector_comparison(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_sector_comparison for '{symbol}'")
         raise classify_tool_error(e, "Sector comparison")
@@ -1000,7 +1006,7 @@ async def get_crypto_market(
         description="Data type: ticker, orderbook, trades, exchange_info, ohlc",
         default="ticker"
     )] = "ticker"
-) -> Dict[str, Any]:
+) -> str:
     """
     Get cryptocurrency market data from BtcTurk or Coinbase.
 
@@ -1017,7 +1023,7 @@ async def get_crypto_market(
     """
     logger.info(f"get_crypto_market: symbol='{symbol}', exchange='{exchange}'")
     try:
-        return strip_nulls(await market_router.get_crypto_market(
+        return shape(await market_router.get_crypto_market(
             symbol, ExchangeType(exchange), DataType(data_type)
         ))
     except Exception as e:
@@ -1063,7 +1069,7 @@ async def get_fx_data(
         pattern=r"^\d{4}-\d{2}-\d{2}$",
         default=None
     )] = None
-) -> Dict[str, Any]:
+) -> str:
     """
     Get foreign exchange rates, precious metals, and commodities.
 
@@ -1088,7 +1094,7 @@ async def get_fx_data(
     is_historical = historical or (data_type == "historical")
     logger.info(f"get_fx_data: symbol='{symbol}', data_type='{data_type}', historical={is_historical}")
     try:
-        return strip_nulls(await market_router.get_fx_data(
+        return shape(await market_router.get_fx_data(
             symbols, category, is_historical, start_date, end_date
         ))
     except Exception as e:
@@ -1120,7 +1126,7 @@ async def get_economic_calendar(
         description="Period: today, this_week, next_week",
         default="this_week"
     )] = "this_week"
-) -> Dict[str, Any]:
+) -> str:
     """
     Get economic calendar events via borsapy.
 
@@ -1190,7 +1196,7 @@ async def get_economic_calendar(
                             "previous": e.get('prior')
                         })
 
-        return strip_nulls({
+        return shape({
             "metadata": {
                 "market": "fx",
                 "symbols": ["calendar"],
@@ -1218,7 +1224,7 @@ async def get_bond_yields(
         description="Country: TR or US",
         default="TR"
     )] = "TR"
-) -> Dict[str, Any]:
+) -> str:
     """
     Get government bond yields via borsapy.
 
@@ -1252,7 +1258,7 @@ async def get_bond_yields(
             if result.get("tahvil_lookup"):
                 risk_free = result["tahvil_lookup"].get("10Y")
 
-        return strip_nulls({
+        return shape({
             "metadata": {
                 "market": "fx",
                 "symbols": ["bonds"],
@@ -1306,7 +1312,7 @@ async def get_fund_data(
         pattern=r"^\d{4}-\d{2}-\d{2}$",
         examples=["2024-12-31", "2026-01-15"]
     )] = None
-) -> Dict[str, Any]:
+) -> str:
     """
     Get Turkish mutual fund (TEFAS) data or compare multiple funds.
 
@@ -1348,10 +1354,10 @@ async def get_fund_data(
             warning = fund_flags_warning(True, include_portfolio, include_performance)
             if warning:
                 result.setdefault("warnings", []).append(warning)
-            return strip_nulls(result)
+            return shape(result)
         else:
             # Single fund mode
-            return strip_nulls(await market_router.get_fund_data(
+            return shape(await market_router.get_fund_data(
                 symbol_list[0], include_portfolio, include_performance,
                 start_date, end_date
             ))
@@ -1393,7 +1399,7 @@ async def screen_funds(
         ge=1,
         le=100
     )] = 20
-) -> Dict[str, Any]:
+) -> str:
     """
     Screen Turkish mutual funds (TEFAS) with filtering and sorting.
 
@@ -1484,7 +1490,7 @@ async def screen_funds(
         ))
 
         if df is None or len(df) == 0:
-            return strip_nulls({
+            return shape({
                 "metadata": {"source": "borsapy", "timestamp": datetime.now().isoformat()},
                 "funds": [],
                 "total_count": 0
@@ -1528,7 +1534,7 @@ async def screen_funds(
         # Apply limit
         funds = funds[:limit]
 
-        return strip_nulls({
+        return shape({
             "metadata": {
                 "source": "borsapy",
                 "timestamp": datetime.now().isoformat(),
@@ -1570,7 +1576,7 @@ async def get_index_data(
         description="Include list of component stocks",
         default=False
     )] = False
-) -> Dict[str, Any]:
+) -> str:
     """
     Get stock market index information.
 
@@ -1589,7 +1595,7 @@ async def get_index_data(
     """
     logger.info(f"get_index_data: code='{code}', market='{market}'")
     try:
-        return strip_nulls(await market_router.get_index_data(code, MarketType(market), include_components))
+        return shape(await market_router.get_index_data(code, MarketType(market), include_components))
     except Exception as e:
         logger.exception(f"Error in get_index_data for '{code}'")
         raise classify_tool_error(e, "Index data fetch")
@@ -1664,7 +1670,7 @@ async def get_macro_data(
         ge=1,
         le=500
     )] = None
-) -> Dict[str, Any]:
+) -> str:
     """
     Get Turkish macro economic data (inflation).
 
@@ -1679,7 +1685,7 @@ async def get_macro_data(
     """
     logger.info(f"get_macro_data: data_type='{data_type}'")
     try:
-        return strip_nulls(await market_router.get_macro_data(
+        return shape(await market_router.get_macro_data(
             data_type=data_type,
             inflation_type=inflation_type,
             start_date=start_date,
@@ -1834,7 +1840,7 @@ async def get_evds_data(
         ge=1,
         le=5000
     )] = 100,
-) -> Dict[str, Any]:
+) -> str:
     """Access TCMB EVDS macro data.
 
     Catalog actions (no API key): categories, datagroups, series_list, search,
@@ -1866,7 +1872,7 @@ async def get_evds_data(
     })
     logger.info(f"get_evds_data: action='{action}'")
     try:
-        return strip_nulls(cap_evds_payload(
+        return shape(cap_evds_payload(
             await market_router.get_evds_data(
                 action=action,
                 category_id=category_id,
@@ -1909,7 +1915,7 @@ async def get_screener_help(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
-) -> Dict[str, Any]:
+) -> str:
     """
     Get screener help with available presets and filter documentation.
 
@@ -1924,7 +1930,7 @@ async def get_screener_help(
     """
     logger.info(f"get_screener_help: market='{market}'")
     try:
-        return strip_nulls(await market_router.get_screener_help(MarketType(market)))
+        return shape(await market_router.get_screener_help(MarketType(market)))
     except Exception as e:
         logger.exception("Error in get_screener_help")
         raise classify_tool_error(e, "Screener help fetch")
@@ -1937,7 +1943,7 @@ async def get_screener_help(
     tags={"help", "scanner"},
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
-async def get_scanner_help() -> Dict[str, Any]:
+async def get_scanner_help() -> str:
     """
     Get BIST scanner help with indicators, operators, and preset strategies.
 
@@ -1953,7 +1959,7 @@ async def get_scanner_help() -> Dict[str, Any]:
     """
     logger.info("get_scanner_help")
     try:
-        return strip_nulls(await market_router.get_scanner_help())
+        return shape(await market_router.get_scanner_help())
     except Exception as e:
         logger.exception("Error in get_scanner_help")
         raise classify_tool_error(e, "Scanner help fetch")
@@ -1971,7 +1977,7 @@ async def get_regulations(
         description="Regulation type: fund (Turkish investment fund regulations)",
         default="fund"
     )] = "fund"
-) -> Dict[str, Any]:
+) -> str:
     """
     Get Turkish financial regulations documentation.
 
@@ -1986,7 +1992,7 @@ async def get_regulations(
     """
     logger.info(f"get_regulations: type='{regulation_type}'")
     try:
-        return strip_nulls(await market_router.get_regulations(regulation_type))
+        return shape(await market_router.get_regulations(regulation_type))
     except Exception as e:
         logger.exception("Error in get_regulations")
         raise classify_tool_error(e, "Regulations fetch")
