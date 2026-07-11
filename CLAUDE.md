@@ -40,7 +40,7 @@ The project follows a **unified router pattern** with market-based routing:
   - `btcturk_provider.py`: BtcTurk cryptocurrency provider
   - `coinbase_provider.py`: Coinbase global crypto provider
   - `borsapy_fx_provider.py`: Currency and commodities via borsapy
-  - `borsapy_calendar_provider.py`: Economic calendar (TR, US, EU, DE, GB, JP, CN)
+  - `borsapy_calendar_provider.py`: Economic calendar (TR, US, EU, DE, GB, JP, CN) — borsapy first, doviz.com HTML scrape as fallback (borsapy's feed currently returns nothing)
   - `borsapy_bond_provider.py`: Turkish government bond yields
   - `borsapy_scanner_provider.py`: BIST technical scanner (TradingView)
   - `yfscreen_provider.py`: US securities screener
@@ -75,7 +75,7 @@ uv run python -m pytest tests/ -q
 | `search_symbol` | Search stocks, indices, funds, crypto by name/symbol | - |
 | `get_profile` | Company profile with sector, description, financials + Islamic finance compliance (BIST) | - |
 | `get_quick_info` | Quick metrics (P/E, P/B, ROE, 52w range) | ✅ |
-| `get_historical_data` | OHLCV price data with date range support | - |
+| `get_historical_data` | OHLCV price data with date range support. Periods >1mo are resampled to weekly/monthly bars — see `bar_interval` | - |
 | `get_technical_analysis` | RSI, MACD, Bollinger Bands, moving averages (BIST, US, crypto) | - |
 | `get_pivot_points` | Support/resistance levels (S1-S3, R1-R3) | - |
 | `get_analyst_data` | Analyst ratings and price targets | ✅ |
@@ -99,7 +99,7 @@ uv run python -m pytest tests/ -q
 | `get_fx_data` | 65 currencies, metals, commodities via borsapy |
 | `get_economic_calendar` | Economic events (TR, US, EU, DE, GB, JP, CN) |
 | `get_bond_yields` | Government bond yields (TR 2Y, 5Y, 10Y) |
-| `get_sector_comparison` | Sector peers and average metrics |
+| `get_sector_comparison` | Sector peers (from the stock's BIST sector index) + **median** P/E, P/B |
 | `get_macro_data` | Turkish inflation data (TÜFE/ÜFE) and inflation calculator |
 | `get_evds_data` | TCMB EVDS: 145 categories, tens of thousands of macro series (rates, FX, balance of payments, inflation, expectation surveys) — catalog/search free, data fetch needs EVDS_API_KEY |
 
@@ -213,11 +213,25 @@ uv run python -m pytest tests/ -q
 - **Real-time**: Live interest rates from doviz.com backend
 - **Format**: Both percentage (yield_rate) and decimal (yield_decimal) values
 
-### borsapy Economic Calendar
+### Economic Calendar (doviz.com scrape, borsapy fallback)
 - **Supported Countries**: TR, US, EU, DE, GB, JP, CN (7 countries)
-- **API**: `bp.EconomicCalendar().events(period, country, importance)`
-- **Importance Filter**: high, medium, low
-- **Coverage**: Unemployment, inflation, PMI, trade data, economic surveys
+- **Primary API**: `bp.EconomicCalendar().events(period, country, importance)`
+- **⚠️ borsapy's feed is currently dead**: it returns an empty DataFrame (correct columns,
+  zero rows) for *every* country and period. doviz.com itself is fine.
+- **Fallback**: `BorsapyCalendarProvider._scrape_doviz_events()` parses
+  https://www.doviz.com/ekonomik-takvim directly when borsapy yields nothing.
+  - The page is fully **server-rendered**: four tab panes (`calendar-content-0..3` =
+    today / tomorrow / this week / this month) all ship in the initial HTML. No JS, no
+    browser, no XHR — a plain `httpx` GET is enough.
+  - All four panes are parsed and de-duplicated; the month pane is the widest window
+    (~1200 events).
+  - **Gotcha**: the served HTML omits `<tbody>` (browsers synthesize it), so rows must be
+    selected as `table.find_all("tr")`, not `select("tbody tr")`.
+  - Importance markers are `span.importance.{low,mid,high}` → mapped to low/medium/high.
+  - Country names are Turkish (`Türkiye`, `ABD`, `Euro Bölgesi`, ...) → `DOVIZ_COUNTRY_CODES`.
+- **Importance Filter**: high, medium, low. **Defaults to `high`** — an empty result is
+  usually this filter, not missing data. Pass `importance="low"` to widen.
+- **Coverage**: Unemployment, inflation, PMI, trade data, rate decisions, economic surveys
 
 ### World Bank Open Data
 - **Indicator**: GDP growth (annual %, NY.GDP.MKTP.KD.ZG)
@@ -280,6 +294,37 @@ Focus on liquid, large-cap stocks for best coverage.
 ### 4. Performance Issues
 Stock screening removed from MCP due to 2+ minute runtime.
 
+### 5. Upstream libraries fail *silently* — never trust a quiet fallback
+Three of the bugs found in the July 2026 audit were invisible because the upstream layer
+degraded without raising. Assume this is the default, and assert on the shape of what you
+get back:
+
+- **`bp.Ticker().history(period=...)` accepts anything.** An unknown period (including
+  literal `"ZZZ"`) does not raise — it silently returns a ~30-bar default. This is why the
+  stale `5d → 5g` translation went unnoticed for so long. Validate periods against
+  `SUPPORTED_PERIODS` before passing them down.
+- **`bp.Ticker().info` is lazy.** The network call fires when you *read a key*, not when
+  you construct the object. Materialize it inside the worker when fanning out, or one bad
+  ticker (e.g. `CWENE`, which 404s on the quote endpoint) will raise in the caller and
+  take the whole batch with it.
+- **yfinance renames DataFrame columns between versions.** `upgrades_downgrades` moved from
+  `To Grade` to `ToGrade`, and `row.get('To Grade', 'Unknown')` happily returned `"Unknown"`
+  forever. Prefer failing loudly over a defaulting `.get()` on upstream frames.
+
+### 6. Check the row order of upstream data before slicing
+Two separate bugs came from taking the wrong end of a list:
+- Coinbase returns candles **newest-first**; BtcTurk returns them **oldest-first**. Sort
+  before capping, or `[-100:]` hands back year-old data.
+- yfinance's `upgrades_downgrades` is indexed **newest-first**, so `.tail(20)` returned
+  2018 ratings. Sort explicitly rather than assuming.
+
+### 7. Never return an empty-but-successful payload
+An empty response reads to an LLM as "this exists and has no data", which is a much
+stronger (and usually false) claim than "the fetch failed". Providers must raise, and the
+tool layer converts it via `classify_tool_error`. Historically `get_fund_data` swallowed
+`DataNotAvailableError` and reported `successful_count: 1` on a delisted fund code.
+Where an empty result is legitimately possible, attach a `warnings` entry explaining why.
+
 ## Development Patterns
 
 ### Error Handling
@@ -340,6 +385,28 @@ logger.error("Failed operations")
 ```
 
 ## Recent Major Updates
+
+### Broken-Tool Audit & Repair (July 2026)
+A live sweep of all 28 tools against the deployed server found 8 broken. Root causes split
+three ways — one genuinely stale mapping, three code paths never written, and several
+silent failures. See "Common Issues" #5–#7 for the patterns these produced.
+
+| Tool | Was | Root cause |
+|------|-----|-----------|
+| `get_historical_data` | `5d` returned 30 days; `1d`/`3mo`/`6mo` all wrong | **Stale**: `PERIOD_MAPPING` still translated yfinance periods to borsapy's old Turkish codes (`5d→5g`). borsapy switched to yfinance-style periods and silently defaults on unknown input. Mapping removed; `bar_interval` + warning now added when `TokenOptimizer` resamples (>30d ⇒ weekly/monthly). |
+| `get_fund_data` | Unknown code → `successful_count: 1`, empty body | Router swallowed borsapy's `DataNotAvailableError`. Now re-raises. Tool examples `AAK`/`ZBE` were delisted → replaced with `TPC`/`TI2`/`NMG`. |
+| `get_crypto_market` (`ohlc`) | Always empty | **Never written**: `DataType.OHLC` was in the enum but had no branch for either exchange. Added; candle order normalized. |
+| `get_index_data` (BIST) | No index level at all | **Never written**: only read code/name from KAP. Now sourced from `bp.Index()`, which also fixes XU100 components. |
+| `get_sector_comparison` | Peer list = the stock itself | **Never written**: router passed `[symbol]` into a multi-stock helper. Peers now resolved from the stock's BIST sector index; metrics via one bulk `bp.screen_stocks()` call (50s fan-out → 0.7s); reports **median** (a lone peer at P/E 7000 wrecks the mean). |
+| `get_analyst_data` | All ratings `"Unknown"`, dated 2018 | **Stale + ordering**: yfinance renamed `To Grade`→`ToGrade`; `.tail(20)` took the oldest rows of a newest-first frame. Price target now surfaced too. |
+| `get_economic_calendar` | Empty for every country/period | borsapy's feed is dead; doviz.com is not. Added a direct scrape fallback (see Economic Calendar section). |
+
+**Sector index membership cache**: `MarketRouter._sector_membership` is loaded lazily on the
+first `get_sector_comparison` call (~3-6s, 9 index fetches) and reused thereafter. Cloud Run
+cold starts pay it again.
+
+**Deploy drift**: the audit also revealed the Cloud Run image was running older code than
+`main`. Verify against `https://borsa.surucu.dev/mcp` after deploying, not just locally.
 
 ### Markdown/TSV Tool Output (July 2026)
 - **All 28 tools now return markdown text instead of JSON** for token savings.
