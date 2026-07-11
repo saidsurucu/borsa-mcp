@@ -18,11 +18,23 @@ Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve 
 
 ---
 
+## 📢 Sunucu Taşındı
+
+**Borsa MCP sunucusu artık https://borsa.surucu.dev/mcp adresinde.**
+
+Eski adresi (`borsamcp.fastmcp.app`) kullanıyorsanız, yapılandırmanızı yukarıdaki yeni adresle güncelleyin. Eski adres bir süre daha ayakta kalacak ancak yalnızca bu taşınma bilgisini döndürüyor, piyasa verisi sunmuyor.
+
+Açık kaynak projelerime sponsor olduğu için [@arctcloud](https://x.com/arctcloud) — **Arct Cloud**'a teşekkürler. Diğer MCP sunucularımı da vakit buldukça taşıyacağım.
+
+Siz de **SAID35** koduyla %35 indirimli kullanabilirsiniz: https://arct.cloud/?ref=x-promo-4exe09
+
+---
+
 ## 🚀 5 Dakikada Başla (Remote MCP)
 
 **✅ Kurulum Gerektirmez! Hemen Kullan!**
 
-🔗 **Remote MCP Adresi:** https://borsamcp.fastmcp.app/mcp
+🔗 **Remote MCP Adresi:** https://borsa.surucu.dev/mcp
 
 ### Claude Desktop ile Kullanım (Ücretli abonelik gerekir)
 
@@ -30,7 +42,7 @@ Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve 
 2. **Settings** → **Connectors** → **Add Custom Connector**
 3. Bilgileri girin:
    - **Name:** `Borsa MCP`
-   - **URL:** `https://borsamcp.fastmcp.app/mcp`
+   - **URL:** `https://borsa.surucu.dev/mcp`
 4. **Add** butonuna tıklayın
 5. Hemen kullanmaya başlayın! 🎉
 
@@ -46,7 +58,7 @@ Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve 
 {
   "mcpServers": {
     "borsa-mcp": {
-      "serverUrl": "https://borsamcp.fastmcp.app/mcp",
+      "serverUrl": "https://borsa.surucu.dev/mcp",
       "headers": {
         "Content-Type": "application/json"
       }
