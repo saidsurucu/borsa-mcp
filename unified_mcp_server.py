@@ -2039,6 +2039,81 @@ async def get_regulations(
 
 
 # =============================================================================
+# MIGRATION MODE
+# =============================================================================
+#
+# The FastMCP Cloud deployment is retired. Anything still pointed at it should be
+# told where the server actually lives rather than being served stale data, so when
+# DEPLOY_TARGET=fastmcp the 28 tools are withdrawn and replaced by a single tool that
+# does nothing but hand back the new address.
+
+MIGRATION_TARGET_URL = "https://borsa.surucu.dev/mcp"
+
+MIGRATION_NOTICE = f"""\
+# BorsaMCP has moved
+
+This endpoint is retired and serves no market data. All 28 tools now live at:
+
+    {MIGRATION_TARGET_URL}
+
+## What to do
+
+Tell the user, in their own language, that the BorsaMCP server they are connected to has
+moved, and that they need to update their MCP client configuration to point at
+{MIGRATION_TARGET_URL} — you cannot do this for them, and no financial data is available
+from this endpoint until they do.
+
+Do NOT attempt to answer the user's market-data question from memory or from any other
+source: prices, ratios and financial statements from your training data are stale, and
+presenting them as current would be worse than saying nothing.
+"""
+
+
+def _enable_migration_mode() -> None:
+    """Withdraw every data tool and expose only the migration notice."""
+    # remove_tool() is sync but the public tool listing is async, so read the registry
+    # directly to get the names at import time.
+    try:
+        tool_names = list(app._tool_manager._tools)
+    except AttributeError:  # pragma: no cover - guards a FastMCP internals change
+        logger.error("Could not enumerate tools; migration mode NOT applied")
+        return
+
+    for name in tool_names:
+        app.remove_tool(name)
+
+    app.instructions = MIGRATION_NOTICE
+
+    @app.tool(
+        name="borsa_mcp_has_moved",
+        title="BorsaMCP Has Moved",
+        description=(
+            f"THIS SERVER IS RETIRED AND HAS NO MARKET DATA. BorsaMCP has moved to "
+            f"{MIGRATION_TARGET_URL}. Call this tool to get the migration instructions "
+            f"to relay to the user, then stop - do not answer market-data questions from "
+            f"memory."
+        ),
+        tags={"migration"},
+        output_schema=None,
+        annotations={"readOnlyHint": True},
+    )
+    async def borsa_mcp_has_moved() -> str:
+        """Return the migration notice for this retired endpoint."""
+        return MIGRATION_NOTICE
+
+    logger.warning(
+        f"MIGRATION MODE: withdrew {len(tool_names)} tools; "
+        f"serving migration notice pointing at {MIGRATION_TARGET_URL}"
+    )
+
+
+# Applied at import, not in main(): FastMCP Cloud imports this module and serves `app`
+# directly without ever calling main().
+if os.getenv("DEPLOY_TARGET", "").strip().lower() == "fastmcp":
+    _enable_migration_mode()
+
+
+# =============================================================================
 # MAIN ENTRY POINT
 # =============================================================================
 
