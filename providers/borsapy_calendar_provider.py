@@ -2,18 +2,58 @@
 Borsapy Calendar Provider
 Provides economic calendar events via borsapy EconomicCalendar class.
 Supports TR, US, EU, DE, GB, JP, CN countries with importance filtering.
+
+borsapy's EconomicCalendar currently returns an empty frame for every country and
+period, while doviz.com itself still publishes a full calendar, so this falls back
+to parsing that page directly.
 """
+import asyncio
 import logging
+import re
 from typing import List, Dict, Optional
 from datetime import datetime
 
 import borsapy as bp
+import httpx
+from bs4 import BeautifulSoup
 
 from models import (
     EkonomikTakvimSonucu, EkonomikOlay, EkonomikOlayDetayi
 )
 
 logger = logging.getLogger(__name__)
+
+DOVIZ_CALENDAR_URL = "https://www.doviz.com/ekonomik-takvim"
+
+# The page server-renders four tab panes; the month pane is the widest window on
+# offer, so parsing all of them and de-duplicating gives maximum coverage.
+CALENDAR_CONTAINERS = [
+    "calendar-content-0",  # today
+    "calendar-content-1",  # tomorrow
+    "calendar-content-2",  # this week
+    "calendar-content-3",  # this month
+]
+
+TURKISH_MONTHS = {
+    "ocak": 1, "şubat": 2, "mart": 3, "nisan": 4, "mayıs": 5, "haziran": 6,
+    "temmuz": 7, "ağustos": 8, "eylül": 9, "ekim": 10, "kasım": 11, "aralık": 12,
+}
+
+# doviz.com labels importance as low/mid/high on the marker span.
+DOVIZ_IMPORTANCE = {"low": "low", "mid": "medium", "high": "high"}
+
+# The page names countries in Turkish; only these map onto the codes this tool
+# accepts. Unmapped countries are still returned, just without a code, so an
+# unfiltered query keeps showing them.
+DOVIZ_COUNTRY_CODES = {
+    "Türkiye": "TR",
+    "ABD": "US",
+    "Euro Bölgesi": "EU",
+    "Almanya": "DE",
+    "İngiltere": "GB",
+    "Japonya": "JP",
+    "Çin": "CN",
+}
 
 
 class BorsapyCalendarProvider:
@@ -78,6 +118,107 @@ class BorsapyCalendarProvider:
                 return "1ay"  # Max 1 month for calendar
         except (ValueError, TypeError):
             return "1w"  # Default to 1 week
+
+    @staticmethod
+    def _parse_turkish_date(text: str) -> Optional[datetime]:
+        """Parse a '06 Temmuz 2026' heading into a datetime."""
+        m = re.match(r"(\d{1,2})\s+(\S+)\s+(\d{4})", text.strip())
+        if not m:
+            return None
+        day, month_name, year = m.groups()
+        month = TURKISH_MONTHS.get(month_name.lower())
+        if not month:
+            return None
+        return datetime(int(year), month, int(day))
+
+    async def _scrape_doviz_events(self) -> List[Dict]:
+        """Parse doviz.com's economic calendar page into raw event dicts.
+
+        The page is fully server-rendered -- every tab pane's rows are already in the
+        HTML -- so a plain GET is enough; no browser or JS execution is needed.
+        """
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
+            )
+        }
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+            resp = await client.get(DOVIZ_CALENDAR_URL, headers=headers)
+            resp.raise_for_status()
+            html = resp.text
+
+        def parse() -> List[Dict]:
+            soup = BeautifulSoup(html, "html.parser")
+            events: Dict[tuple, Dict] = {}
+
+            for container_id in CALENDAR_CONTAINERS:
+                container = soup.find(id=container_id)
+                if not container:
+                    continue
+
+                # Panes are a flat run of [date heading, table, date heading, table...],
+                # so a row's date is whichever heading most recently preceded it.
+                current_date = None
+                for child in container.find_all(["div"], recursive=False):
+                    classes = child.get("class") or []
+
+                    if "text-bold" in classes:
+                        current_date = self._parse_turkish_date(child.get_text())
+                        continue
+
+                    table = child.find("table")
+                    if table is None or current_date is None:
+                        continue
+
+                    # The served HTML omits <tbody> (browsers synthesize it), so select
+                    # rows directly. Header rows use <th> and fall out of the td check.
+                    for tr in table.find_all("tr"):
+                        tds = tr.find_all("td")
+                        if len(tds) < 7:
+                            continue
+
+                        marker = tr.find("span", class_="importance")
+                        marker_classes = marker.get("class") if marker else []
+                        importance = next(
+                            (DOVIZ_IMPORTANCE[c] for c in marker_classes if c in DOVIZ_IMPORTANCE),
+                            "low"
+                        )
+
+                        time_text = tds[0].get_text(strip=True)
+                        country_name = tds[1].get_text(strip=True)
+                        event_name = " ".join(tds[3].get_text(strip=True).split())
+
+                        if not event_name:
+                            continue
+
+                        event_dt = current_date
+                        m = re.match(r"(\d{1,2}):(\d{2})", time_text)
+                        if m:
+                            event_dt = current_date.replace(
+                                hour=int(m.group(1)), minute=int(m.group(2))
+                            )
+
+                        clean = lambda td: td.get_text(strip=True) or None
+
+                        key = (event_dt, country_name, event_name)
+                        events[key] = {
+                            "date": event_dt,
+                            "time": time_text or None,
+                            "country_code": DOVIZ_COUNTRY_CODES.get(country_name),
+                            "country_name": country_name,
+                            "event_name": event_name,
+                            "importance": importance,
+                            "actual": clean(tds[4]),
+                            "forecast": clean(tds[5]),
+                            "previous": clean(tds[6]),
+                            "period": "",
+                        }
+
+            return list(events.values())
+
+        # BeautifulSoup over ~1200 rows is CPU-bound; keep it off the event loop.
+        return await asyncio.get_event_loop().run_in_executor(None, parse)
 
     async def get_economic_calendar(
         self,
@@ -148,6 +289,23 @@ class BorsapyCalendarProvider:
                 except Exception as e:
                     logger.error(f"Error fetching events for country {country_code}: {e}")
                     continue
+
+            # borsapy's calendar feed has gone silent -- it returns an empty frame for
+            # every country and period, while doviz.com still publishes the calendar.
+            # Scrape the page directly rather than reporting an empty week.
+            if not all_raw_events:
+                logger.warning("borsapy calendar returned no events; scraping doviz.com")
+                try:
+                    scraped = await self._scrape_doviz_events()
+                    all_raw_events = [
+                        e for e in scraped if e["country_code"] in countries
+                    ]
+                    actual_countries_covered = sorted(
+                        {e["country_code"] for e in all_raw_events}
+                    )
+                    logger.info(f"Scraped {len(all_raw_events)} events from doviz.com")
+                except Exception as e:
+                    logger.error(f"doviz.com calendar scrape failed: {e}")
 
             # Parse date range for filtering
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")

@@ -1227,15 +1227,14 @@ async def get_economic_calendar(
             "country_filter": country
         }
 
-        # borsapy's calendar feed currently returns zero rows for every country and
-        # period. An empty list reads as "no events scheduled", which is a different
-        # (and wrong) claim, so say which one it is.
+        # An empty list reads as "nothing is scheduled", which is a far stronger claim
+        # than "nothing came back". Say which one this is.
         if not events:
             payload["warnings"] = [
-                "The upstream economic calendar feed (borsapy/doviz.com) is returning "
-                "no events for any country or period, so this is a data-source outage "
-                "rather than a genuinely empty calendar. Do not report it as 'no events "
-                "scheduled'."
+                "No events returned. This may be a data-source problem rather than a "
+                "genuinely empty calendar, so do not report it as 'no events scheduled'. "
+                "Note that importance defaults to 'high': pass importance='low' to widen "
+                "the search before concluding anything."
             ]
 
         return shape(payload)
