@@ -206,6 +206,152 @@ class FredCpiProvider:
         # Implemented in the next task. Until then there is no second leg.
         return None
 
+    def _envelope(self, series: IndexSeries) -> dict:
+        spec = self.SERIES[series.region]
+        warnings = list(series.warnings)
+        if series.degraded:
+            warnings.append(
+                f"Served from a fallback source ({series.source}); the primary "
+                f"source (FRED) was unavailable."
+            )
+        return {
+            "region": series.region,
+            "currency": spec.currency,
+            "source": series.source,
+            "series_end": series.last_month,
+            "warnings": warnings,
+        }
+
+    async def get_inflation_data(
+        self,
+        region: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> dict:
+        """`rate` is year-over-year %, `change` is month-over-month %."""
+        series = await self.get_index_series(region)
+        values = series.values
+        months = sorted(values)
+
+        rows = []
+        for i, month in enumerate(months):
+            change = None
+            if i > 0 and months_between(months[i - 1], month) == 1:
+                change = (values[month] / values[months[i - 1]] - 1) * 100
+
+            year_ago = f"{int(month[:4]) - 1}-{month[5:7]}"
+            rate = None
+            if year_ago in values:
+                rate = (values[month] / values[year_ago] - 1) * 100
+
+            if start_date and month < start_date[:7]:
+                continue
+            if end_date and month > end_date[:7]:
+                continue
+
+            rows.append({
+                "date": month,
+                "rate": rate,
+                "change": change,
+                "cumulative": None,
+            })
+
+        if limit:
+            rows = rows[-limit:]
+
+        out = self._envelope(series)
+        out["inflation_data"] = rows
+        return out
+
+    async def calculate_inflation(
+        self,
+        region: str,
+        start_year: int,
+        start_month: int,
+        end_year: int,
+        end_month: int,
+        basket_value: float = 100.0,
+    ) -> dict:
+        if basket_value <= 0:
+            raise ValueError("basket_value must be greater than 0.")
+
+        start = f"{start_year}-{start_month:02d}"
+        end = f"{end_year}-{end_month:02d}"
+        span = months_between(start, end)
+        if span <= 0:
+            raise ValueError(f"Start period {start} must be before end period {end}.")
+
+        series = await self.get_index_series(region)
+        values = series.values
+
+        # Never substitute a neighbouring month: a caller asking about 1975-03 and
+        # silently getting 1996-01 back would be handed a confident wrong number.
+        for period in (start, end):
+            if period not in values:
+                raise ValueError(
+                    f"{period} is not available in the {region.upper()} series "
+                    f"({series.first_month} to {series.last_month})."
+                )
+
+        out = self._envelope(series)
+        warnings = out["warnings"]
+
+        # A hole inside the interval is reported but does not block the result:
+        # the ratio is computed from the two endpoints and never reads the
+        # interior. The holes are also real rather than symptoms of a broken
+        # feed -- BLS never published the October 2025 CPI (the government
+        # shutdown), so it is permanently absent from the official series.
+        missing = []
+        for i in range(1, span):
+            y, m = divmod((start_year * 12 + start_month - 1) + i, 12)
+            month = f"{y}-{m + 1:02d}"
+            if month not in values:
+                missing.append(month)
+        if missing:
+            shown = ", ".join(missing[:6]) + (" …" if len(missing) > 6 else "")
+            warnings.append(
+                f"The {region.upper()} series has no observation for "
+                f"{len(missing)} month(s) inside the interval ({shown}). The "
+                f"result is computed from the two endpoints and is unaffected."
+            )
+
+        ratio = values[end] / values[start]
+
+        annualized = None
+        if span >= 12:
+            annualized = (ratio ** (12 / span) - 1) * 100
+        else:
+            warnings.append(
+                "annualized_compound_change is reported only for intervals of at "
+                "least 12 months; on a non-seasonally-adjusted index a shorter "
+                "interval would annualize seasonal movement as if it were inflation."
+            )
+
+        if start_month != end_month:
+            warnings.append(
+                f"Start ({start}) and end ({end}) fall in different calendar "
+                f"months. These indices are not seasonally adjusted, so the "
+                f"comparison carries a seasonal component."
+            )
+
+        warnings.append(
+            "Index values are monthly averages, not prices on a specific day."
+        )
+
+        out["calculation"] = {
+            "start_period": start,
+            "end_period": end,
+            "initial_value": basket_value,
+            "final_value": basket_value * ratio,
+            "cumulative_inflation": (ratio - 1) * 100,
+            "period_months": span,
+            "start_index": values[start],
+            "end_index": values[end],
+            "annualized_compound_change": annualized,
+        }
+        return out
+
     def _annotate_freshness(self, series: IndexSeries, today: date) -> None:
         """Staleness must be an observable fact, not an assumption.
 
