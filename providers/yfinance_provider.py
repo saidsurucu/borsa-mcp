@@ -285,15 +285,18 @@ class YahooFinanceProvider:
                 # Try to get upgrades_downgrades which has individual recommendations
                 upgrades = ticker.upgrades_downgrades
                 if upgrades is not None and not upgrades.empty:
-                    # Take last 20 recommendations
-                    recent_recs = upgrades.tail(20)
+                    # yfinance indexes this by GradeDate descending (newest first),
+                    # so the 20 most recent rows are at the head, not the tail.
+                    recent_recs = upgrades.sort_index(ascending=False).head(20)
                     for index, row in recent_recs.iterrows():
+                        price_target = row.get('currentPriceTarget')
                         tavsiye = AnalistTavsiyesi(
                             tarih=index.to_pydatetime() if hasattr(index, 'to_pydatetime') else index,
                             firma=row.get('Firm', 'Unknown'),
-                            guncel_derece=row.get('To Grade', 'Unknown'),
-                            onceki_derece=row.get('From Grade'),
-                            aksiyon=row.get('Action')
+                            guncel_derece=row.get('ToGrade', 'Unknown'),
+                            onceki_derece=row.get('FromGrade'),
+                            aksiyon=row.get('Action'),
+                            fiyat_hedefi=float(price_target) if price_target else None
                         )
                         tavsiyeler.append(tavsiye)
             except Exception as e:

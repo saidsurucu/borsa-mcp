@@ -20,23 +20,16 @@ from models import (
 
 logger = logging.getLogger(__name__)
 
-# Period mapping: yfinance format -> borsapy format
-PERIOD_MAPPING = {
-    "1d": "1g",
-    "5d": "5g",
-    "1mo": "1ay",
-    "3mo": "3ay",
-    "6mo": "6ay",
-    "1y": "1y",
-    "2y": "2y",
-    "5y": "5y",
-    "10y": "10y",
-    "ytd": "ytd",
-    "max": "max",
+# borsapy takes yfinance-style periods natively. It does NOT reject unknown
+# values -- it silently falls back to a ~30-bar default -- so anything not in
+# this set must be caught here rather than passed through.
+SUPPORTED_PERIODS = {
+    "1d": 1, "5d": 5, "1mo": 30, "3mo": 90, "6mo": 180,
+    "1y": 365, "2y": 730, "5y": 1825, "10y": 3650,
+    "ytd": 180, "max": 3650,
 }
 
-# Reverse mapping for internal use
-PERIOD_MAPPING_REVERSE = {v: k for k, v in PERIOD_MAPPING.items()}
+DEFAULT_PERIOD = "1mo"
 
 
 class BorsapyProvider:
@@ -49,14 +42,17 @@ class BorsapyProvider:
         """Returns a borsapy Ticker object (no suffix needed for BIST)."""
         return bp.Ticker(ticker_kodu.upper().strip())
 
-    def _convert_period(self, period: str) -> str:
-        """Converts yfinance period format to borsapy format."""
+    def _normalize_period(self, period: str) -> str:
+        """Validates a period against what borsapy actually accepts."""
         if period is None:
-            return "1ay"  # default
+            return DEFAULT_PERIOD
         # Handle YFinancePeriodEnum
         if hasattr(period, 'value'):
             period = period.value
-        return PERIOD_MAPPING.get(period, period)
+        if period not in SUPPORTED_PERIODS:
+            logger.warning(f"Unsupported period '{period}', falling back to {DEFAULT_PERIOD}")
+            return DEFAULT_PERIOD
+        return period
 
     def _financial_statement_to_dict_list(self, df) -> List[Dict[str, Any]]:
         """
@@ -208,16 +204,9 @@ class BorsapyProvider:
                     time_frame_days = 30
             else:
                 # Period mode
-                borsapy_period = self._convert_period(period)
+                borsapy_period = self._normalize_period(period)
                 hist_df = ticker.history(period=borsapy_period, adjust=adjust)
-
-                # Map periods to approximate days
-                period_days_map = {
-                    "1g": 1, "5g": 5, "1ay": 30, "3ay": 90,
-                    "6ay": 180, "1y": 365, "2y": 730, "5y": 1825, "10y": 3650,
-                    "ytd": 180, "max": 3650
-                }
-                time_frame_days = period_days_map.get(borsapy_period, 30)
+                time_frame_days = SUPPORTED_PERIODS[borsapy_period]
 
             if hist_df is None or hist_df.empty:
                 return {"error": f"No data found for {ticker_kodu}"}

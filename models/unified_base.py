@@ -842,8 +842,13 @@ class SectorComparisonResult(BaseModel):
     symbol: str
     sector: Optional[str] = None
     industry: Optional[str] = None
-    sector_average_pe: Optional[float] = None
-    sector_average_pb: Optional[float] = None
+    sector_median_pe: Optional[float] = Field(
+        None,
+        description="Median P/E across sector peers. Median, not mean: a single "
+                    "loss-recovering peer can carry a P/E in the thousands and would "
+                    "drag a mean far away from anything representative."
+    )
+    sector_median_pb: Optional[float] = Field(None, description="Median P/B across sector peers.")
     peers: List[SectorStock] = Field(default_factory=list)
 
 
