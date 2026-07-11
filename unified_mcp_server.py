@@ -1642,25 +1642,41 @@ async def get_index_data(
 
 MacroDataTypeLiteral = Literal["inflation", "calculate"]
 InflationTypeLiteral = Literal["tufe", "ufe"]
+MacroRegionLiteral = Literal["tr", "us", "eu"]
 
 
 @app.tool(
     name="get_macro_data",
     title="Macro Inflation Data",
-    description="Get Turkish TÜFE/ÜFE inflation data or calculate cumulative inflation between dates.",
+    description=(
+        "Inflation data and cumulative purchasing-power calculation for Turkey "
+        "(TÜFE/ÜFE), the US (CPI-U), or the euro area (HICP)."
+    ),
     tags={"macro", "inflation"},
     output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_macro_data(
     data_type: Annotated[MacroDataTypeLiteral, Field(
-        description="Data type: 'inflation' for TÜFE/ÜFE rates, 'calculate' for cumulative calculation",
+        description="Data type: 'inflation' for rates, 'calculate' for cumulative calculation",
         examples=["inflation", "calculate"]
     )],
+    region: Annotated[MacroRegionLiteral, Field(
+        description=(
+            "Region: 'tr' (TÜFE/ÜFE, TRY), 'us' (CPI-U, USD), 'eu' (HICP, EUR). "
+            "US and EU publish a headline index only, so inflation_type does not "
+            "apply there."
+        ),
+        default="tr",
+        examples=["tr", "us", "eu"]
+    )] = "tr",
     inflation_type: Annotated[Optional[InflationTypeLiteral], Field(
-        description="Inflation type for 'inflation' mode: tufe (CPI) or ufe (PPI)",
-        default="tufe"
-    )] = "tufe",
+        description=(
+            "TR only: tufe (CPI) or ufe (PPI). Defaults to tufe for region='tr'; "
+            "supplying it with region='us'/'eu' is an error."
+        ),
+        default=None
+    )] = None,
     start_date: Annotated[Optional[str], Field(
         description="Start date for inflation data (YYYY-MM-DD)",
         pattern=r"^\d{4}-\d{2}-\d{2}$",
@@ -1672,9 +1688,8 @@ async def get_macro_data(
         default=None
     )] = None,
     start_year: Annotated[Optional[int], Field(
-        description="Start year for calculation mode",
-        ge=2000,
-        le=2030,
+        description="Start year for calculation mode (US series reaches back to 1913)",
+        ge=1913,
         default=None
     )] = None,
     start_month: Annotated[Optional[int], Field(
@@ -1685,8 +1700,7 @@ async def get_macro_data(
     )] = None,
     end_year: Annotated[Optional[int], Field(
         description="End year for calculation mode",
-        ge=2000,
-        le=2030,
+        ge=1913,
         default=None
     )] = None,
     end_month: Annotated[Optional[int], Field(
@@ -1708,18 +1722,24 @@ async def get_macro_data(
     )] = None
 ) -> str:
     """
-    Get Turkish macro economic data (inflation).
+    Get macro economic inflation data.
 
     Modes:
-    1. Inflation data: Get historical TÜFE (CPI) or ÜFE (PPI) rates
-    2. Calculate: Compute cumulative inflation between two dates
+    1. inflation: historical rates (TR: TÜFE/ÜFE, US: CPI-U, EU: HICP)
+    2. calculate: cumulative inflation and purchasing power between two months
+
+    Index values are monthly averages, not prices on a specific day.
 
     Examples:
     - get_macro_data("inflation") → Latest TÜFE rates
-    - get_macro_data("inflation", "ufe", limit=24) → Last 24 months ÜFE
+    - get_macro_data("inflation", inflation_type="ufe", limit=24) → Last 24 months ÜFE
     - get_macro_data("calculate", start_year=2020, start_month=1, end_year=2024, end_month=12)
+      → 100 TL in 2020-01 is 601.31 TL in 2024-12
+    - get_macro_data("calculate", region="us", start_year=2010, start_month=1,
+      end_year=2026, end_month=5) → $100 in 2010-01 is $154.66 in 2026-05
+    - get_macro_data("inflation", region="eu", limit=12) → Last 12 months euro-area HICP
     """
-    logger.info(f"get_macro_data: data_type='{data_type}'")
+    logger.info(f"get_macro_data: data_type='{data_type}', region='{region}'")
     try:
         return shape(await market_router.get_macro_data(
             data_type=data_type,
@@ -1731,7 +1751,8 @@ async def get_macro_data(
             end_year=end_year,
             end_month=end_month,
             basket_value=basket_value,
-            limit=limit
+            limit=limit,
+            region=region,
         ))
     except Exception as e:
         logger.exception("Error in get_macro_data")
