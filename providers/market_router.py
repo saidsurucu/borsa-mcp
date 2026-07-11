@@ -2531,7 +2531,7 @@ class MarketRouter:
     async def get_macro_data(
         self,
         data_type: str,  # inflation, calculate
-        inflation_type: Optional[str] = "tufe",
+        inflation_type: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         start_year: Optional[int] = None,
@@ -2539,9 +2539,134 @@ class MarketRouter:
         end_year: Optional[int] = None,
         end_month: Optional[int] = None,
         basket_value: float = 100.0,
-        limit: Optional[int] = None
+        limit: Optional[int] = None,
+        *,
+        region: str = "tr",
     ) -> Dict[str, Any]:
-        """Get Turkish macro economic data. Returns raw dict."""
+        """Inflation data for Turkey, the US, or the euro area. Returns raw dict.
+
+        `region` is keyword-only on purpose: adding it positionally would
+        reinterpret an existing get_macro_data("inflation", "ufe") call.
+        """
+        if region not in ("tr", "us", "eu"):
+            raise ValueError(f"Unknown region '{region}'. Supported: tr, us, eu.")
+
+        if region in ("us", "eu"):
+            return await self._get_macro_data_global(
+                region=region,
+                data_type=data_type,
+                inflation_type=inflation_type,
+                start_date=start_date,
+                end_date=end_date,
+                start_year=start_year,
+                start_month=start_month,
+                end_year=end_year,
+                end_month=end_month,
+                basket_value=basket_value,
+                limit=limit,
+            )
+
+        return await self._get_macro_data_tr(
+            data_type=data_type,
+            inflation_type=inflation_type or "tufe",
+            start_date=start_date,
+            end_date=end_date,
+            start_year=start_year,
+            start_month=start_month,
+            end_year=end_year,
+            end_month=end_month,
+            basket_value=basket_value,
+            limit=limit,
+        )
+
+    async def _get_macro_data_global(
+        self,
+        region: str,
+        data_type: str,
+        inflation_type: Optional[str],
+        start_date: Optional[str],
+        end_date: Optional[str],
+        start_year: Optional[int],
+        start_month: Optional[int],
+        end_year: Optional[int],
+        end_month: Optional[int],
+        basket_value: float,
+        limit: Optional[int],
+    ) -> Dict[str, Any]:
+        """US CPI-U / euro-area HICP via FredCpiProvider."""
+        from providers.fred_cpi_provider import FredCpiProvider
+
+        if not hasattr(self, "_fred_provider"):
+            self._fred_provider = FredCpiProvider()
+        p = self._fred_provider
+
+        # Rejected, not ignored: US/EU publish only a headline index, and a caller
+        # who asked for PPI should learn they did not get it.
+        if inflation_type is not None:
+            raise ValueError(
+                f"inflation_type is not supported for region='{region}': only a "
+                f"headline consumer price index is published "
+                f"({'CPI-U' if region == 'us' else 'HICP'}). Omit the parameter, "
+                f"or use region='tr' for the TÜFE/ÜFE distinction."
+            )
+
+        spec = FredCpiProvider.SERIES[region]
+        for year in (start_year, end_year):
+            if year is not None and year < spec.start_year:
+                raise ValueError(
+                    f"The {region.upper()} series starts in {spec.start_year}; "
+                    f"{year} is before it."
+                )
+
+        if data_type == "inflation":
+            payload = await p.get_inflation_data(
+                region=region,
+                start_date=start_date,
+                end_date=end_date,
+                limit=limit,
+            )
+            payload["calculation"] = None
+        elif data_type == "calculate":
+            if not all([start_year, start_month, end_year, end_month]):
+                raise ValueError(
+                    "calculate mode requires start_year, start_month, end_year "
+                    "and end_month."
+                )
+            payload = await p.calculate_inflation(
+                region=region,
+                start_year=start_year,
+                start_month=start_month,
+                end_year=end_year,
+                end_month=end_month,
+                basket_value=basket_value,
+            )
+            payload["inflation_data"] = None
+        else:
+            raise ValueError(
+                f"Unknown data_type '{data_type}'. Supported: inflation, calculate."
+            )
+
+        payload["metadata"] = self._create_metadata(
+            MarketType.FX, [data_type], payload["source"]
+        )
+        payload["data_type"] = data_type
+        payload["inflation_type"] = None
+        return payload
+
+    async def _get_macro_data_tr(
+        self,
+        data_type: str,
+        inflation_type: str,
+        start_date: Optional[str],
+        end_date: Optional[str],
+        start_year: Optional[int],
+        start_month: Optional[int],
+        end_year: Optional[int],
+        end_month: Optional[int],
+        basket_value: float,
+        limit: Optional[int],
+    ) -> Dict[str, Any]:
+        """Turkish TÜFE/ÜFE via TCMB. Returns raw dict."""
         source = "tcmb"
         inflation_data = None
         calculation = None
@@ -2628,6 +2753,9 @@ class MarketRouter:
         return {
             "metadata": self._create_metadata(MarketType.FX, [data_type], source),
             "data_type": data_type,
+            "region": "tr",
+            "currency": "TRY",
+            "source": "TCMB",
             "inflation_type": inflation_type if data_type == "inflation" else None,
             "inflation_data": inflation_data,
             "calculation": calculation

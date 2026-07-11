@@ -925,15 +925,26 @@ class InflationCalculation(BaseModel):
     final_value: float
     cumulative_inflation: float
     period_months: int
+    start_index: Optional[float] = None
+    end_index: Optional[float] = None
+    # Named for what it is: on a non-seasonally-adjusted index, annualizing a
+    # short interval annualizes seasonality along with inflation. Emitted only
+    # for intervals of at least 12 months.
+    annualized_compound_change: Optional[float] = None
 
 
 class MacroDataResult(BaseModel):
     """Result of macro data query."""
     metadata: UnifiedMetadata
     data_type: str  # inflation, calculate
-    inflation_type: Optional[str] = None  # tufe, ufe
+    region: str = "tr"  # tr, us, eu
+    currency: Optional[str] = None  # TRY, USD, EUR
+    source: Optional[str] = None  # which upstream actually answered
+    series_end: Optional[str] = None  # last observed month, YYYY-MM
+    inflation_type: Optional[str] = None  # tufe, ufe (TR only)
     inflation_data: Optional[List[InflationData]] = None
     calculation: Optional[InflationCalculation] = None
+    warnings: Optional[List[str]] = None
 
 
 # --- Screener Help Result ---
