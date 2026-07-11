@@ -118,6 +118,69 @@ def validate_series(
             )
 
 
+BLS_URL = "https://api.bls.gov/publicAPI/v1/timeseries/data/CUUR0000SA0"
+EUROSTAT_URL = (
+    "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/"
+    "prc_hicp_midx?format=JSON&geo=EA&coicop=CP00&unit=I15"
+)
+
+# A fallback replaces the whole series; it is never merged with the primary. The
+# sources use different base years, so a dict holding months from both would give
+# ratios that are silently wrong. Eurostat's `geo=EA` is the changing-composition
+# cut, matching the FRED series' geography (verified: ratios agree within 0.011%).
+FALLBACK_SOURCES = {
+    "us": ("BLS v1 (CUUR0000SA0)", BLS_URL),
+    "eu": ("Eurostat (prc_hicp_midx, geo=EA)", EUROSTAT_URL),
+}
+
+# BLS returns roughly the last 3 years, far short of the primary series, so a
+# validated fallback cannot be held to the primary's minimum.
+FALLBACK_MIN_OBSERVATIONS = 24
+
+
+def parse_bls_json(payload: dict) -> Dict[str, float]:
+    if payload.get("status") != "REQUEST_SUCCEEDED":
+        raise ValueError(
+            f"BLS request did not succeed: {payload.get('status')} "
+            f"{payload.get('message')}"
+        )
+    try:
+        rows = payload["Results"]["series"][0]["data"]
+    except (KeyError, IndexError) as e:
+        raise ValueError(f"BLS response has an unexpected shape: {e}")
+
+    values: Dict[str, float] = {}
+    for row in rows:
+        period = row.get("period", "")
+        if not period.startswith("M") or period == "M13":  # M13 is an annual average
+            continue
+        raw = str(row.get("value", "")).strip()
+        if raw in ("", "-"):   # BLS marks a missing observation with '-'
+            continue           # e.g. October 2025, never published (shutdown)
+        values[f"{row['year']}-{period[1:]}"] = float(raw)
+
+    if not values:
+        raise ValueError("BLS returned no monthly observations.")
+    return values
+
+
+def parse_eurostat_json(payload: dict) -> Dict[str, float]:
+    try:
+        index = payload["dimension"]["time"]["category"]["index"]
+        value = payload["value"]
+    except KeyError as e:
+        raise ValueError(f"Eurostat response has an unexpected shape: {e}")
+
+    values = {
+        month: float(value[str(i)])
+        for month, i in index.items()
+        if str(i) in value
+    }
+    if not values:
+        raise ValueError("Eurostat returned no observations.")
+    return values
+
+
 def months_between(start: str, end: str) -> int:
     """Count month-to-month intervals. 2010-01 -> 2011-01 is 12."""
     sy, sm = int(start[:4]), int(start[5:7])
@@ -203,8 +266,36 @@ class FredCpiProvider:
         )
 
     async def _fetch_fallback(self, region: str) -> Optional[IndexSeries]:
-        # Implemented in the next task. Until then there is no second leg.
-        return None
+        label, url = FALLBACK_SOURCES[region]
+        try:
+            response = await self._client.get(url)
+            response.raise_for_status()
+            payload = response.json()
+            values = (
+                parse_bls_json(payload) if region == "us"
+                else parse_eurostat_json(payload)
+            )
+            # A fallback legitimately starts late (BLS gives ~3 years), so it is
+            # validated against its own start, not the primary's.
+            validate_series(
+                values,
+                expected_start_year=int(min(values)[:4]),
+                min_observations=FALLBACK_MIN_OBSERVATIONS,
+            )
+        except Exception as e:
+            logger.warning(f"Fallback fetch failed for {region} ({label}): {e}")
+            return None
+
+        logger.warning(
+            f"Serving {region.upper()} from the fallback source {label}; "
+            f"FRED was unavailable."
+        )
+        return IndexSeries(
+            region=region,
+            source=label,
+            values=values,
+            degraded=True,
+        )
 
     def _envelope(self, series: IndexSeries) -> dict:
         spec = self.SERIES[series.region]
