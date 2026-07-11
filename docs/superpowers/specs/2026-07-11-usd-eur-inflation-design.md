@@ -37,6 +37,16 @@ dissemination stopped at 2025-12.
   last 3 years, so it is a degraded-but-alive path, not an equal substitute.
 - `eu` → Eurostat `prc_hicp_midx` (JSON-stat: `geo=EA`, `coicop=CP00`, `unit=I15`).
 
+Two rules keep the fallbacks from producing quietly wrong numbers:
+
+1. **A fallback replaces the whole series; it never merges into one.** FRED's euro series and
+   Eurostat's use different base years, so a dict holding months from both would yield ratios that
+   are silently garbage. The cache entry records which source produced it.
+2. **The BLS fallback only spans ~3 years, and a calculation reaching past that must fail, not
+   truncate.** If the requested start month is missing from the fallback series, the provider raises
+   and says the source is degraded — computing "$100 in 2010" off a series that begins in 2023 would
+   return a confident wrong answer, which is worse than an error.
+
 The fallbacks are deliberate, not speculative. This repository has already been burned by an
 upstream feed that died silently — borsapy's economic-calendar endpoint began returning an empty
 DataFrame for every query, and the failure was invisible because nothing raised. FRED's CSV export
@@ -116,6 +126,9 @@ response with an empty body. The failure modes that must raise, not degrade:
 
 - FRED and the fallback both unreachable → `DataNotAvailableError`.
 - Requested period outside the series → `ValueError` naming the available range.
+- Requested period outside a *degraded fallback* series (e.g. BLS's 3-year window) →
+  `DataNotAvailableError` stating that the primary source is down and the fallback does not reach
+  that far back.
 - `start >= end` → `ValueError`.
 
 ## Backward compatibility
