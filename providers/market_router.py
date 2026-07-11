@@ -390,6 +390,9 @@ class MarketRouter:
         source = "unknown"
         data_points = []
 
+        bar_interval = None
+        raw_count = None
+
         if market == MarketType.BIST:
             source = "borsapy"
             ticker = self._get_ticker_with_suffix(symbol, market)
@@ -400,6 +403,13 @@ class MarketRouter:
                 end_date=end_date,
                 adjust=adjust
             )
+            # get_finansal_veri reports upstream failures as {"error": ...}. Falling
+            # through would return an empty-but-successful payload, which reads as
+            # "this ticker has no price history".
+            if result and result.get("error"):
+                raise RuntimeError(result["error"])
+            if result and result.get("optimizasyon_uygulandı"):
+                raw_count = result.get("ham_veri_sayisi")
             if result and result.get("data"):
                 for dp in result["data"]:
                     date_val = dp.get("tarih")
@@ -485,7 +495,7 @@ class MarketRouter:
             except Exception as e:
                 logger.warning(f"FX historical data error for {symbol}: {e}")
 
-        return {
+        result_dict = {
             "metadata": self._create_metadata(market, symbol, source),
             "symbol": symbol.upper(),
             "period": period,
@@ -494,6 +504,42 @@ class MarketRouter:
             "data": data_points,
             "data_points": len(data_points)
         }
+
+        # Ranges longer than a month are resampled to weekly/monthly bars to bound
+        # response size. Without saying so, rows spaced 7 or 30 days apart look like
+        # daily candles with gaps, and any indicator computed off them is wrong.
+        if raw_count and len(data_points) < raw_count:
+            bar_interval = self._infer_bar_interval(data_points)
+            result_dict["bar_interval"] = bar_interval
+            result_dict["warnings"] = [
+                f"Resampled from {raw_count} daily bars to {len(data_points)} "
+                f"{bar_interval} bars to bound response size. These are NOT daily "
+                f"candles. For daily bars, request a period of 1mo or shorter, or pass "
+                f"an explicit start_date/end_date range."
+            ]
+
+        return result_dict
+
+    @staticmethod
+    def _infer_bar_interval(data_points: List[Dict[str, Any]]) -> str:
+        """Infer bar spacing from the last two data points."""
+        if len(data_points) < 2:
+            return "unknown"
+        try:
+            from datetime import datetime
+            a = datetime.fromisoformat(str(data_points[-2]["date"]))
+            b = datetime.fromisoformat(str(data_points[-1]["date"]))
+            gap = (b - a).days
+        except Exception:
+            return "unknown"
+
+        if gap <= 3:
+            return "daily"
+        if gap <= 10:
+            return "weekly"
+        if gap <= 45:
+            return "monthly"
+        return "quarterly"
 
     # --- Technical Analysis ---
 
@@ -836,7 +882,9 @@ class MarketRouter:
                         ratings.append({
                             "firm": getattr(r, 'firma', None),
                             "rating": getattr(r, 'guncel_derece', None),
-                            "price_target": None,
+                            "previous_rating": getattr(r, 'onceki_derece', None),
+                            "action": getattr(r, 'aksiyon', None),
+                            "price_target": getattr(r, 'fiyat_hedefi', None),
                             "date": str(date_str) if date_str else None
                         })
 
@@ -1641,6 +1689,7 @@ class MarketRouter:
         orderbook = None
         trades = None
         exchange_info = None
+        ohlc = None
 
         if exchange == ExchangeType.BTCTURK:
             if data_type == DataType.TICKER:
@@ -1691,6 +1740,20 @@ class MarketRouter:
                         "pairs_count": result.total_pairs,
                         "currencies_count": result.total_currencies
                     }
+            elif data_type == DataType.OHLC:
+                result = await self._client.get_kripto_ohlc(symbol)
+                if result and result.ohlc_data:
+                    ohlc = [
+                        {
+                            "date": c.time.isoformat() if c.time else None,
+                            "open": c.open,
+                            "high": c.high,
+                            "low": c.low,
+                            "close": c.close,
+                            "volume": c.volume,
+                        }
+                        for c in result.ohlc_data
+                    ]
 
         elif exchange == ExchangeType.COINBASE:
             if data_type == DataType.TICKER:
@@ -1741,6 +1804,26 @@ class MarketRouter:
                         "products_count": result.total_pairs,
                         "currencies_count": result.total_currencies
                     }
+            elif data_type == DataType.OHLC:
+                result = await self._client.get_coinbase_ohlc(symbol, granularity="ONE_DAY")
+                if result and result.candles:
+                    ohlc = [
+                        {
+                            "date": c.start.isoformat() if c.start else None,
+                            "open": c.open,
+                            "high": c.high,
+                            "low": c.low,
+                            "close": c.close,
+                            "volume": c.volume,
+                        }
+                        for c in result.candles
+                    ]
+
+        # BtcTurk returns candles oldest-first, Coinbase newest-first. Normalize to
+        # chronological order before capping, so the cap keeps the most recent bars.
+        if ohlc:
+            ohlc.sort(key=lambda c: c["date"] or "")
+            ohlc = ohlc[-100:]
 
         return {
             "metadata": self._create_metadata(market, symbol, source),
@@ -1748,7 +1831,8 @@ class MarketRouter:
             "ticker": ticker,
             "orderbook": orderbook,
             "trades": trades,
-            "exchange_info": exchange_info
+            "exchange_info": exchange_info,
+            "ohlc": ohlc
         }
 
     # --- FX Data ---
@@ -1849,6 +1933,12 @@ class MarketRouter:
         try:
             fund = await loop.run_in_executor(None, bp.Fund, symbol.upper())
             info = await loop.run_in_executor(None, lambda: fund.info)
+
+            if not info:
+                raise ValueError(
+                    f"No data for fund: {symbol.upper()}. The code may be delisted or "
+                    f"misspelled - use search_symbol(market='fund') to find valid codes."
+                )
 
             if info:
                 # Calculate weekly return from history if not provided
@@ -1961,7 +2051,11 @@ class MarketRouter:
                         )
 
         except Exception as e:
+            # Do not swallow: an unknown/delisted fund code makes borsapy raise
+            # DataNotAvailableError, and returning an empty-but-successful payload
+            # here reads to a caller as "fund exists, has no data".
             logger.warning(f"borsapy fund error for {symbol}: {e}")
+            raise
 
         result = {
             "metadata": self._create_metadata(MarketType.FUND, symbol, source),
@@ -1989,26 +2083,57 @@ class MarketRouter:
         components = []
 
         if market == MarketType.BIST:
-            source = "kap"
-            result = await self._client.search_indices_from_kap(code)
-            if result and result.sonuclar:
-                idx = result.sonuclar[0]
-                index_info = {
-                    "code": idx.endeks_kodu,
-                    "name": idx.endeks_adi,
-                    "market": "bist"
-                }
+            # borsapy is the only source here that carries the index *level*. KAP's
+            # index search returns the code/name only, which is why this tool used
+            # to answer without a price at all.
+            source = "borsapy"
+            import borsapy as bp
+            loop = asyncio.get_event_loop()
+            idx_code = code.upper().strip()
+
+            index_obj = await loop.run_in_executor(None, bp.Index, idx_code)
+            info = await loop.run_in_executor(None, lambda: index_obj.info)
+
+            if not info:
+                raise ValueError(
+                    f"No data for index: {idx_code}. Use a BIST index code such as "
+                    f"XU100, XU030, or XBANK."
+                )
+
+            index_info = {
+                "code": info.get("symbol") or idx_code,
+                "name": info.get("name") or info.get("description"),
+                "market": "bist",
+                "value": info.get("last"),
+                "change": info.get("change"),
+                "change_percent": info.get("change_percent"),
+                "open": info.get("open"),
+                "high": info.get("high"),
+                "low": info.get("low"),
+                "previous_close": info.get("prev_close"),
+                "volume": info.get("volume"),
+            }
 
             if include_components:
-                result = await self._client.get_endeks_sirketleri(code)
-                if result and result.sirketler:
-                    for s in result.sirketler:
-                        components.append({
-                            "symbol": s.ticker_kodu,
-                            "name": s.sirket_adi,
-                            "weight": None,
-                            "sector": None
-                        })
+                symbols = await loop.run_in_executor(None, lambda: index_obj.component_symbols)
+
+                # Enrich with company names from KAP's cached list (borsapy returns
+                # bare tickers). Names are a nicety; a KAP miss must not drop the row.
+                names = {}
+                try:
+                    companies = await self._client.kap_provider.get_all_companies()
+                    names = {c.ticker_kodu: c.sirket_adi for c in companies}
+                except Exception as e:
+                    logger.warning(f"Could not load KAP names for index components: {e}")
+
+                for s in (symbols or []):
+                    components.append({
+                        "symbol": s,
+                        "name": names.get(s),
+                        "weight": None,
+                        "sector": None
+                    })
+                index_info["components_count"] = len(components)
 
         elif market == MarketType.US:
             source = "yfinance"
@@ -2033,6 +2158,93 @@ class MarketRouter:
 
     # --- Sector Comparison ---
 
+    # BIST sector indices, narrowest first so a bank resolves to XBANK (12 members)
+    # rather than the broad XUMAL (150). XILTM is tiny but still the right bucket.
+    _SECTOR_INDICES = [
+        "XILTM", "XBANK", "XELKT", "XUTEK", "XGIDA",
+        "XHOLD", "XUHIZ", "XUMAL", "XUSIN",
+    ]
+    _MAX_PEERS = 24
+
+    async def _bist_sector_peers(self, target: str) -> tuple:
+        """Resolve a BIST ticker to its sector index and that index's other members."""
+        import borsapy as bp
+        loop = asyncio.get_event_loop()
+
+        if not getattr(self, "_sector_membership", None):
+            def load(ix):
+                try:
+                    return ix, list(bp.Index(ix).component_symbols or [])
+                except Exception as e:
+                    logger.warning(f"Could not load components for {ix}: {e}")
+                    return ix, []
+
+            pairs = await asyncio.gather(
+                *(loop.run_in_executor(None, load, ix) for ix in self._SECTOR_INDICES)
+            )
+            self._sector_membership = dict(pairs)
+
+        membership = self._sector_membership
+        sector_index = next(
+            (ix for ix in self._SECTOR_INDICES if target in membership.get(ix, [])),
+            None
+        )
+        if not sector_index:
+            return [], None
+
+        peers = [s for s in membership[sector_index] if s != target]
+
+        # Broad indices (XUSIN has 246 members) would be neither useful nor cheap to
+        # price, so narrow them to the liquid BIST-100 names before capping.
+        if len(peers) > self._MAX_PEERS:
+            try:
+                xu100 = set(
+                    await loop.run_in_executor(
+                        None, lambda: bp.Index("XU100").component_symbols or []
+                    )
+                )
+                liquid = [s for s in peers if s in xu100]
+                if liquid:
+                    peers = liquid
+            except Exception as e:
+                logger.warning(f"Could not narrow peers by XU100: {e}")
+
+        return peers[: self._MAX_PEERS], sector_index
+
+    # borsapy's screener returns one column per requested filter, with a stable id
+    # per criterion. Asking for all three gives every BIST stock's valuation in a
+    # single request -- fanning out Ticker.info per peer instead took ~50s.
+    _SCREENER_MARKET_CAP = "criteria_8"   # million TRY
+    _SCREENER_PE = "criteria_28"
+    _SCREENER_PB = "criteria_30"
+
+    async def _fetch_bist_metrics(self, symbols: List[str]) -> Dict[str, Dict[str, Any]]:
+        """Fetch valuation metrics for BIST tickers via one bulk screener call."""
+        import borsapy as bp
+        loop = asyncio.get_event_loop()
+
+        df = await loop.run_in_executor(
+            None,
+            lambda: bp.screen_stocks(pe_min=0, pb_min=0, market_cap_min=0)
+        )
+        if df is None or df.empty:
+            return {}
+
+        wanted = set(symbols)
+        metrics = {}
+        for _, row in df.iterrows():
+            sym = row.get("symbol")
+            if sym not in wanted:
+                continue
+            mcap = row.get(self._SCREENER_MARKET_CAP)
+            metrics[sym] = {
+                "name": row.get("name"),
+                "market_cap": float(mcap) * 1_000_000 if mcap else None,
+                "pe_ratio": row.get(self._SCREENER_PE),
+                "pb_ratio": row.get(self._SCREENER_PB),
+            }
+        return metrics
+
     async def get_sector_comparison(
         self,
         symbol: str,
@@ -2047,33 +2259,38 @@ class MarketRouter:
         avg_pb = None
 
         if market == MarketType.BIST:
-            ticker = self._get_ticker_with_suffix(symbol, market)
-            result = await self._client.get_sektor_karsilastirmasi_yfinance([ticker])
-            if result:
-                sirket_verileri = result.get("sirket_verileri", [])
-                if sirket_verileri:
-                    first_company = sirket_verileri[0]
-                    sector = first_company.get("sektor")
+            source = "borsapy"
+            target = symbol.upper().strip()
 
-                sektor_ozeti = result.get("sektor_ozeti", {})
-                if sektor_ozeti and sector:
-                    sector_data = sektor_ozeti.get(sector, {})
-                    avg_pe = sector_data.get("ortalama_fk")
-                    avg_pb = sector_data.get("ortalama_pd_dd")
+            # Peers come from the BIST sector index the stock actually belongs to.
+            # This used to pass [symbol] into a multi-stock comparison helper, so the
+            # "sector average" was just the stock's own P/E and it had no peers.
+            peer_symbols, sector_index = await self._bist_sector_peers(target)
+            sector = sector_index
 
-                for p in sirket_verileri:
-                    ticker_code = p.get("ticker", "").replace(".IS", "")
-                    company_name = p.get("sirket_adi") or ticker_code
-                    peers.append({
-                        "symbol": ticker_code,
-                        "name": company_name,
-                        "market_cap": p.get("piyasa_degeri"),
-                        "pe_ratio": p.get("fk_orani"),
-                        "pb_ratio": p.get("pd_dd"),
-                        "roe": p.get("roe"),
-                        "dividend_yield": None,
-                        "change_percent": float(p.get("yillik_getiri")) if p.get("yillik_getiri") else None
-                    })
+            metrics = await self._fetch_bist_metrics([target] + peer_symbols)
+
+            for sym, m in metrics.items():
+                peers.append({
+                    "symbol": sym,
+                    "name": m.get("name") or sym,
+                    "market_cap": m.get("market_cap"),
+                    "pe_ratio": m.get("pe_ratio"),
+                    "pb_ratio": m.get("pb_ratio"),
+                    "is_target": sym == target,
+                })
+
+            peers.sort(key=lambda p: p.get("market_cap") or 0, reverse=True)
+
+            # Median, not mean. A sector index routinely contains one peer trading at
+            # a P/E in the thousands (post-loss recovery), and a mean over that is not
+            # a number anyone should compare against.
+            import statistics
+
+            pes = [p["pe_ratio"] for p in peers if p.get("pe_ratio") and p["pe_ratio"] > 0]
+            pbs = [p["pb_ratio"] for p in peers if p.get("pb_ratio") and p["pb_ratio"] > 0]
+            avg_pe = round(statistics.median(pes), 2) if pes else None
+            avg_pb = round(statistics.median(pbs), 2) if pbs else None
 
         elif market == MarketType.US:
             result = await self._client.get_us_sector_comparison([symbol])
@@ -2100,8 +2317,8 @@ class MarketRouter:
             "symbol": symbol.upper(),
             "sector": sector,
             "industry": industry,
-            "sector_average_pe": avg_pe,
-            "sector_average_pb": avg_pb,
+            "sector_median_pe": avg_pe,
+            "sector_median_pb": avg_pb,
             "peers": peers
         }
 

@@ -1215,7 +1215,7 @@ async def get_economic_calendar(
                             "previous": e.get('prior')
                         })
 
-        return shape({
+        payload = {
             "metadata": {
                 "market": "fx",
                 "symbols": ["calendar"],
@@ -1225,7 +1225,20 @@ async def get_economic_calendar(
             "events": events,
             "period": period,
             "country_filter": country
-        })
+        }
+
+        # borsapy's calendar feed currently returns zero rows for every country and
+        # period. An empty list reads as "no events scheduled", which is a different
+        # (and wrong) claim, so say which one it is.
+        if not events:
+            payload["warnings"] = [
+                "The upstream economic calendar feed (borsapy/doviz.com) is returning "
+                "no events for any country or period, so this is a data-source outage "
+                "rather than a genuinely empty calendar. Do not report it as 'no events "
+                "scheduled'."
+            ]
+
+        return shape(payload)
     except Exception as e:
         logger.exception("Error in get_economic_calendar")
         raise classify_tool_error(e, "Economic calendar fetch")
@@ -1308,8 +1321,8 @@ async def get_bond_yields(
 )
 async def get_fund_data(
     symbol: Annotated[Union[str, List[str]], Field(
-        description="Single fund code or list of fund codes for comparison (max 10). Examples: 'AAK' or ['AAK', 'TI2', 'ZBE']",
-        examples=["AAK", ["AAK", "TI2", "ZBE"]]
+        description="Single fund code or list of fund codes for comparison (max 10). Examples: 'TPC' or ['TPC', 'TI2', 'NMG']",
+        examples=["TPC", ["TPC", "TI2", "NMG"]]
     )],
     include_portfolio: Annotated[bool, Field(
         description="Include portfolio allocation breakdown (single fund only). NOTE: since the 2026-04 TEFAS migration the JSON feed no longer exposes allocation, so this currently returns portfolio=null with a warning explaining how to enable it.",
@@ -1362,7 +1375,7 @@ async def get_fund_data(
     - get_fund_data("TPC") → Fund info + recent_prices (last 7 trading days)
     - get_fund_data("TPC", include_portfolio=True) → With portfolio
     - get_fund_data("TPC", start_date="2025-01-01") → Custom range return
-    - get_fund_data(["AAK", "TI2"], compare_mode=True) → Fund comparison
+    - get_fund_data(["TPC", "TI2"], compare_mode=True) → Fund comparison
     """
     logger.info(f"get_fund_data: symbol='{symbol}', compare_mode={compare_mode}")
     try:

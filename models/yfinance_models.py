@@ -70,6 +70,7 @@ class AnalistTavsiyesi(BaseModel):
     guncel_derece: str = Field(description="Current rating (e.g., Buy, Hold, Sell).")
     onceki_derece: Optional[str] = Field(None, description="Previous rating if this is an upgrade/downgrade.")
     aksiyon: Optional[str] = Field(None, description="Action taken (e.g., upgrade, downgrade, init, reiterate).")
+    fiyat_hedefi: Optional[float] = Field(None, description="Price target set by the firm with this rating.")
 
 class AnalistFiyatHedefi(BaseModel):
     """Represents analyst price target data."""
