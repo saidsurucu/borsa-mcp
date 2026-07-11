@@ -2069,22 +2069,18 @@ presenting them as current would be worse than saying nothing.
 """
 
 
-def _enable_migration_mode() -> None:
-    """Withdraw every data tool and expose only the migration notice."""
-    # remove_tool() is sync but the public tool listing is async, so read the registry
-    # directly to get the names at import time.
-    try:
-        tool_names = list(app._tool_manager._tools)
-    except AttributeError:  # pragma: no cover - guards a FastMCP internals change
-        logger.error("Could not enumerate tools; migration mode NOT applied")
-        return
+def _build_migration_app() -> FastMCP:
+    """Build a server that exposes nothing but the migration notice.
 
-    for name in tool_names:
-        app.remove_tool(name)
+    This replaces `app` wholesale rather than un-registering the 28 tools from it.
+    Removing them would mean enumerating the registry, and the only synchronous way in
+    is FastMCP's private internals -- which, if they shift between versions, fails by
+    quietly leaving every tool in place. That failure is invisible until someone
+    notices the retired endpoint still serving data, so don't build on it.
+    """
+    migration_app = FastMCP(name="BorsaMCP", instructions=MIGRATION_NOTICE)
 
-    app.instructions = MIGRATION_NOTICE
-
-    @app.tool(
+    @migration_app.tool(
         name="borsa_mcp_has_moved",
         title="BorsaMCP Has Moved",
         description=(
@@ -2101,16 +2097,19 @@ def _enable_migration_mode() -> None:
         """Return the migration notice for this retired endpoint."""
         return MIGRATION_NOTICE
 
-    logger.warning(
-        f"MIGRATION MODE: withdrew {len(tool_names)} tools; "
-        f"serving migration notice pointing at {MIGRATION_TARGET_URL}"
-    )
+    return migration_app
 
 
 # Applied at import, not in main(): FastMCP Cloud imports this module and serves `app`
 # directly without ever calling main().
-if os.getenv("DEPLOY_TARGET", "").strip().lower() == "fastmcp":
-    _enable_migration_mode()
+MIGRATION_MODE = os.getenv("DEPLOY_TARGET", "").strip().lower() == "fastmcp"
+
+if MIGRATION_MODE:
+    app = _build_migration_app()
+    logger.warning(
+        f"MIGRATION MODE: withdrew all data tools; serving migration notice "
+        f"pointing at {MIGRATION_TARGET_URL}"
+    )
 
 
 # =============================================================================
@@ -2120,8 +2119,10 @@ if os.getenv("DEPLOY_TARGET", "").strip().lower() == "fastmcp":
 def main():
     """Main entry point for the unified MCP server."""
 
-    # Log server startup
-    logger.info("Starting Unified BorsaMCP server with 28 tools")
+    if MIGRATION_MODE:
+        logger.warning(f"Starting BorsaMCP in MIGRATION MODE -> {MIGRATION_TARGET_URL}")
+    else:
+        logger.info("Starting Unified BorsaMCP server with 28 tools")
 
     # Run the server
     app.run()
