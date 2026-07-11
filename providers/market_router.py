@@ -10,11 +10,47 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 import logging
 
+from borsapy.exceptions import DataNotAvailableError
+
 from models.unified_base import (
     MarketType, StatementType, PeriodType, DataType, RatioSetType, ExchangeType
 )
 
 logger = logging.getLogger(__name__)
+
+
+def parse_tcmb_number(value: Optional[str]) -> Optional[float]:
+    """Parse a number from TCMB's calculator API.
+
+    TCMB serves invariant-culture numbers ('601.31', '2,684.55000'), but an
+    earlier implementation assumed the Turkish convention (dot groups thousands,
+    comma is decimal) and stripped the decimal point -- inflating every value by
+    ~100x, so the tool claimed 100 TL in 2020-01 was worth 60,131 TL in 2024-12.
+
+    Resolving by the LAST separator is correct under either convention: whichever
+    of ',' or '.' appears last is the decimal point.
+
+    Raises ValueError on an unparseable string rather than defaulting to 0.0,
+    which would read as "inflation was zero".
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+
+    last_comma = text.rfind(',')
+    last_dot = text.rfind('.')
+
+    if last_comma > last_dot:          # Turkish: 2.684,55
+        text = text.replace('.', '').replace(',', '.')
+    else:                              # Invariant: 2,684.55 (and plain '601.31')
+        text = text.replace(',', '')
+
+    try:
+        return float(text)
+    except ValueError as e:
+        raise ValueError(f"Could not parse TCMB number {value!r}: {e}")
 
 
 class MarketRouter:
@@ -2518,45 +2554,76 @@ class MarketRouter:
                 limit=limit
             )
 
-            if result and hasattr(result, 'data') and result.data:
-                inflation_data = []
-                for d in result.data:
-                    inflation_data.append({
-                        "date": d.tarih,
-                        "rate": d.yillik_enflasyon or 0.0,
-                        "change": d.aylik_enflasyon,
-                        "cumulative": None
-                    })
-
-        elif data_type == "calculate":
-            if all([start_year, start_month, end_year, end_month]):
-                result = await self._client.calculate_inflation(
-                    start_year=start_year,
-                    start_month=start_month,
-                    end_year=end_year,
-                    end_month=end_month,
-                    basket_value=basket_value
+            # TcmbProvider swallows exceptions into an error-bearing object.
+            # Reporting that as a successful empty response would tell the caller
+            # "TÜFE exists and has no data", which is false.
+            if result is None or getattr(result, "error_message", None):
+                raise DataNotAvailableError(
+                    f"TCMB inflation data unavailable: "
+                    f"{getattr(result, 'error_message', 'no response')}"
+                )
+            if not getattr(result, "data", None):
+                raise DataNotAvailableError(
+                    "TCMB returned no inflation rows for the requested range."
                 )
 
-                if result and hasattr(result, 'yeni_sepet_degeri'):
-                    def tr_to_float(s: str) -> float:
-                        if not s:
-                            return 0.0
-                        return float(s.replace('.', '').replace(',', '.'))
+            inflation_data = []
+            for d in result.data:
+                inflation_data.append({
+                    "date": d.tarih,
+                    "rate": d.yillik_enflasyon or 0.0,
+                    "change": d.aylik_enflasyon,
+                    "cumulative": None
+                })
 
-                    final_value = tr_to_float(result.yeni_sepet_degeri) if result.yeni_sepet_degeri else basket_value
-                    total_change = tr_to_float(result.toplam_degisim) if result.toplam_degisim else 0.0
-                    cumulative = (total_change / basket_value) * 100 if basket_value > 0 else 0.0
-                    period_months = result.toplam_yil * 12 + result.toplam_ay
+        elif data_type == "calculate":
+            if not all([start_year, start_month, end_year, end_month]):
+                raise ValueError(
+                    "calculate mode requires start_year, start_month, end_year "
+                    "and end_month."
+                )
+            if basket_value <= 0:
+                raise ValueError("basket_value must be greater than 0.")
 
-                    calculation = {
-                        "start_period": f"{start_year}-{start_month:02d}",
-                        "end_period": f"{end_year}-{end_month:02d}",
-                        "initial_value": basket_value,
-                        "final_value": final_value,
-                        "cumulative_inflation": cumulative,
-                        "period_months": period_months
-                    }
+            result = await self._client.calculate_inflation(
+                start_year=start_year,
+                start_month=start_month,
+                end_year=end_year,
+                end_month=end_month,
+                basket_value=basket_value
+            )
+
+            # The error object still carries a `yeni_sepet_degeri` attribute (an
+            # empty string), so a hasattr check passes and the falsy value
+            # silently becomes "prices did not move". Check the error field.
+            if result is None or getattr(result, "error_message", None):
+                raise DataNotAvailableError(
+                    f"TCMB inflation calculation failed: "
+                    f"{getattr(result, 'error_message', 'no response')}"
+                )
+            if not result.yeni_sepet_degeri:
+                raise DataNotAvailableError(
+                    "TCMB returned an empty calculation for the requested period."
+                )
+
+            final_value = parse_tcmb_number(result.yeni_sepet_degeri)
+            total_change = parse_tcmb_number(result.toplam_degisim) or 0.0
+            cumulative = (total_change / basket_value) * 100
+            period_months = result.toplam_yil * 12 + result.toplam_ay
+
+            calculation = {
+                "start_period": f"{start_year}-{start_month:02d}",
+                "end_period": f"{end_year}-{end_month:02d}",
+                "initial_value": basket_value,
+                "final_value": final_value,
+                "cumulative_inflation": cumulative,
+                "period_months": period_months,
+                "start_index": parse_tcmb_number(result.ilk_yil_tufe),
+                "end_index": parse_tcmb_number(result.son_yil_tufe),
+                "annualized_compound_change": parse_tcmb_number(
+                    result.ortalama_yillik_enflasyon
+                ),
+            }
 
         return {
             "metadata": self._create_metadata(MarketType.FX, [data_type], source),
