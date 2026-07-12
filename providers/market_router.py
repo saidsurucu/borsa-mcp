@@ -18,6 +18,11 @@ from models.unified_base import (
 
 logger = logging.getLogger(__name__)
 
+# Coinbase's Advanced Trade API rejects any request for more than 350 candles,
+# whatever the granularity. Verified live: 350 -> OK, 351 -> HTTP 400
+# ("number of candles requested should be less than 350").
+COINBASE_MAX_CANDLES = 350
+
 
 def parse_tcmb_number(value: Optional[str]) -> Optional[float]:
     """Parse a number from TCMB's calculator API.
@@ -420,9 +425,23 @@ class MarketRouter:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         interval: str = "1d",
-        adjust: bool = False
+        adjust: bool = True
     ) -> Dict[str, Any]:
-        """Get historical OHLCV data. Returns raw dict."""
+        """Get historical OHLCV data. Returns raw dict.
+
+        One adjustment basis across every market (design doc §3.3, "Decision A"):
+        **splits adjusted everywhere, dividends nowhere.**
+
+        BIST used to default to raw prices while US returned a split- AND
+        dividend-adjusted series. Each was internally consistent; putting them in one
+        table was nonsense. BIMAS's 100% bonus issue took the BIST series
+        813.00 -> 414.00, so any window spanning 2026-05-14 reported -49% for a
+        company that had merely split.
+
+        `adjust=False` is still honoured for BIST when a caller genuinely wants the
+        prices printed on the exchange that day — but it is no longer the default,
+        because a return computed from it is wrong.
+        """
         source = "unknown"
         data_points = []
 
@@ -462,11 +481,17 @@ class MarketRouter:
 
         elif market == MarketType.US:
             source = "yfinance"
+            # auto_adjust=False gives Yahoo's `Close`: split-adjusted but NOT
+            # dividend-adjusted — the same basis as BIST's adjusted frame. yfinance
+            # 1.1.0 defaults it to True, which folds dividends in and quietly makes
+            # the two markets incomparable. The `adjust` flag was accepted here and
+            # never forwarded at all.
             result = await self._client.get_us_stock_data(
                 symbol,
                 period=period or "1mo",
                 start_date=start_date,
-                end_date=end_date
+                end_date=end_date,
+                auto_adjust=False,
             )
             if result and result.get("data_points"):
                 for dp in result["data_points"]:
@@ -500,7 +525,8 @@ class MarketRouter:
                         "high": dp.high,
                         "low": dp.low,
                         "close": dp.close,
-                        "volume": int(dp.volume) if dp.volume else None
+                        # float, not int: 6.779 BTC is not 6 BTC.
+                        "volume": float(dp.volume) if dp.volume is not None else None,
                     })
 
         elif market == MarketType.CRYPTO_GLOBAL:
@@ -510,6 +536,21 @@ class MarketRouter:
             # an HTTP 400 ("Invalid start timestamp") that the provider swallows
             # into an empty candle list.
             win_start, win_end = self._resolve_window(period, start_date, end_date)
+
+            # Coinbase caps at 350 candles per request. Over that it answers HTTP 400,
+            # the provider swallows it into an empty candle list, and the caller was
+            # told "no data" — when the truth is the window is too wide. A 1-year
+            # daily request (365 candles) hits this every time.
+            if win_start and win_end:
+                span_days = (win_end - win_start).days
+                if span_days > COINBASE_MAX_CANDLES:
+                    raise ValueError(
+                        f"Coinbase serves at most {COINBASE_MAX_CANDLES} candles per "
+                        f"request; {span_days} days of {interval} bars were asked for. "
+                        f"Narrow the window, or use market='crypto_tr' (BtcTurk), "
+                        f"which has no such cap."
+                    )
+
             result = await self._client.get_coinbase_ohlc(
                 symbol,
                 start=str(int(win_start.timestamp())) if win_start else None,
@@ -524,15 +565,25 @@ class MarketRouter:
                         "high": dp.high,
                         "low": dp.low,
                         "close": dp.close,
-                        "volume": int(dp.volume) if dp.volume else None
+                        # float, not int: 6.779 BTC is not 6 BTC.
+                        "volume": float(dp.volume) if dp.volume is not None else None,
                     })
+            # Coinbase returns candles newest-first; every other market here ascends.
+            # Normalize rather than propagate the inconsistency — data[-1] must mean
+            # the same thing in every market (CLAUDE.md #6).
+            data_points.sort(key=lambda row: str(row["date"]))
 
         elif market == MarketType.FX:
             import borsapy as bp
+            from providers.canonical_series import resolve_fx_asset
             source = "borsapy"
             try:
-                # Don't uppercase for special symbols like gram-altin
-                fx = bp.FX(symbol)
+                # Resolve through the same registry get_fx_data uses. This branch used
+                # to pass the symbol straight to bp.FX(), so `XPT-USD` returned the
+                # USD platinum ounce here and the TRY platinum gram there — two assets,
+                # two currencies, one name. `gumus` and `ons` had no historical path
+                # at all because only the other tool applied the mapping.
+                fx = bp.FX(resolve_fx_asset(symbol).provider_symbol)
                 hist = fx.history(period=period or "1mo", start=start_date, end=end_date)
                 if hist is not None and len(hist) > 0:
                     for idx, row in hist.iterrows():
@@ -570,7 +621,9 @@ class MarketRouter:
 
         result_dict = {
             "metadata": self._create_metadata(market, symbol, source),
-            "symbol": symbol.upper(),
+            # FX asset names are genuinely lower-case (gram-altin, ons-altin); upper-
+            # casing them is lossy. Tickers are upper-case by convention.
+            "symbol": symbol if market == MarketType.FX else symbol.upper(),
             "period": period,
             "start_date": start_date,
             "end_date": end_date,
@@ -2031,6 +2084,7 @@ class MarketRouter:
                 "historical_data": historical_data,
             }
         else:
+            failed: List[str] = []
             if symbols:
                 # Fetch all symbols concurrently instead of serially; each
                 # get_dovizcom_guncel_kur is an independent network round-trip.
@@ -2041,28 +2095,90 @@ class MarketRouter:
                 for sym, result in zip(symbols, results):
                     if isinstance(result, Exception):
                         logger.warning(f"FX fetch failed for {sym}: {result}")
+                        failed.append(f"{sym}: {result}")
                         continue
-                    if result and result.guncel_deger is not None:
-                        ts = result.son_guncelleme
-                        timestamp_str = ts.isoformat() if ts else None
-                        rates.append({
-                            "symbol": sym,
-                            "name": result.varlik_adi or sym,
-                            "buy": None,
-                            "sell": result.guncel_deger,
-                            "change": result.degisim,
-                            "change_percent": result.degisim_yuzde,
-                            "high": None,
-                            "low": None,
-                            "timestamp": timestamp_str
-                        })
+                    if result is None or result.guncel_deger is None:
+                        # borsapy's get_current asks canlidoviz for a 5-day window;
+                        # some items (gram-platin, ons-altin) answer with an empty
+                        # body and the provider swallows it into guncel_deger=None.
+                        # Dropping the row silently shipped `successful_count: 1`
+                        # with no data at all.
+                        logger.warning(f"FX quote unavailable for {sym}")
+                        failed.append(f"{sym}: no current quote available")
+                        continue
+                    ts = result.son_guncelleme
+                    rates.append({
+                        "symbol": sym,
+                        "name": result.varlik_adi or sym,
+                        "buy": None,
+                        "sell": result.guncel_deger,
+                        "change": result.degisim,
+                        "change_percent": result.degisim_yuzde,
+                        "high": None,
+                        "low": None,
+                        "timestamp": ts.isoformat() if ts else None,
+                    })
 
-        return {
+            if not rates:
+                raise DataNotAvailableError(
+                    "No current FX quotes for "
+                    f"{', '.join(symbols or ['all'])}. " + "; ".join(failed)
+                )
+
+        payload = {
             "metadata": self._create_metadata(MarketType.FX, symbols or ["all"], source),
             "rates": rates,
         }
+        # A partial batch keeps its good rows, but never silently: one dead symbol
+        # among five must not read as five healthy quotes.
+        if failed:
+            payload["warnings"] = [f"No current quote for {f}" for f in failed]
+        return payload
 
     # --- Fund Data ---
+
+    async def get_fund_price_series(
+        self,
+        symbol: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """A fund's full NAV series, for the canonical layer.
+
+        `get_fund_data` calls fund.history() but only ever emits 7 rows of
+        `recent_prices`, so there was no path to a fund's price history at all.
+
+        TEFAS is close-only: no OHLC, no volume. The v2 API accepts only fixed period
+        buckets (5 years is the maximum); borsapy serves an arbitrary window by
+        fetching the smallest covering bucket and filtering client-side.
+
+        The `published_date` here is TEFAS's `tarih`. It is NOT the date the NAV is
+        marked to — see canonical_series.fund_valuation_date, which shifts it back a
+        trading day. Callers must go through to_canonical() rather than reading these
+        dates as session dates.
+        """
+        import borsapy as bp
+
+        fund = bp.Fund(symbol.upper())
+        hist = await asyncio.get_running_loop().run_in_executor(
+            None, lambda: fund.history(start=start_date, end=end_date)
+        )
+        if hist is None or len(hist) == 0:
+            raise DataNotAvailableError(
+                f"No NAV history for fund '{symbol}' between "
+                f"{start_date or 'start'} and {end_date or 'now'}"
+            )
+
+        rows = [
+            {"published_date": idx.strftime("%Y-%m-%d"), "close": float(row["Price"])}
+            for idx, row in hist.iterrows()
+        ]
+        return {
+            "symbol": symbol.upper(),
+            "currency": "TRY",
+            "source": "tefas",
+            "data": rows,
+        }
 
     async def get_fund_data(
         self,

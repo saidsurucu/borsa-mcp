@@ -165,7 +165,8 @@ class YahooFinanceProvider:
         period: YFinancePeriodEnum = None,
         start_date: str = None,
         end_date: str = None,
-        market: str = "BIST"
+        market: str = "BIST",
+        auto_adjust: bool = False
     ) -> Dict[str, Any]:
         """Fetches historical OHLCV data with token optimization for long time frames.
 
@@ -175,6 +176,15 @@ class YahooFinanceProvider:
             start_date: Start date in YYYY-MM-DD format (optional)
             end_date: End date in YYYY-MM-DD format (optional)
             market: Market identifier ('BIST', 'US', 'NYSE', 'NASDAQ')
+            auto_adjust: yfinance's back-adjustment. True bundles SPLITS AND DIVIDENDS
+                into `Close`; False leaves `Close` split-adjusted but NOT
+                dividend-adjusted. We default to False because BIST has no dividend
+                adjustment to match, and a table mixing a total-return series with a
+                price series is not a comparison (design doc §3.3).
+
+                This used to be unset, and yfinance 1.1.0 defaults it to True — so
+                the series was fully adjusted while the tool's own description
+                claimed it was "real trading prices".
 
         Note: If start_date or end_date is provided, period is ignored.
         """
@@ -187,7 +197,8 @@ class YahooFinanceProvider:
             # Determine which mode to use: date range or period
             if start_date or end_date:
                 # Date range mode
-                hist_df = ticker.history(start=start_date, end=end_date)
+                hist_df = ticker.history(start=start_date, end=end_date,
+                                         auto_adjust=auto_adjust)
 
                 # Calculate time frame for optimization based on actual date range
                 if start_date and end_date:
@@ -208,7 +219,7 @@ class YahooFinanceProvider:
                     period = YFinancePeriodEnum.P1MO  # Default to 1 month
                 # Handle both enum and string periods
                 period_value = period.value if hasattr(period, 'value') else period
-                hist_df = ticker.history(period=period_value)
+                hist_df = ticker.history(period=period_value, auto_adjust=auto_adjust)
 
                 # Calculate time frame for optimization
                 period_days_mapping = {

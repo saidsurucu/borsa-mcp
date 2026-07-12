@@ -393,9 +393,9 @@ async def get_historical_data(
         default=None
     )] = None,
     adjust: Annotated[bool, Field(
-        description="Split-adjusted prices. False=real trading prices (default), True=split-adjusted for return calculations",
-        default=False
-    )] = False
+        description="True (default)=split-adjusted, correct for return calculations. False=raw exchange prices, which show a cliff across a split (BIST only)",
+        default=True
+    )] = True
 ) -> str:
     """
     Get historical OHLCV (Open, High, Low, Close, Volume) data.
@@ -405,9 +405,12 @@ async def get_historical_data(
     2. Date range: start_date="2024-01-01", end_date="2024-12-31"
     3. Single day: start_date="2024-10-25", end_date="2024-10-25"
 
-    Price adjustment (BIST only):
-    - adjust=False (default): Real trading prices as seen on the exchange
-    - adjust=True: Split-adjusted prices for accurate return calculations
+    Prices are SPLIT-ADJUSTED and NOT dividend-adjusted, in every market. Returns
+    computed from them are price returns and exclude dividends.
+
+    adjust=False (BIST only) returns the raw prices printed on the exchange that
+    day. Use it to see what a share actually traded at; do not compute a return
+    from it, because a split shows up as a price cliff.
 
     Examples:
     - get_historical_data("GARAN", "bist", period="3mo")

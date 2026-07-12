@@ -150,6 +150,67 @@ def test_crypto_global_historical_forwards_the_window_as_unix_seconds():
     assert int(seen["start"]) < int(seen["end"])
 
 
+def test_coinbase_rows_come_back_ascending_like_every_other_market():
+    """Coinbase answers newest-first; BtcTurk oldest-first. The router must not pass
+    that inconsistency on — data[-1] would silently mean the newest bar in one market
+    and the oldest in the other. CLAUDE.md #6 already records this trap elsewhere."""
+    async def ohlc(product_id, start=None, end=None, granularity="ONE_DAY"):
+        return SimpleNamespace(candles=[      # newest-first, as Coinbase really does
+            SimpleNamespace(start=d, open=1.0, high=2.0, low=0.5, close=1.5, volume=1.0)
+            for d in ("2026-07-10", "2026-07-08", "2026-07-06")
+        ])
+
+    router = MarketRouter()
+    client = MagicMock()
+    client.get_coinbase_ohlc = AsyncMock(side_effect=ohlc)
+    router._client = client
+
+    res = asyncio.run(router.get_historical_data(
+        "BTC-USD", MarketType.CRYPTO_GLOBAL,
+        start_date="2026-07-01", end_date="2026-07-10"))
+
+    dates = [str(r["date"])[:10] for r in res["data"]]
+    assert dates == sorted(dates), f"rows are not ascending: {dates}"
+
+
+def test_crypto_volume_is_not_truncated_to_int():
+    """int(6.779) == 6. Fractional volume is the norm in crypto, not an edge case."""
+    async def ohlc(pair, from_time=None, to_time=None):
+        return SimpleNamespace(ohlc_data=[
+            SimpleNamespace(time="2026-07-05", open=1.0, high=2.0,
+                            low=0.5, close=1.5, volume=6.779)
+        ])
+
+    router = MarketRouter()
+    client = MagicMock()
+    client.get_kripto_ohlc = AsyncMock(side_effect=ohlc)
+    router._client = client
+
+    res = asyncio.run(router.get_historical_data(
+        "BTCTRY", MarketType.CRYPTO_TR,
+        start_date="2026-07-01", end_date="2026-07-10"))
+
+    assert res["data"][0]["volume"] == pytest.approx(6.779)
+
+
+def test_coinbase_window_over_the_candle_cap_names_the_real_cause():
+    """Coinbase hard-caps at 350 candles, whatever the granularity (verified live:
+    350 -> OK, 351 -> HTTP 400). A 1-year daily request is 365, so it fails — and the
+    provider swallowed the 400 into an empty list, which the router then reported as
+    'no data'. The window is too wide; say so."""
+    router = MarketRouter()
+    router._client = MagicMock()
+
+    with pytest.raises(Exception) as exc:
+        asyncio.run(router.get_historical_data(
+            "BTC-USD", MarketType.CRYPTO_GLOBAL, period="1y"))
+
+    msg = str(exc.value).lower()
+    assert "350" in msg or "candle" in msg, (
+        f"the error must name the real cause, not 'no data': {exc.value}"
+    )
+
+
 def test_historical_with_no_rows_raises_instead_of_empty_success():
     """An empty-but-successful payload is a lie (CLAUDE.md #7).
 
@@ -275,6 +336,43 @@ def test_fx_historical_with_no_data_raises_instead_of_empty_success():
             symbols=["gram-altin"], historical=True,
             start_date="2026-01-02", end_date="2026-07-10",
         ))
+
+
+def test_fx_current_with_no_rates_raises_instead_of_empty_success():
+    """The other half of the empty-but-successful bug.
+
+    Phase 0 fixed the historical path. The current path had the same disease and it
+    only surfaced once the renderer stopped printing "Sonuç bulunamadı." for an empty
+    list: gram-platin and ons returned `successful_count: 1, failed_count: 0` and no
+    data at all. borsapy's get_current asks canlidoviz for a 5-day window, those two
+    items answer with an empty body, the provider swallows it into guncel_deger=None,
+    and the router filtered the row away and shipped the husk.
+    """
+    async def no_quote(sym):
+        return SimpleNamespace(guncel_deger=None, varlik_adi=sym, degisim=None,
+                               degisim_yuzde=None, son_guncelleme=None)
+
+    router = _router_with_client(get_dovizcom_guncel_kur=no_quote)
+
+    with pytest.raises(Exception):
+        asyncio.run(router.get_fx_data(symbols=["gram-platin"]))
+
+
+def test_fx_current_partial_failure_keeps_the_good_rows_and_warns():
+    """A batch must not be all-or-nothing: one dead symbol should not kill the rest."""
+    async def one_dead(sym):
+        if sym == "gram-platin":
+            return SimpleNamespace(guncel_deger=None, varlik_adi=sym, degisim=None,
+                                   degisim_yuzde=None, son_guncelleme=None)
+        return SimpleNamespace(guncel_deger=43.1, varlik_adi=sym, degisim=0.1,
+                               degisim_yuzde=0.2, son_guncelleme=None)
+
+    router = _router_with_client(get_dovizcom_guncel_kur=one_dead)
+
+    res = asyncio.run(router.get_fx_data(symbols=["USD", "gram-platin"]))
+
+    assert [r["symbol"] for r in res["rates"]] == ["USD"]
+    assert any("gram-platin" in w for w in res.get("warnings", []))
 
 
 def test_renderer_does_not_report_an_empty_list_as_a_failure():

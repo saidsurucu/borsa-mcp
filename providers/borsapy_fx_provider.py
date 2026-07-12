@@ -15,6 +15,7 @@ from models import (
     DovizcomVarligi, DovizcomOHLCVarligi
 )
 from .dovizcom_legacy_provider import DovizcomProvider as LegacyProvider
+from .canonical_series import resolve_fx_asset
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +94,27 @@ class BorsapyFXProvider:
         return self._legacy_provider
 
     def _get_borsapy_asset(self, asset: str) -> str:
-        """Get the borsapy asset name from our asset code."""
-        return self.ASSET_MAPPING.get(asset, asset)
+        """The provider-side name for our asset code.
+
+        Delegates to canonical_series.resolve_fx_asset, which is the one place
+        allowed to say what a symbol is. ASSET_MAPPING used to answer this, and it
+        mapped XPT-USD (platinum per ounce, USD) onto gram-platin (per gram, TRY) —
+        so the same symbol resolved to different assets depending on which tool you
+        called. Unknown symbols fall through unchanged so borsapy can reject them
+        with its own message.
+        """
+        try:
+            return resolve_fx_asset(asset).provider_symbol
+        except ValueError:
+            return asset
+
+    @staticmethod
+    def _currency_of(asset: str) -> str:
+        """The asset's true quote currency, from the registry."""
+        try:
+            return resolve_fx_asset(asset).currency
+        except ValueError:
+            return "TRY"   # legacy fuel assets (diesel, lpg, ...) are lira-priced
 
     @staticmethod
     async def _run_sync(fn, *args, **kwargs):
@@ -137,19 +157,20 @@ class BorsapyFXProvider:
                 value = float(current_data) if current_data else None
                 update_time = None
 
-            # Determine category based on asset type
+            # Category is presentation; currency is fact. The currency comes from the
+            # asset registry, never from a membership test — the old branch below read
+            # `birim = "TRY" if asset in ["gram-altin", "gumus"] else "USD"`, which
+            # labelled ons-altin (an ounce of gold priced in LIRA, ~106,463 TRY) as
+            # USD, a 26x error against the real USD ounce.
             if asset in ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD"]:
                 kategori = "doviz"
-                birim = "TRY"
-            elif asset in ["gram-altin", "gumus", "ons", "XAG-USD", "XPT-USD", "XPD-USD"]:
+            elif asset in ["BRENT", "WTI", "gram-altin", "gumus", "ons", "gram-gumus",
+                           "gram-platin", "ons-altin", "XAG-USD", "XPT-USD", "XPD-USD"]:
                 kategori = "emtia"
-                birim = "TRY" if asset in ["gram-altin", "gumus"] else "USD"
-            elif asset in ["BRENT", "WTI"]:
-                kategori = "emtia"
-                birim = "USD"
             else:
                 kategori = "yakit"
-                birim = "TRY"
+
+            birim = self._currency_of(asset)
 
             return DovizcomGuncelSonucu(
                 varlik_adi=asset,
@@ -386,7 +407,10 @@ class BorsapyFXProvider:
                 en_dusuk_fiyat=en_dusuk_fiyat,
                 toplam_getiri=toplam_getiri,
                 piyasa_tipi=piyasa_tipi,
-                referans_para_birimi="TRY",
+                # Not hardcoded: BRENT, XAG-USD, XPD-USD and XPT-USD are USD-quoted,
+                # and claiming TRY for them made the archive result lie about its
+                # own units.
+                referans_para_birimi=self._currency_of(asset),
                 error_message=None
             )
 

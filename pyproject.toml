@@ -42,3 +42,7 @@ include-package-data = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "live: hits real providers over the network; excluded from the default run",
+]
+addopts = "-m 'not live'"
