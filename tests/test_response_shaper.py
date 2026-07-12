@@ -66,24 +66,33 @@ def _points(n):
     ]
 
 
+# NOTE: the router puts the OHLCV rows under "data" and their integer count under
+# "data_points". These tests used to pass a list as "data_points" — a shape the
+# router never produces — so they passed while the real code path was dead.
+
+def _payload(n):
+    rows = _points(n)
+    return {"data": rows, "data_points": len(rows)}
+
+
 def test_downsample_ohlcv_under_limit_untouched():
-    payload = {"data_points": _points(100)}
-    result = downsample_ohlcv(payload, max_points=300)
-    assert len(result["data_points"]) == 100
+    result = downsample_ohlcv(_payload(100), max_points=300)
+    assert len(result["data"]) == 100
+    assert result["data_points"] == 100
     assert "meta" not in result
 
 
 def test_downsample_ohlcv_reduces_points_and_flags():
-    payload = {"data_points": _points(1200)}
-    result = downsample_ohlcv(payload, max_points=300)
-    assert len(result["data_points"]) <= 300
+    result = downsample_ohlcv(_payload(1200), max_points=300)
+    assert len(result["data"]) <= 300
+    assert result["data_points"] == len(result["data"])
     # last point always kept
-    assert result["data_points"][-1] == _points(1200)[-1]
+    assert result["data"][-1] == _points(1200)[-1]
     assert result["meta"]["truncated"] is True
     assert "interval" in result["meta"]["guidance"].lower() or "range" in result["meta"]["guidance"].lower()
 
 
-def test_downsample_ohlcv_no_data_points_key():
+def test_downsample_ohlcv_no_data_key():
     payload = {"error": "x"}
     assert downsample_ohlcv(payload, max_points=300) == {"error": "x"}
 
@@ -91,10 +100,11 @@ def test_downsample_ohlcv_no_data_points_key():
 def test_downsample_ohlcv_exact_multiple_keeps_cap_and_last_point():
     # 600 points with max 300: stride sampling would land on index 598, so the
     # drop-then-append branch must fire and the cap must hold exactly.
-    points = _points(600)
-    result = downsample_ohlcv({"data_points": points}, max_points=300)
-    assert len(result["data_points"]) <= 300
-    assert result["data_points"][-1] == points[-1]
+    payload = _payload(600)
+    rows = list(payload["data"])
+    result = downsample_ohlcv(payload, max_points=300)
+    assert len(result["data"]) <= 300
+    assert result["data"][-1] == rows[-1]
 
 
 def test_drop_allnull_statement_rows():

@@ -100,7 +100,12 @@ def _render_value(key: str, value: Any, level: int) -> List[str]:
         return [f"{heading} {key}"] + _render_dict(value, level + 1)
     if isinstance(value, list):
         if not value:
-            return [f"{key}: {EMPTY_RESULT_LINE}"]
+            # Omit rather than announce a failure. A nested empty list is a
+            # presentation detail; saying "Sonuç bulunamadı." here printed a
+            # failure message next to perfectly good sibling data. Explaining an
+            # empty result is the provider's job (warnings), not the renderer's.
+            # A wholly empty payload is still reported, in render_markdown().
+            return []
         if all(isinstance(item, dict) for item in value):
             if len(value) == 1:
                 heading = "#" * min(level, 6)
