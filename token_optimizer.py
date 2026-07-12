@@ -51,16 +51,16 @@ class TokenOptimizer:
             time_frame_days: Duration in days
             
         Returns:
-            str: Sampling frequency ('D', 'W', 'M')
+            str: Sampling frequency ('D', 'W', 'ME', 'QE')
         """
         if time_frame_days <= TokenOptimizer.DAILY_THRESHOLD:
-            return 'D'  # Daily
+            return 'D'   # Daily
         elif time_frame_days <= TokenOptimizer.WEEKLY_THRESHOLD:
-            return 'W'  # Weekly
+            return 'W'   # Weekly
         elif time_frame_days <= TokenOptimizer.MONTHLY_THRESHOLD:
-            return 'M'  # Monthly
+            return 'ME'  # Month-end ('M' is deprecated in pandas 2.2+)
         else:
-            return 'Q'  # Quarterly for very long periods
+            return 'QE'  # Quarter-end, for very long periods
     
     @staticmethod
     def optimize_ohlc_data(data_points: List[Dict[str, Any]], time_frame_days: int) -> List[Dict[str, Any]]:
@@ -129,7 +129,19 @@ class TokenOptimizer:
             
             # Resample data
             resampled_df = df.resample(freq).agg(available_mapping).dropna()
-            
+
+            # Relabel each bucket with the LAST OBSERVATION IT ACTUALLY CONTAINS.
+            #
+            # pandas labels a resampled bucket with its right edge, so a partial month
+            # came back stamped 2026-07-31 — three weeks into the future. A bar dated
+            # on a day that has not happened is not merely cosmetic: an endpoint lookup
+            # ("last bar on or before today") skips it, falls back to June's bar, and
+            # silently prices the window a month early.
+            bucket_last = df.index.to_series().resample(freq).max()
+            resampled_df.index = [
+                bucket_last.get(idx, idx) for idx in resampled_df.index
+            ]
+
             # Convert back to list of dictionaries
             result = []
             for index, row in resampled_df.iterrows():

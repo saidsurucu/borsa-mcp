@@ -244,6 +244,7 @@ class YahooFinanceProvider:
                 })
 
             # Apply token optimization
+            raw_count = len(veri_noktalari)
             optimized_data = TokenOptimizer.optimize_ohlc_data(veri_noktalari, time_frame_days)
 
             # Convert optimized data back to Pydantic models
@@ -258,7 +259,14 @@ class YahooFinanceProvider:
                 ) for point in optimized_data
             ]
 
-            return {"veri_noktalari": optimized_noktalari}
+            # Report the resampling upwards. It used to happen silently: only the BIST
+            # path carried a raw count, so a US year came back as 13 monthly bars with
+            # no bar_interval and no warning — presented as if it were the raw series.
+            return {
+                "veri_noktalari": optimized_noktalari,
+                "ham_veri_sayisi": raw_count,
+                "optimizasyon_uygulandı": len(optimized_noktalari) < raw_count,
+            }
 
         except Exception as e:
             logger.exception(f"Error fetching historical data from yfinance for {ticker_kodu}")

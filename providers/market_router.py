@@ -451,6 +451,20 @@ class MarketRouter:
         if market == MarketType.BIST:
             source = "borsapy"
             ticker = self._get_ticker_with_suffix(symbol, market)
+
+            # borsapy's `period` is a BAR COUNT, not a calendar span: period="1y" asks
+            # for 365 *trading* bars, and a year holds only ~250 of them — so "1y"
+            # came back with roughly 18 calendar months, and "6mo" with 9. borsapy
+            # adopted yfinance's period names without yfinance's semantics. Resolve
+            # the period to explicit dates ourselves; _clamp_to_window then holds the
+            # span to what was asked for.
+            if period and not (start_date or end_date):
+                win_start, win_end = self._resolve_window(period, None, None)
+                if win_start and win_end:
+                    start_date = win_start.strftime("%Y-%m-%d")
+                    end_date = win_end.strftime("%Y-%m-%d")
+                    period = None
+
             result = await self._client.get_finansal_veri(
                 ticker,
                 zaman_araligi=period or "1mo",
@@ -493,6 +507,8 @@ class MarketRouter:
                 end_date=end_date,
                 auto_adjust=False,
             )
+            if result and result.get("optimizasyon_uygulandı"):
+                raw_count = result.get("ham_veri_sayisi")
             if result and result.get("data_points"):
                 for dp in result["data_points"]:
                     date_val = dp.get("date")
@@ -670,12 +686,17 @@ class MarketRouter:
 
         return [row for row in rows if in_window(row)]
 
-    # Approximate calendar spans for the period vocabulary. Used only to turn a
-    # period into an explicit window for providers that take dates rather than a
-    # period keyword (the crypto exchanges).
+    # Calendar spans for the period vocabulary, used to turn a period into an explicit
+    # window for providers that take dates (the crypto exchanges) or that misread the
+    # period keyword (borsapy treats it as a bar count).
+    #
+    # These MUST match yfinance_provider's own period->days map, because both feed
+    # TokenOptimizer, whose weekly/monthly threshold sits exactly at 180 days. A "6mo"
+    # of 183 here against 180 there put the two markets on opposite sides of it: BIST
+    # answered with 7 monthly bars and US with 26 weekly ones, for the same request.
     _PERIOD_DAYS = {
-        "1d": 1, "5d": 5, "1mo": 31, "3mo": 92, "6mo": 183,
-        "1y": 365, "2y": 730, "5y": 1826,
+        "1d": 1, "5d": 5, "1mo": 30, "3mo": 90, "6mo": 180,
+        "1y": 365, "2y": 730, "5y": 1825,
     }
 
     @staticmethod
@@ -721,16 +742,27 @@ class MarketRouter:
 
     @staticmethod
     def _infer_bar_interval(data_points: List[Dict[str, Any]]) -> str:
-        """Infer bar spacing from the last two data points."""
+        """Infer bar spacing from the MEDIAN gap between bars.
+
+        This used to read the final two bars alone. The last bucket of a resampled
+        series is almost always partial — a month that is only twelve days old — so a
+        monthly series announced itself as `weekly`. `bar_interval` is the single
+        field telling the caller these are not daily candles; getting it wrong defeats
+        the warning it belongs to.
+        """
         if len(data_points) < 2:
             return "unknown"
         try:
-            from datetime import datetime
-            a = datetime.fromisoformat(str(data_points[-2]["date"]))
-            b = datetime.fromisoformat(str(data_points[-1]["date"]))
-            gap = (b - a).days
+            dates = sorted(
+                datetime.fromisoformat(str(dp["date"])[:10]) for dp in data_points
+            )
         except Exception:
             return "unknown"
+
+        gaps = sorted((dates[i + 1] - dates[i]).days for i in range(len(dates) - 1))
+        if not gaps:
+            return "unknown"
+        gap = gaps[len(gaps) // 2]
 
         if gap <= 3:
             return "daily"
