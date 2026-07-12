@@ -97,17 +97,26 @@ FX_ASSET_SPECS = {
 # Names the old mapping used, kept working.
 _FX_ALIASES = {"gumus": "gram-gumus"}
 
+# Case-folded index. The router stamps `symbol.upper()` into its payloads, so this
+# module is handed GRAM-ALTIN for an asset canlidoviz calls gram-altin, and callers
+# type it both ways. Matching on case would make the FX branch raise on its own data.
+_FX_BY_FOLDED = {
+    key.casefold(): key
+    for key in list(FX_ASSET_SPECS) + list(_FX_ALIASES)
+}
+
 
 def resolve_fx_asset(symbol: str) -> FxAssetSpec:
     """The single source of truth for an FX symbol's provider name and currency."""
-    spec = FX_ASSET_SPECS.get(_FX_ALIASES.get(symbol, symbol))
-    if spec is None:
-        raise ValueError(
-            f"unknown FX asset {symbol!r}. Defaulting its currency is exactly how "
-            f"'ons' became a lira series labelled USD. "
-            f"Known: {sorted(FX_ASSET_SPECS)}"
-        )
-    return spec
+    canonical = _FX_BY_FOLDED.get(str(symbol).casefold())
+    if canonical is not None:
+        canonical = _FX_ALIASES.get(canonical, canonical)
+        return FX_ASSET_SPECS[canonical]
+    raise ValueError(
+        f"unknown FX asset {symbol!r}. Defaulting its currency is exactly how "
+        f"'ons' became a lira series labelled USD. "
+        f"Known: {sorted(FX_ASSET_SPECS)}"
+    )
 
 
 @dataclass(frozen=True)

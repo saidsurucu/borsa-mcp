@@ -12,6 +12,7 @@ import asyncio
 import pytest
 
 from models.unified_base import MarketType
+from providers.canonical_series import to_canonical
 from providers.market_router import MarketRouter
 
 pytestmark = pytest.mark.live
@@ -65,3 +66,42 @@ def test_bist_close_is_split_adjusted_by_default():
     assert 0.8 < after / before < 1.25, (
         f"bonus-issue cliff still present: {before} -> {after}"
     )
+
+
+# --- The contract, end to end -----------------------------------------------
+
+@pytest.mark.parametrize("symbol,market,currency,basis", [
+    ("ASELS",      "bist",          "TRY", "last"),
+    ("AAPL",       "us",            "USD", "last"),
+    ("BTCTRY",     "crypto_tr",     "TRY", "last"),
+    ("BTC-USD",    "crypto_global", "USD", "last"),
+    ("gram-altin", "fx",            "TRY", "ask"),
+    ("BRENT",      "fx",            "USD", "ask"),
+])
+def test_every_market_yields_a_fully_declared_ascending_series(symbol, market, currency, basis):
+    router = MarketRouter()
+    raw = asyncio.run(router.get_historical_data(
+        symbol, MarketType(market), start_date="2026-07-01", end_date="2026-07-10"))
+    s = to_canonical(raw, market=market)
+
+    assert s.meta.currency == currency
+    assert s.meta.price_basis == basis
+    assert s.meta.adjustment in ("split", "n/a")
+
+    dates = [b.date for b in s.bars]
+    assert dates == sorted(dates), f"not ascending: {dates}"
+    assert all(len(d) == 10 for d in dates), f"a date format leaked through: {dates}"
+    assert dates[0] >= "2026-07-01" and dates[-1] <= "2026-07-10"
+
+
+def test_fund_series_is_declared_and_lagged():
+    router = MarketRouter()
+    raw = asyncio.run(router.get_fund_price_series("TI2", "2026-06-01", "2026-07-11"))
+    s = to_canonical(raw, market="fund")
+
+    assert (s.meta.currency, s.meta.price_basis) == ("TRY", "nav")
+    # TEFAS's freshest publication over this window is Friday 2026-07-10, which is
+    # marked to Thursday's close.
+    assert raw["data"][-1]["published_date"] == "2026-07-10"
+    assert s.bars[-1].date == "2026-07-09"
+    assert len(s.meta.warnings) == 2

@@ -621,7 +621,9 @@ class MarketRouter:
 
         result_dict = {
             "metadata": self._create_metadata(market, symbol, source),
-            "symbol": symbol.upper(),
+            # FX asset names are genuinely lower-case (gram-altin, ons-altin); upper-
+            # casing them is lossy. Tickers are upper-case by convention.
+            "symbol": symbol if market == MarketType.FX else symbol.upper(),
             "period": period,
             "start_date": start_date,
             "end_date": end_date,

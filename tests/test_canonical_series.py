@@ -143,6 +143,14 @@ def test_an_unknown_fx_asset_raises_rather_than_defaulting_to_usd():
         resolve_fx_asset("DOGECOIN-MOON")
 
 
+@pytest.mark.parametrize("written", ["gram-altin", "GRAM-ALTIN", "Gram-Altin"])
+def test_fx_lookup_is_case_insensitive(written):
+    # The router stamps `symbol.upper()` into its payload, so to_canonical sees
+    # GRAM-ALTIN even though the asset is named gram-altin. A case-sensitive lookup
+    # made the whole FX branch raise. Callers type it either way, too.
+    assert resolve_fx_asset(written).provider_symbol == "gram-altin"
+
+
 # --- Fund NAV lag -----------------------------------------------------------
 # Measured, not assumed: regressing TI2's daily NAV returns against XU100 gives
 # correlation 0.014 at lag 0 and 0.938 at lag 1 (confirmed on AFA, a different
