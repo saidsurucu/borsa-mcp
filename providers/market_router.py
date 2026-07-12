@@ -18,6 +18,11 @@ from models.unified_base import (
 
 logger = logging.getLogger(__name__)
 
+# Coinbase's Advanced Trade API rejects any request for more than 350 candles,
+# whatever the granularity. Verified live: 350 -> OK, 351 -> HTTP 400
+# ("number of candles requested should be less than 350").
+COINBASE_MAX_CANDLES = 350
+
 
 def parse_tcmb_number(value: Optional[str]) -> Optional[float]:
     """Parse a number from TCMB's calculator API.
@@ -520,7 +525,8 @@ class MarketRouter:
                         "high": dp.high,
                         "low": dp.low,
                         "close": dp.close,
-                        "volume": int(dp.volume) if dp.volume else None
+                        # float, not int: 6.779 BTC is not 6 BTC.
+                        "volume": float(dp.volume) if dp.volume is not None else None,
                     })
 
         elif market == MarketType.CRYPTO_GLOBAL:
@@ -530,6 +536,21 @@ class MarketRouter:
             # an HTTP 400 ("Invalid start timestamp") that the provider swallows
             # into an empty candle list.
             win_start, win_end = self._resolve_window(period, start_date, end_date)
+
+            # Coinbase caps at 350 candles per request. Over that it answers HTTP 400,
+            # the provider swallows it into an empty candle list, and the caller was
+            # told "no data" — when the truth is the window is too wide. A 1-year
+            # daily request (365 candles) hits this every time.
+            if win_start and win_end:
+                span_days = (win_end - win_start).days
+                if span_days > COINBASE_MAX_CANDLES:
+                    raise ValueError(
+                        f"Coinbase serves at most {COINBASE_MAX_CANDLES} candles per "
+                        f"request; {span_days} days of {interval} bars were asked for. "
+                        f"Narrow the window, or use market='crypto_tr' (BtcTurk), "
+                        f"which has no such cap."
+                    )
+
             result = await self._client.get_coinbase_ohlc(
                 symbol,
                 start=str(int(win_start.timestamp())) if win_start else None,
@@ -544,8 +565,13 @@ class MarketRouter:
                         "high": dp.high,
                         "low": dp.low,
                         "close": dp.close,
-                        "volume": int(dp.volume) if dp.volume else None
+                        # float, not int: 6.779 BTC is not 6 BTC.
+                        "volume": float(dp.volume) if dp.volume is not None else None,
                     })
+            # Coinbase returns candles newest-first; every other market here ascends.
+            # Normalize rather than propagate the inconsistency — data[-1] must mean
+            # the same thing in every market (CLAUDE.md #6).
+            data_points.sort(key=lambda row: str(row["date"]))
 
         elif market == MarketType.FX:
             import borsapy as bp
