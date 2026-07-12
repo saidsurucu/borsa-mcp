@@ -70,21 +70,23 @@ Coinbase, BIST, US and FX.
 Surveying what the six markets actually return turned up more of the same class. Listed with
 where they get fixed, so none is silently dropped.
 
-| Bug | Fixed by |
+| Bug | Status |
 |---|---|
-| **`XPT-USD` resolves to two different assets.** `get_fx_data` applies `ASSET_MAPPING` → gram-platin, **2,477 TRY**. `get_historical_data` passes the symbol raw → platinum ounce, **1,637 USD**. Same name, different asset, different currency. *(verified)* | Phase 1 (one resolution path) |
-| **`ons` is a TRY series labelled USD.** `birim = "TRY" if asset in ["gram-altin","gumus"] else "USD"`, but `ons` maps to `ons-altin` = ounce-of-gold-**in-lira** (106,463 TRY vs the real USD ounce at 4,120). | Phase 1 (declared currency) |
-| **`gumus` / `ons` have no historical path at all** — `ASSET_MAPPING` is not applied in `get_historical_data`. | Phase 1 |
-| **US `adjust` is accepted and ignored**, and the tool description is wrong in both directions: it claims "False = real trading prices (default)" while yfinance 1.1.0 defaults `auto_adjust=True`, so the default is fully adjusted and the flag does nothing. | Phase 1 (§3.3) |
-| **US resampling is silent.** `raw_count` is only set in the BIST branch, so `bar_interval` and the "these are NOT daily candles" warning never fire for US. `KO` at `period=1y` returns **13 monthly bars** presented as the raw series — exactly what the BIST warning exists to prevent. | Phase 2 (history adapter) |
-| **Resampled bars are stamped in the future** — that same query's last row is dated `2026-07-31`, three weeks ahead of today. | Phase 2 |
-| **Coinbase rows come back descending** while every other market ascends, and the router does not normalize. `data[-1]` is the newest bar on BtcTurk and the *oldest* on Coinbase. (CLAUDE.md #6 already records this trap in a different tool.) | Phase 1 (always ascending) |
-| **Coinbase caps at 350 candles.** A 1-year daily request is 365 → HTTP 400 → now raises (Phase 0), but the message says "no data" when the truth is "window too wide". | Phase 1 (surface real cause) |
-| **Crypto volume is truncated to int** — 6.779 BTC becomes `6`. | Phase 1 |
-| **BIST's un-adjust is flaky**, so `adjust=False` can silently return adjusted data (§3.2). | Phase 1 (declared adjustment) |
-| **`guncel_deger` is a stale daily close (up to 2 days old) mislabelled `sell`.** borsapy's `get_current` just returns the last row of a 5-day history; there is no live quote and no `buy`/`sell` in the source. | Phase 3 (`get_quote`) |
-| `get_fund_data` drops the order cutoff and settlement valor fields it already receives, and its `price` carries no date. | Phase 3 |
-| **The TradingView websocket behind BIST fails roughly half the time with no retry anywhere.** A single failure surfaces as a hard error. | Separate — reliability, not contract |
+| **`XPT-USD` resolves to two different assets.** `get_fx_data` applies `ASSET_MAPPING` → gram-platin, **2,477 TRY**. `get_historical_data` passes the symbol raw → platinum ounce, **1,637 USD**. Same name, different asset, different currency. | ✅ **Fixed.** `resolve_fx_asset` is the one resolution path; both tools now return 1637.97. |
+| **`ons` is a TRY series labelled USD.** `birim = "TRY" if asset in ["gram-altin","gumus"] else "USD"`, but `ons` maps to `ons-altin` = ounce-of-gold-**in-lira** (106,463 TRY vs the real USD ounce at 4,120). | ✅ **Fixed.** Currency comes from the registry, including `referans_para_birimi`, which was hardcoded TRY even for BRENT. |
+| **`gumus` / `ons` have no historical path at all** — `ASSET_MAPPING` is not applied in `get_historical_data`. | ✅ **Fixed.** |
+| **US `adjust` is accepted and ignored**, and the description is wrong in both directions. | ✅ **Fixed.** `auto_adjust=False`; verified on KO's ex-dividend (−0.699% where the adjusted series printed +0.07%). |
+| **BIST default is raw**, so a bonus issue reads as a −49% return. | ✅ **Fixed.** `adjust=True` is the default; BIMAS now prints +1.8% across 2026-05-14. |
+| **Coinbase rows come back descending** while every other market ascends. | ✅ **Fixed.** Normalized to ascending at source. |
+| **Coinbase caps at 350 candles**, and the failure reported as "no data". | ✅ **Fixed.** Names the cap and points at BtcTurk, which has none. |
+| **Crypto volume is truncated to int** — 6.779 BTC becomes `6`. | ✅ **Fixed.** |
+| **FX current mode is empty-but-successful** — `gram-platin` and `ons` shipped `successful_count: 1` with no data. Only visible once the renderer stopped printing "Sonuç bulunamadı." for an empty list. | ✅ **Fixed** (found during Phase 1). Raises; a partial batch keeps good rows and warns. |
+| **BIST's un-adjust is flaky**, so `adjust=False` can silently return adjusted data (§3.2). | ✅ **Moot.** Decision A always requests `adjust=True`, which never enters `_unadjust_prices`. Still true for anyone who passes `adjust=False` explicitly. |
+| **US resampling is silent.** `raw_count` is only set in the BIST branch, so `bar_interval` and the "these are NOT daily candles" warning never fire for US. `KO` at `period=1y` returns **13 monthly bars** presented as the raw series. | ⏳ Phase 2 (history adapter) |
+| **Resampled bars are stamped in the future** — that query's last row is dated `2026-07-31`, three weeks ahead of today. | ⏳ Phase 2 |
+| **`guncel_deger` is a stale daily close (up to 2 days old) mislabelled `sell`.** borsapy's `get_current` just returns the last row of a 5-day history; there is no live quote and no `buy`/`sell` in the source. | ⏳ Phase 3 (`get_quote`) |
+| `get_fund_data` drops the order cutoff and settlement valor fields it already receives, and its `price` carries no date. | ⏳ Phase 3 |
+| **The TradingView websocket behind BIST fails roughly half the time with no retry anywhere.** A single failure surfaces as a hard error. | ⏳ Separate — reliability, not contract |
 
 ---
 
