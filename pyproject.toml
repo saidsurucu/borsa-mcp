@@ -15,7 +15,10 @@ dependencies = [
     "pdfplumber>=0.11.0",
     "beautifulsoup4>=4.12.3",
     "lxml>=5.2.0",
-    "yfinance>=0.2.37",
+    # 1.5.x is required: FastInfo's mapping keys are camelCase (lastPrice, marketCap),
+    # so the snake_case .get('last_price') the provider used returned None for every
+    # price field — silently, because strip_nulls then removed them.
+    "yfinance>=1.5.1",
     "pandas>=2.0.0",
     "markitdown>=0.1.1",
     "openpyxl>=3.1.5",

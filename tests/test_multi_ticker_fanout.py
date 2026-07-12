@@ -149,11 +149,19 @@ def _isyatirim_temettu_payload(symbol, yil=0):
     return {"temettuler": [{"tarih": "2026-04-07", "toplam_tutar": 1000.0, "brut_oran": 50.0}]}
 
 
-def test_corporate_actions_multi_returns_all_symbols():
-    router = _router_with_client(
+def _corporate_actions_router():
+    # get_corporate_actions absorbed get_dividends, so it now also pulls the yfinance
+    # per-share dividends and splits. Two sources, two shapes, deliberately named
+    # apart: `dividends` are lira per share, `dividend_rates` are percent of nominal.
+    return _router_with_client(
         get_sermaye_artirimlari=_capital_payload,
         get_isyatirim_temettu=_isyatirim_temettu_payload,
+        get_temettu_ve_aksiyonlar_yfinance=_dividends_payload,
     )
+
+
+def test_corporate_actions_multi_returns_all_symbols():
+    router = _corporate_actions_router()
     res = asyncio.run(router.get_corporate_actions(["GARAN", "AKBNK"], MarketType.BIST))
 
     assert res["tickers"] == ["GARAN", "AKBNK"]
@@ -161,16 +169,17 @@ def test_corporate_actions_multi_returns_all_symbols():
     assert [d["symbol"] for d in res["data"]] == ["GARAN", "AKBNK"]
     for d in res["data"]:
         assert d["capital_increases"][0]["type_code"] == "02"
-        assert d["dividend_history"][0]["yield_percent"] == 50.0
+        assert d["dividend_rates"][0]["gross_rate_percent"] == 50.0
+        # The absorbed get_dividends data must survive the merge.
+        assert d["dividends"][0]["amount"] == 5.0
+        assert d["annual_dividend"] == 5.0
 
 
 def test_corporate_actions_single_keeps_flat_shape():
-    router = _router_with_client(
-        get_sermaye_artirimlari=_capital_payload,
-        get_isyatirim_temettu=_isyatirim_temettu_payload,
-    )
+    router = _corporate_actions_router()
     res = asyncio.run(router.get_corporate_actions("GARAN", MarketType.BIST))
 
     assert res["symbol"] == "GARAN"
     assert res["capital_increases"][0]["type_code"] == "02"
+    assert res["dividends"][0]["amount"] == 5.0
     assert "data" not in res

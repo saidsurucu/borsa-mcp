@@ -4,7 +4,7 @@ httpx
 pdfplumber
 beautifulsoup4
 lxml
-yfinance
+yfinance>=1.5.1
 pandas
 openpyxl
 markitdown
