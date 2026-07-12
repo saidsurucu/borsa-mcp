@@ -1,12 +1,21 @@
 """Canonical series layer — one price contract across six markets."""
 import pytest
 
-from providers.canonical_series import Bar, SeriesMeta, CanonicalSeries, normalize_date
+from providers.canonical_series import (
+    Bar, SeriesMeta, CanonicalSeries, StalePriceError, normalize_date,
+)
 
 
 def _meta():
     return SeriesMeta(symbol="BTC-USD", market="crypto_global", currency="USD",
                       price_basis="last", adjustment="n/a", source="coinbase")
+
+
+def _series(dates):
+    return CanonicalSeries(
+        meta=_meta(),
+        bars=[Bar(date=d, close=float(i + 1)) for i, d in enumerate(dates)],
+    )
 
 
 # The four formats the six markets actually emit today (design doc §3.1).
@@ -45,3 +54,43 @@ def test_canonical_series_rejects_an_undeclared_currency():
     with pytest.raises(ValueError):
         SeriesMeta(symbol="X", market="fx", currency="", price_basis="last",
                    adjustment="none", source="s")
+
+
+# --- Window endpoints -------------------------------------------------------
+# compare_assets models an investment, so the two ends are NOT symmetric.
+
+def test_start_is_the_first_bar_on_or_after_the_requested_date():
+    # 2026-07-04 is a Saturday. An investor buying "from 2026-07-04" gets Monday's
+    # session, not Friday's close, which has already happened.
+    s = _series(["2026-07-03", "2026-07-06", "2026-07-07"])
+    assert s.first_on_or_after("2026-07-04").date == "2026-07-06"
+
+
+def test_end_is_the_last_bar_on_or_before_the_requested_date():
+    s = _series(["2026-07-03", "2026-07-06", "2026-07-07"])
+    assert s.last_on_or_before("2026-07-05").date == "2026-07-03"
+
+
+def test_exact_hits_are_used_as_is():
+    s = _series(["2026-07-03", "2026-07-06"])
+    assert s.first_on_or_after("2026-07-03").date == "2026-07-03"
+    assert s.last_on_or_before("2026-07-06").date == "2026-07-06"
+
+
+def test_a_suspended_asset_cannot_silently_reach_outside_the_window():
+    # Without a staleness bound, a delisted stock happily answers with a price from
+    # months earlier and the resulting return looks perfectly reasonable.
+    s = _series(["2026-01-05"])
+    with pytest.raises(StalePriceError):
+        s.last_on_or_before("2026-07-10", max_staleness_days=7)
+
+
+def test_staleness_within_the_bound_is_allowed():
+    s = _series(["2026-07-08"])
+    assert s.last_on_or_before("2026-07-10", max_staleness_days=7).date == "2026-07-08"
+
+
+def test_no_bar_at_all_raises():
+    s = _series(["2026-07-03"])
+    with pytest.raises(StalePriceError):
+        s.first_on_or_after("2026-07-10")

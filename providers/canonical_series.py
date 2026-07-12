@@ -10,12 +10,20 @@ The rule that earns this module its existence: a declared field is never guessed
 `ons` was a lira series labelled USD because a default was cheaper than a lookup.
 """
 from dataclasses import dataclass, field
-from datetime import date as _date, datetime
+from datetime import date as _date, datetime, timedelta
 from typing import Any, List, Optional
 
 # What a price actually is, per market.
 PriceBasis = str   # "last" | "ask" | "nav"
 Adjustment = str   # "split" | "none" | "n/a"
+
+# A long weekend plus a national-holiday run. Beyond this, an asset is not merely
+# untraded — it is suspended, and pricing a window from outside it is a fiction.
+DEFAULT_MAX_STALENESS_DAYS = 10
+
+
+class StalePriceError(Exception):
+    """No observation close enough to the requested date to be usable."""
 
 
 def normalize_date(value: Any) -> str:
@@ -81,3 +89,44 @@ class CanonicalSeries:
 
     def __post_init__(self):
         object.__setattr__(self, "bars", sorted(self.bars, key=lambda b: b.date))
+
+    def first_on_or_after(
+        self, target: str, max_staleness_days: int = DEFAULT_MAX_STALENESS_DAYS
+    ) -> Bar:
+        """The first tradable bar at or after `target` — the START of a window.
+
+        Asymmetric with `last_on_or_before` on purpose: you cannot buy on a Saturday
+        at Friday's already-passed close.
+        """
+        for bar in self.bars:                       # ascending, guaranteed
+            if bar.date >= target:
+                self._check_gap(bar.date, target, max_staleness_days)
+                return bar
+        raise StalePriceError(
+            f"{self.meta.symbol}: no observation on or after {target}"
+        )
+
+    def last_on_or_before(
+        self, target: str, max_staleness_days: int = DEFAULT_MAX_STALENESS_DAYS
+    ) -> Bar:
+        """The last bar at or before `target` — the END of a window."""
+        for bar in reversed(self.bars):
+            if bar.date <= target:
+                self._check_gap(bar.date, target, max_staleness_days)
+                return bar
+        raise StalePriceError(
+            f"{self.meta.symbol}: no observation on or before {target}"
+        )
+
+    @staticmethod
+    def _check_gap(found: str, target: str, max_days: int) -> None:
+        gap = abs(
+            (datetime.strptime(found, "%Y-%m-%d")
+             - datetime.strptime(target, "%Y-%m-%d")).days
+        )
+        if gap > max_days:
+            raise StalePriceError(
+                f"nearest observation is {found}, {gap} days from {target} "
+                f"(limit {max_days}). The asset is likely suspended or delisted; "
+                "using it would silently price the window from outside it."
+            )
