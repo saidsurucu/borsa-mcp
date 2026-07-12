@@ -54,6 +54,63 @@ def normalize_date(value: Any) -> str:
 
 
 @dataclass(frozen=True)
+class FxAssetSpec:
+    """What an FX/commodity symbol really is.
+
+    The old ASSET_MAPPING conflated a naming difference with an asset difference:
+    XPT-USD (platinum per ounce, USD) was mapped onto gram-platin (platinum per
+    gram, TRY). Those are two assets, not two names for one. Both are addressable
+    here, and neither borrows the other's currency.
+    """
+    provider_symbol: str
+    currency: str
+    price_basis: PriceBasis = "ask"
+
+
+# canlidoviz item semantics, verified live 2026-07-12. The close of every one of
+# these is the satış/ask side of the Serbest Piyasa quote (spread ~0.0137%, and it
+# cancels between two endpoints of the same series).
+FX_ASSET_SPECS = {
+    # TRY-quoted: how many lira for one unit
+    "USD":         FxAssetSpec("USD", "TRY"),
+    "EUR":         FxAssetSpec("EUR", "TRY"),
+    "GBP":         FxAssetSpec("GBP", "TRY"),
+    "JPY":         FxAssetSpec("JPY", "TRY"),
+    "CHF":         FxAssetSpec("CHF", "TRY"),
+    "CAD":         FxAssetSpec("CAD", "TRY"),
+    "AUD":         FxAssetSpec("AUD", "TRY"),
+    "gram-altin":  FxAssetSpec("gram-altin", "TRY"),
+    "gram-gumus":  FxAssetSpec("gram-gumus", "TRY"),
+    "gram-platin": FxAssetSpec("gram-platin", "TRY"),
+    # ons-altin is an OUNCE OF GOLD PRICED IN LIRA (~106,463 TRY), not in USD.
+    # The real USD ounce trades near 4,120 — a 26x gap that a defaulted currency
+    # label hid completely.
+    "ons":         FxAssetSpec("ons-altin", "TRY"),
+    "ons-altin":   FxAssetSpec("ons-altin", "TRY"),
+    # USD-quoted
+    "BRENT":       FxAssetSpec("BRENT", "USD"),
+    "XAG-USD":     FxAssetSpec("XAG-USD", "USD"),
+    "XPD-USD":     FxAssetSpec("XPD-USD", "USD"),
+    "XPT-USD":     FxAssetSpec("XPT-USD", "USD"),
+}
+
+# Names the old mapping used, kept working.
+_FX_ALIASES = {"gumus": "gram-gumus"}
+
+
+def resolve_fx_asset(symbol: str) -> FxAssetSpec:
+    """The single source of truth for an FX symbol's provider name and currency."""
+    spec = FX_ASSET_SPECS.get(_FX_ALIASES.get(symbol, symbol))
+    if spec is None:
+        raise ValueError(
+            f"unknown FX asset {symbol!r}. Defaulting its currency is exactly how "
+            f"'ons' became a lira series labelled USD. "
+            f"Known: {sorted(FX_ASSET_SPECS)}"
+        )
+    return spec
+
+
+@dataclass(frozen=True)
 class Bar:
     date: str                        # YYYY-MM-DD, session date
     close: float

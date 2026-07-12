@@ -3,6 +3,7 @@ import pytest
 
 from providers.canonical_series import (
     Bar, SeriesMeta, CanonicalSeries, StalePriceError, normalize_date,
+    resolve_fx_asset, FX_ASSET_SPECS,
 )
 
 
@@ -94,3 +95,49 @@ def test_no_bar_at_all_raises():
     s = _series(["2026-07-03"])
     with pytest.raises(StalePriceError):
         s.first_on_or_after("2026-07-10")
+
+
+# --- FX asset registry ------------------------------------------------------
+# Two live bugs (design doc §0b), both caused by defaulting instead of looking up.
+
+def test_ons_is_a_lira_series_and_must_say_so():
+    # ons -> ons-altin is an ounce of gold priced IN LIRA (~106,463 TRY). The old
+    # code labelled it USD, a 26x error against the real USD ounce (~4,120).
+    spec = resolve_fx_asset("ons")
+    assert spec.currency == "TRY"
+    assert spec.provider_symbol == "ons-altin"
+
+
+def test_xpt_usd_is_not_gram_platin():
+    # XPT-USD is platinum per OUNCE in USD. gram-platin is platinum per GRAM in TRY.
+    # They are different assets. Mapping one onto the other made get_fx_data return
+    # 2,477 TRY and get_historical_data 1,637 USD for the very same symbol.
+    spec = resolve_fx_asset("XPT-USD")
+    assert spec.provider_symbol == "XPT-USD"
+    assert spec.currency == "USD"
+
+    gram = resolve_fx_asset("gram-platin")
+    assert gram.provider_symbol == "gram-platin"
+    assert gram.currency == "TRY"
+
+
+@pytest.mark.parametrize("symbol,currency", [
+    ("gram-altin", "TRY"), ("USD", "TRY"), ("EUR", "TRY"),
+    ("gram-gumus", "TRY"), ("gram-platin", "TRY"), ("ons", "TRY"),
+    ("BRENT", "USD"), ("XAG-USD", "USD"), ("XPD-USD", "USD"),
+])
+def test_every_fx_asset_declares_its_true_currency(symbol, currency):
+    assert resolve_fx_asset(symbol).currency == currency
+
+
+def test_every_fx_asset_declares_its_price_basis():
+    # canlidoviz's OHLC close is the satış/ask side of the Serbest Piyasa quote,
+    # measured against the live page: close 6225.546 == BAYİ SATIŞ 6225.55, while
+    # BAYİ ALIŞ 6224.70 appears nowhere in the OHLC.
+    for spec in FX_ASSET_SPECS.values():
+        assert spec.price_basis == "ask"
+
+
+def test_an_unknown_fx_asset_raises_rather_than_defaulting_to_usd():
+    with pytest.raises(ValueError):
+        resolve_fx_asset("DOGECOIN-MOON")

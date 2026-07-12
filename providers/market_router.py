@@ -529,10 +529,15 @@ class MarketRouter:
 
         elif market == MarketType.FX:
             import borsapy as bp
+            from providers.canonical_series import resolve_fx_asset
             source = "borsapy"
             try:
-                # Don't uppercase for special symbols like gram-altin
-                fx = bp.FX(symbol)
+                # Resolve through the same registry get_fx_data uses. This branch used
+                # to pass the symbol straight to bp.FX(), so `XPT-USD` returned the
+                # USD platinum ounce here and the TRY platinum gram there — two assets,
+                # two currencies, one name. `gumus` and `ons` had no historical path
+                # at all because only the other tool applied the mapping.
+                fx = bp.FX(resolve_fx_asset(symbol).provider_symbol)
                 hist = fx.history(period=period or "1mo", start=start_date, end=end_date)
                 if hist is not None and len(hist) > 0:
                     for idx, row in hist.iterrows():
@@ -2031,6 +2036,7 @@ class MarketRouter:
                 "historical_data": historical_data,
             }
         else:
+            failed: List[str] = []
             if symbols:
                 # Fetch all symbols concurrently instead of serially; each
                 # get_dovizcom_guncel_kur is an independent network round-trip.
@@ -2041,26 +2047,45 @@ class MarketRouter:
                 for sym, result in zip(symbols, results):
                     if isinstance(result, Exception):
                         logger.warning(f"FX fetch failed for {sym}: {result}")
+                        failed.append(f"{sym}: {result}")
                         continue
-                    if result and result.guncel_deger is not None:
-                        ts = result.son_guncelleme
-                        timestamp_str = ts.isoformat() if ts else None
-                        rates.append({
-                            "symbol": sym,
-                            "name": result.varlik_adi or sym,
-                            "buy": None,
-                            "sell": result.guncel_deger,
-                            "change": result.degisim,
-                            "change_percent": result.degisim_yuzde,
-                            "high": None,
-                            "low": None,
-                            "timestamp": timestamp_str
-                        })
+                    if result is None or result.guncel_deger is None:
+                        # borsapy's get_current asks canlidoviz for a 5-day window;
+                        # some items (gram-platin, ons-altin) answer with an empty
+                        # body and the provider swallows it into guncel_deger=None.
+                        # Dropping the row silently shipped `successful_count: 1`
+                        # with no data at all.
+                        logger.warning(f"FX quote unavailable for {sym}")
+                        failed.append(f"{sym}: no current quote available")
+                        continue
+                    ts = result.son_guncelleme
+                    rates.append({
+                        "symbol": sym,
+                        "name": result.varlik_adi or sym,
+                        "buy": None,
+                        "sell": result.guncel_deger,
+                        "change": result.degisim,
+                        "change_percent": result.degisim_yuzde,
+                        "high": None,
+                        "low": None,
+                        "timestamp": ts.isoformat() if ts else None,
+                    })
 
-        return {
+            if not rates:
+                raise DataNotAvailableError(
+                    "No current FX quotes for "
+                    f"{', '.join(symbols or ['all'])}. " + "; ".join(failed)
+                )
+
+        payload = {
             "metadata": self._create_metadata(MarketType.FX, symbols or ["all"], source),
             "rates": rates,
         }
+        # A partial batch keeps its good rows, but never silently: one dead symbol
+        # among five must not read as five healthy quotes.
+        if failed:
+            payload["warnings"] = [f"No current quote for {f}" for f in failed]
+        return payload
 
     # --- Fund Data ---
 

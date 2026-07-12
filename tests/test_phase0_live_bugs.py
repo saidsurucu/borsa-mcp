@@ -277,6 +277,43 @@ def test_fx_historical_with_no_data_raises_instead_of_empty_success():
         ))
 
 
+def test_fx_current_with_no_rates_raises_instead_of_empty_success():
+    """The other half of the empty-but-successful bug.
+
+    Phase 0 fixed the historical path. The current path had the same disease and it
+    only surfaced once the renderer stopped printing "Sonuç bulunamadı." for an empty
+    list: gram-platin and ons returned `successful_count: 1, failed_count: 0` and no
+    data at all. borsapy's get_current asks canlidoviz for a 5-day window, those two
+    items answer with an empty body, the provider swallows it into guncel_deger=None,
+    and the router filtered the row away and shipped the husk.
+    """
+    async def no_quote(sym):
+        return SimpleNamespace(guncel_deger=None, varlik_adi=sym, degisim=None,
+                               degisim_yuzde=None, son_guncelleme=None)
+
+    router = _router_with_client(get_dovizcom_guncel_kur=no_quote)
+
+    with pytest.raises(Exception):
+        asyncio.run(router.get_fx_data(symbols=["gram-platin"]))
+
+
+def test_fx_current_partial_failure_keeps_the_good_rows_and_warns():
+    """A batch must not be all-or-nothing: one dead symbol should not kill the rest."""
+    async def one_dead(sym):
+        if sym == "gram-platin":
+            return SimpleNamespace(guncel_deger=None, varlik_adi=sym, degisim=None,
+                                   degisim_yuzde=None, son_guncelleme=None)
+        return SimpleNamespace(guncel_deger=43.1, varlik_adi=sym, degisim=0.1,
+                               degisim_yuzde=0.2, son_guncelleme=None)
+
+    router = _router_with_client(get_dovizcom_guncel_kur=one_dead)
+
+    res = asyncio.run(router.get_fx_data(symbols=["USD", "gram-platin"]))
+
+    assert [r["symbol"] for r in res["rates"]] == ["USD"]
+    assert any("gram-platin" in w for w in res.get("warnings", []))
+
+
 def test_renderer_does_not_report_an_empty_list_as_a_failure():
     text = render_markdown({"historical_data": [{"date": "2026-01-02", "close": 1.5}],
                             "rates": []})
