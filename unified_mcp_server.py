@@ -28,6 +28,7 @@ from providers.market_router import market_router
 from providers.response_shaper import strip_nulls, cap_evds_payload, downsample_ohlcv, drop_allnull_statement_rows
 from providers.markdown_renderer import render_markdown
 from models.unified_base import (
+    resolve_market,
     MarketType, StatementType, PeriodType, DataType, RatioSetType, ExchangeType
 )
 
@@ -60,7 +61,18 @@ app = FastMCP(
 )
 
 # --- Literal Types for Clean Schema ---
-MarketLiteral = Literal["bist", "us", "crypto_tr", "crypto_global", "fund", "fx"]
+# One market vocabulary. Each tool narrows this to the markets it ACTUALLY serves —
+# a wide enum plus a runtime rejection trades a schema error the model cannot make for
+# a runtime error it cannot see coming. get_profile used to advertise crypto and fx and
+# answer both with `successful_count: 1` and no data.
+MarketLiteral = Literal["bist", "us", "crypto", "fx", "fund"]
+
+# The markets each tool truly serves, measured against the live providers.
+StockMarketLiteral = Literal["bist", "us"]                       # equities only
+QuoteMarketLiteral = Literal["bist", "us", "fx", "crypto"]       # "what is it worth now"
+PriceMarketLiteral = Literal["bist", "us", "fx", "crypto", "fund"]  # has a price series
+ProfileMarketLiteral = Literal["bist", "us", "fund"]             # has an identity to describe
+TechnicalMarketLiteral = Literal["bist", "us", "crypto"]         # has enough bars for indicators
 StatementLiteral = Literal["balance", "income", "cashflow", "all"]
 PeriodLiteral = Literal["annual", "quarterly"]
 HistoricalPeriodLiteral = Literal["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "ytd", "max"]
@@ -189,6 +201,19 @@ def validate_screen_params(preset: Any, custom_filters: Any) -> None:
         )
 
 
+def validate_time_params(period: Any, start_date: Any, end_date: Any) -> None:
+    """A time window is named EITHER by a period OR by explicit dates, never both.
+
+    Silently preferring one is how a caller comes to believe they got a window they did
+    not ask for.
+    """
+    if period is not None and (start_date is not None or end_date is not None):
+        raise ToolError(
+            "Provide either 'period' or 'start_date'/'end_date', not both. "
+            "| Try: drop period to use the date range, or drop the dates to use the period."
+        )
+
+
 def fund_flags_warning(is_multi: bool, include_portfolio: bool, include_performance: bool) -> Optional[str]:
     """Warning text when single-fund-only flags are used in multi-fund mode."""
     if is_multi and (include_portfolio or include_performance):
@@ -275,14 +300,13 @@ async def search_symbol(
     annotations={"readOnlyHint": True}
 )
 async def get_profile(
-    symbol: Annotated[str, Field(
-        description="Ticker symbol",
-        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
-        examples=["GARAN", "AAPL"]
+    symbol: Annotated[Union[str, List[str]], Field(
+        description="Symbol(s), max 10: 'GARAN' or ['GARAN', 'AKBNK']",
+        examples=["GARAN", "AAPL", ["GARAN", "AKBNK"]]
     )],
-    market: Annotated[MarketLiteral, Field(
+    market: Annotated[ProfileMarketLiteral, Field(
         description="Market: bist, us, or fund",
-        examples=["bist", "us"]
+        examples=["bist", "us", "fund"]
     )],
     include_islamic: Annotated[bool, Field(
         description="Include Sharia compliance info (BIST only)",
@@ -304,7 +328,7 @@ async def get_profile(
     """
     logger.info(f"get_profile: symbol='{symbol}', market='{market}', include_islamic={include_islamic}")
     try:
-        result = await market_router.get_profile(symbol, MarketType(market))
+        result = await market_router.get_profile(symbol, resolve_market(market, symbol))
 
         # Add Islamic finance compliance if requested (BIST only)
         if include_islamic and market == "bist" and result.get("profile"):
@@ -334,10 +358,14 @@ async def get_quote(
         description="Symbol(s), max 10. Stocks: GARAN, AAPL. FX and metals: USD, EUR, gram-altin, BRENT. Crypto pairs: BTCTRY, BTC-USD.",
         examples=["GARAN", ["GARAN", "AKBNK"], "gram-altin", "BTCTRY"]
     )],
-    market: Annotated[Literal["bist", "us", "fx", "crypto_tr", "crypto_global"], Field(
-        description="Market: bist, us, fx, crypto_tr (BtcTurk), crypto_global (Coinbase)",
-        examples=["bist", "fx", "crypto_tr"]
-    )]
+    market: Annotated[QuoteMarketLiteral, Field(
+        description="Market: bist, us, fx, or crypto",
+        examples=["bist", "fx", "crypto"]
+    )],
+    exchange: Annotated[Optional[ExchangeLiteral], Field(
+        description="Crypto exchange: btcturk or coinbase. Inferred from the pair when omitted.",
+        default=None
+    )] = None
 ) -> str:
     """
     Get the current price of anything: a stock, a currency, a metal, a coin.
@@ -358,7 +386,7 @@ async def get_quote(
     """
     logger.info(f"get_quote: symbol='{symbol}', market='{market}'")
     try:
-        return shape(await market_router.get_quote(symbol, MarketType(market)))
+        return shape(await market_router.get_quote(symbol, resolve_market(market, symbol, exchange)))
     except Exception as e:
         logger.exception(f"Error in get_quote for '{symbol}'")
         raise classify_tool_error(e, "Quote fetch")
@@ -373,27 +401,30 @@ async def get_quote(
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_historical_data(
-    symbol: Annotated[str, Field(
-        description="Ticker symbol",
-        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
-        examples=["GARAN", "AAPL", "BTCTRY"]
+    symbol: Annotated[Union[str, List[str]], Field(
+        description="Symbol(s), max 10. Stocks: GARAN, AAPL. FX: gram-altin, USD. Crypto pairs: BTCTRY, BTC-USD. Fund codes: TI2.",
+        examples=["GARAN", "AAPL", "BTCTRY", "gram-altin"]
     )],
-    market: Annotated[MarketLiteral, Field(
-        description="Market: bist, us, crypto_tr, or crypto_global",
-        examples=["bist", "us"]
+    market: Annotated[PriceMarketLiteral, Field(
+        description="Market: bist, us, crypto, fx, or fund",
+        examples=["bist", "us", "crypto", "fx"]
     )],
     period: Annotated[Optional[HistoricalPeriodLiteral], Field(
-        description="Time period: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, ytd, max",
+        description="Time period: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, ytd, max. Mutually exclusive with start_date/end_date.",
         default=None
     )] = None,
     start_date: Annotated[Optional[str], Field(
-        description="Start date (YYYY-MM-DD) for date range query",
+        description="Start date (YYYY-MM-DD). Mutually exclusive with period.",
         pattern=r"^\d{4}-\d{2}-\d{2}$",
         default=None
     )] = None,
     end_date: Annotated[Optional[str], Field(
-        description="End date (YYYY-MM-DD) for date range query",
+        description="End date (YYYY-MM-DD). Mutually exclusive with period.",
         pattern=r"^\d{4}-\d{2}-\d{2}$",
+        default=None
+    )] = None,
+    exchange: Annotated[Optional[ExchangeLiteral], Field(
+        description="Crypto exchange: btcturk or coinbase. Inferred from the pair when omitted (BTCTRY→btcturk, BTC-USD→coinbase).",
         default=None
     )] = None,
     adjust: Annotated[bool, Field(
@@ -404,8 +435,8 @@ async def get_historical_data(
     """
     Get historical OHLCV (Open, High, Low, Close, Volume) data.
 
-    Query modes:
-    1. Period mode: period="1mo" → Last 1 month
+    Query modes — pick ONE:
+    1. Period: period="1mo" → the last calendar month
     2. Date range: start_date="2024-01-01", end_date="2024-12-31"
     3. Single day: start_date="2024-10-25", end_date="2024-10-25"
 
@@ -416,16 +447,27 @@ async def get_historical_data(
     day. Use it to see what a share actually traded at; do not compute a return
     from it, because a split shows up as a price cliff.
 
+    Funds return a NAV series only (no OHLC, no volume), and their dates are TEFAS
+    publication dates — the NAV each carries is marked to the previous trading day.
+
     Examples:
     - get_historical_data("GARAN", "bist", period="3mo")
     - get_historical_data("AAPL", "us", start_date="2024-01-01", end_date="2024-06-30")
+    - get_historical_data("BTC-USD", "crypto", period="1mo")
     """
+    validate_time_params(period, start_date, end_date)
     logger.info(f"get_historical_data: symbol='{symbol}', market='{market}', adjust={adjust}")
     try:
-        return shape(downsample_ohlcv(
-            await market_router.get_historical_data(
-                symbol, MarketType(market), period, start_date, end_date, adjust=adjust
-            )
+        resolved = resolve_market(market, symbol, exchange)
+        symbols = symbol if isinstance(symbol, list) else [symbol]
+        if len(symbols) == 1:
+            return shape(downsample_ohlcv(
+                await market_router.get_historical_data(
+                    symbols[0], resolved, period, start_date, end_date, adjust=adjust
+                )
+            ))
+        return shape(await market_router.get_historical_data_multi(
+            symbols, resolved, period, start_date, end_date, adjust=adjust
         ))
     except Exception as e:
         logger.exception(f"Error in get_historical_data for '{symbol}'")
@@ -441,15 +483,18 @@ async def get_historical_data(
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_technical_analysis(
-    symbol: Annotated[str, Field(
-        description="Ticker symbol",
-        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
-        examples=["GARAN", "AAPL", "BTCTRY"]
+    symbol: Annotated[Union[str, List[str]], Field(
+        description="Symbol(s), max 10: 'GARAN' or ['GARAN', 'AKBNK']",
+        examples=["GARAN", "AAPL", "BTCTRY", ["GARAN", "AKBNK"]]
     )],
-    market: Annotated[MarketLiteral, Field(
-        description="Market: bist, us, crypto_tr, or crypto_global",
-        examples=["bist", "us"]
+    market: Annotated[TechnicalMarketLiteral, Field(
+        description="Market: bist, us, or crypto",
+        examples=["bist", "us", "crypto"]
     )],
+    exchange: Annotated[Optional[ExchangeLiteral], Field(
+        description="Crypto exchange: btcturk or coinbase. Inferred from the pair when omitted.",
+        default=None
+    )] = None,
     timeframe: Annotated[TimeframeLiteral, Field(
         description="Analysis timeframe: 1d (daily), 1h (hourly), 4h, 1W (weekly)",
         default="1d"
@@ -474,7 +519,15 @@ async def get_technical_analysis(
     """
     logger.info(f"get_technical_analysis: symbol='{symbol}', market='{market}'")
     try:
-        result = await market_router.get_technical_analysis(symbol, MarketType(market), timeframe)
+        resolved = resolve_market(market, symbol, exchange)
+        symbols = symbol if isinstance(symbol, list) else [symbol]
+
+        if len(symbols) > 1:
+            return shape(await market_router.get_technical_analysis_multi(
+                symbols, resolved, timeframe
+            ))
+
+        result = await market_router.get_technical_analysis(symbols[0], resolved, timeframe)
         warning = timeframe_warning(market, timeframe)
         if warning:
             result.setdefault("warnings", []).append(warning)
@@ -488,7 +541,7 @@ async def get_technical_analysis(
                     "pivot points are computed for bist and us only."
                 )
             else:
-                pivots = await market_router.get_pivot_points(symbol, MarketType(market))
+                pivots = await market_router.get_pivot_points(symbols[0], resolved)
                 result["pivots"] = {
                     k: v for k, v in pivots.items() if k != "metadata"
                 }
@@ -512,7 +565,7 @@ async def get_analyst_data(
         description="Single ticker or list of tickers (max 10)",
         examples=["GARAN", ["GARAN", "AKBNK"]]
     )],
-    market: Annotated[Literal["bist", "us"], Field(
+    market: Annotated[StockMarketLiteral, Field(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
@@ -549,7 +602,7 @@ async def get_earnings(
         description="Single ticker or list of tickers (max 10)",
         examples=["GARAN", ["GARAN", "THYAO"]]
     )],
-    market: Annotated[Literal["bist", "us"], Field(
+    market: Annotated[StockMarketLiteral, Field(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
@@ -586,7 +639,7 @@ async def get_financial_statements(
         description="Single ticker or list of tickers (max 10)",
         examples=["SASA", ["SASA", "AKSA", "ALKIM"]]
     )],
-    market: Annotated[Literal["bist", "us"], Field(
+    market: Annotated[StockMarketLiteral, Field(
         description="Market: bist or us",
         examples=["bist", "us"]
     )],
@@ -643,12 +696,11 @@ async def get_financial_statements(
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_financial_ratios(
-    symbol: Annotated[str, Field(
-        description="Ticker symbol",
-        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
-        examples=["GARAN", "AAPL"]
+    symbol: Annotated[Union[str, List[str]], Field(
+        description="Symbol(s), max 10: 'GARAN' or ['GARAN', 'AKBNK']",
+        examples=["GARAN", "AAPL", ["GARAN", "AKBNK"]]
     )],
-    market: Annotated[Literal["bist", "us"], Field(
+    market: Annotated[StockMarketLiteral, Field(
         description="Market: bist or us",
         examples=["bist", "us"]
     )],
@@ -672,8 +724,13 @@ async def get_financial_ratios(
     """
     logger.info(f"get_financial_ratios: symbol='{symbol}', market='{market}'")
     try:
+        symbols = symbol if isinstance(symbol, list) else [symbol]
+        if len(symbols) > 1:
+            return shape(await market_router.get_financial_ratios_multi(
+                symbols, MarketType(market), RatioSetType(ratio_set)
+            ))
         return shape(await market_router.get_financial_ratios(
-            symbol, MarketType(market), RatioSetType(ratio_set)
+            symbols[0], MarketType(market), RatioSetType(ratio_set)
         ))
     except Exception as e:
         logger.exception(f"Error in get_financial_ratios for '{symbol}'")
@@ -693,7 +750,7 @@ async def get_corporate_actions(
         description="Single ticker or list of tickers (max 10)",
         examples=["GARAN", ["GARAN", "THYAO"], "KO"]
     )],
-    market: Annotated[Literal["bist", "us"], Field(
+    market: Annotated[StockMarketLiteral, Field(
         description="Market: bist or us",
         default="bist",
         examples=["bist", "us"]
@@ -812,7 +869,7 @@ async def get_news(
     annotations={"readOnlyHint": True, "openWorldHint": True}
 )
 async def screen_securities(
-    market: Annotated[Literal["bist", "us"], Field(
+    market: Annotated[StockMarketLiteral, Field(
         description="Market: bist or us",
         examples=["bist", "us"]
     )],
@@ -1043,12 +1100,11 @@ async def compare_assets(
     annotations={"readOnlyHint": True}
 )
 async def get_sector_comparison(
-    symbol: Annotated[str, Field(
-        description="Ticker symbol",
-        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
-        examples=["GARAN", "AAPL"]
+    symbol: Annotated[Union[str, List[str]], Field(
+        description="Symbol(s), max 10: 'GARAN' or ['GARAN', 'AKBNK']",
+        examples=["GARAN", "AAPL", ["GARAN", "AKBNK"]]
     )],
-    market: Annotated[Literal["bist", "us"], Field(
+    market: Annotated[StockMarketLiteral, Field(
         description="Market: bist or us",
         examples=["bist", "us"]
     )]
@@ -1056,7 +1112,7 @@ async def get_sector_comparison(
     """
     Get sector comparison for a stock:
     - Sector and industry classification
-    - Sector average P/E and P/B
+    - Sector median P/E and P/B
     - Peer companies with key metrics
     - Comparative positioning
 
@@ -1066,7 +1122,12 @@ async def get_sector_comparison(
     """
     logger.info(f"get_sector_comparison: symbol='{symbol}', market='{market}'")
     try:
-        return shape(await market_router.get_sector_comparison(symbol, MarketType(market)))
+        symbols = symbol if isinstance(symbol, list) else [symbol]
+        if len(symbols) > 1:
+            return shape(await market_router.get_sector_comparison_multi(
+                symbols, MarketType(market)
+            ))
+        return shape(await market_router.get_sector_comparison(symbols[0], MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_sector_comparison for '{symbol}'")
         raise classify_tool_error(e, "Sector comparison")
@@ -1625,7 +1686,7 @@ async def get_index_data(
         pattern=r"^[A-Za-z0-9.\-]{1,20}$",
         examples=["XU100", "XU030", "XBANK", "SPY"]
     )],
-    market: Annotated[Literal["bist", "us"], Field(
+    market: Annotated[StockMarketLiteral, Field(
         description="Market: bist or us",
         examples=["bist", "us"]
     )],

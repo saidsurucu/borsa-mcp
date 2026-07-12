@@ -171,6 +171,34 @@ class BorsapyProvider:
     # HISTORICAL DATA METHODS
     # =========================================================================
 
+    # borsapy reaches BIST over a TradingView websocket that drops roughly half the
+    # time with "No data received for BIST:<TICKER>". Nothing retried anywhere, so one
+    # transient failure became a hard error for the caller.
+    _HISTORY_ATTEMPTS = 3
+    _HISTORY_BACKOFF_SECONDS = 0.5
+
+    def _history_with_retry(self, ticker, ticker_kodu: str, **kwargs):
+        """ticker.history(), retried through a flaky websocket.
+
+        A persistent failure still raises — this retries a transport drop, it does not
+        paper over a ticker that genuinely has no data.
+        """
+        import time
+
+        last_error = None
+        for attempt in range(1, self._HISTORY_ATTEMPTS + 1):
+            try:
+                return ticker.history(**kwargs)
+            except Exception as exc:
+                last_error = exc
+                if attempt < self._HISTORY_ATTEMPTS:
+                    logger.warning(
+                        f"BIST history attempt {attempt}/{self._HISTORY_ATTEMPTS} "
+                        f"failed for {ticker_kodu}: {exc}. Retrying."
+                    )
+                    time.sleep(self._HISTORY_BACKOFF_SECONDS * attempt)
+        raise last_error
+
     async def get_finansal_veri(
         self,
         ticker_kodu: str,
@@ -188,7 +216,10 @@ class BorsapyProvider:
             # Determine which mode to use: date range or period
             if start_date or end_date:
                 # Date range mode
-                hist_df = ticker.history(start=start_date, end=end_date, adjust=adjust)
+                hist_df = self._history_with_retry(
+                    ticker, ticker_kodu,
+                    start=start_date, end=end_date, adjust=adjust,
+                )
 
                 # Calculate time frame for optimization
                 if start_date and end_date:
@@ -205,7 +236,10 @@ class BorsapyProvider:
             else:
                 # Period mode
                 borsapy_period = self._normalize_period(period)
-                hist_df = ticker.history(period=borsapy_period, adjust=adjust)
+                hist_df = self._history_with_retry(
+                    ticker, ticker_kodu,
+                    period=borsapy_period, adjust=adjust,
+                )
                 time_frame_days = SUPPORTED_PERIODS[borsapy_period]
 
             if hist_df is None or hist_df.empty:
