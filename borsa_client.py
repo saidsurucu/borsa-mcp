@@ -1288,7 +1288,11 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
             "start_date": start_date,
             "end_date": end_date,
             "data_points": data_points,
-            "total_points": len(data_points)
+            "total_points": len(data_points),
+            # Carried up so the router can disclose resampling for US the way it
+            # already does for BIST.
+            "ham_veri_sayisi": result.get("ham_veri_sayisi"),
+            "optimizasyon_uygulandı": result.get("optimizasyon_uygulandı"),
         }
         return mapped_result
 
