@@ -2135,6 +2135,49 @@ class MarketRouter:
 
     # --- Fund Data ---
 
+    async def get_fund_price_series(
+        self,
+        symbol: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """A fund's full NAV series, for the canonical layer.
+
+        `get_fund_data` calls fund.history() but only ever emits 7 rows of
+        `recent_prices`, so there was no path to a fund's price history at all.
+
+        TEFAS is close-only: no OHLC, no volume. The v2 API accepts only fixed period
+        buckets (5 years is the maximum); borsapy serves an arbitrary window by
+        fetching the smallest covering bucket and filtering client-side.
+
+        The `published_date` here is TEFAS's `tarih`. It is NOT the date the NAV is
+        marked to — see canonical_series.fund_valuation_date, which shifts it back a
+        trading day. Callers must go through to_canonical() rather than reading these
+        dates as session dates.
+        """
+        import borsapy as bp
+
+        fund = bp.Fund(symbol.upper())
+        hist = await asyncio.get_running_loop().run_in_executor(
+            None, lambda: fund.history(start=start_date, end=end_date)
+        )
+        if hist is None or len(hist) == 0:
+            raise DataNotAvailableError(
+                f"No NAV history for fund '{symbol}' between "
+                f"{start_date or 'start'} and {end_date or 'now'}"
+            )
+
+        rows = [
+            {"published_date": idx.strftime("%Y-%m-%d"), "close": float(row["Price"])}
+            for idx, row in hist.iterrows()
+        ]
+        return {
+            "symbol": symbol.upper(),
+            "currency": "TRY",
+            "source": "tefas",
+            "data": rows,
+        }
+
     async def get_fund_data(
         self,
         symbol: str,

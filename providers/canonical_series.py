@@ -187,3 +187,124 @@ class CanonicalSeries:
                 f"(limit {max_days}). The asset is likely suspended or delisted; "
                 "using it would silently price the window from outside it."
             )
+
+
+def fund_valuation_date(published_date: str) -> str:
+    """The date a TEFAS NAV is actually marked to: the previous TRADING day.
+
+    Measured, not assumed. Regressing TI2's daily NAV returns against XU100 gives a
+    correlation of 0.014 at lag 0 and **0.938 at lag 1** (confirmed on AFA, a
+    different founder's equity fund). TEFAS's `tarih` is the publication date, and
+    it is the only date the data exposes.
+
+    Weekends are skipped. Turkish public holidays are NOT modelled: on a holiday
+    boundary this can name a non-trading day. That is tolerable because callers
+    select bars with `on or before` / `on or after`, so a date that is not a real
+    session simply resolves to its neighbour.
+    """
+    d = datetime.strptime(published_date, "%Y-%m-%d") - timedelta(days=1)
+    while d.weekday() >= 5:          # 5 = Saturday, 6 = Sunday
+        d -= timedelta(days=1)
+    return d.strftime("%Y-%m-%d")
+
+
+FUND_LAG_WARNING = (
+    "Fund rows are keyed on their valuation date (the previous trading day), not "
+    "TEFAS's publication date. A fund's freshest NAV always trails the freshest "
+    "stock close by one trading day."
+)
+FUND_TOTAL_RETURN_WARNING = (
+    "Fund NAV accrues its holdings' dividends, so a fund is a total return while "
+    "the stocks beside it are a price return (dividends excluded)."
+)
+
+
+# What each market's close actually is. Every value here was measured against live
+# data (design doc §3.1), not inferred from the code. `None` means "derive it".
+_MARKET_CONTRACT = {
+    "bist":          {"currency": "TRY", "price_basis": "last", "adjustment": "split"},
+    "us":            {"currency": "USD", "price_basis": "last", "adjustment": "split"},
+    "crypto_tr":     {"currency": None,  "price_basis": "last", "adjustment": "n/a"},
+    "crypto_global": {"currency": None,  "price_basis": "last", "adjustment": "n/a"},
+    "fx":            {"currency": None,  "price_basis": None,   "adjustment": "n/a"},
+    "fund":          {"currency": "TRY", "price_basis": "nav",  "adjustment": "n/a"},
+}
+
+# Every BtcTurk pair is quoted in one of these two (verified against its exchangeinfo).
+_BTCTURK_QUOTES = ("TRY", "USDT")
+
+
+def _crypto_quote_currency(symbol: str, market: str) -> str:
+    """Derive a crypto pair's quote currency. Never default it."""
+    if market == "crypto_global":
+        if "-" not in symbol:
+            raise ValueError(
+                f"cannot derive a quote currency from Coinbase product {symbol!r}"
+            )
+        return symbol.rsplit("-", 1)[1].upper()
+
+    up = symbol.upper()
+    for quote in _BTCTURK_QUOTES:
+        if up.endswith(quote):
+            return "TRY" if quote == "TRY" else "USD"
+    raise ValueError(
+        f"cannot derive a quote currency from BtcTurk pair {symbol!r}. Labelling it "
+        "by default is how a 3,005,375 TRY close passes for USD."
+    )
+
+
+def to_canonical(raw: dict, market: str) -> CanonicalSeries:
+    """Normalize a raw router payload into the one price contract.
+
+    `raw` is what MarketRouter.get_historical_data (stocks, crypto, FX) or
+    get_fund_price_series (funds) returns.
+    """
+    contract = _MARKET_CONTRACT.get(market)
+    if contract is None:
+        raise ValueError(
+            f"unknown market {market!r}; known: {sorted(_MARKET_CONTRACT)}"
+        )
+
+    symbol = raw.get("symbol", "")
+    source = raw.get("source") or (raw.get("metadata") or {}).get("source") or "unknown"
+    warnings: List[str] = []
+
+    currency = contract["currency"]
+    price_basis = contract["price_basis"]
+
+    if market in ("crypto_tr", "crypto_global"):
+        currency = _crypto_quote_currency(symbol, market)
+    elif market == "fx":
+        spec = resolve_fx_asset(symbol)
+        currency, price_basis = spec.currency, spec.price_basis
+    elif market == "fund":
+        currency = raw.get("currency") or "TRY"
+        warnings.append(FUND_LAG_WARNING)
+        warnings.append(FUND_TOTAL_RETURN_WARNING)
+
+    bars = []
+    for row in raw.get("data", []):
+        if market == "fund":
+            bar_date = fund_valuation_date(normalize_date(row["published_date"]))
+        else:
+            bar_date = normalize_date(row["date"])
+        bars.append(Bar(
+            date=bar_date,
+            close=float(row["close"]),
+            open=row.get("open"),
+            high=row.get("high"),
+            low=row.get("low"),
+            volume=row.get("volume"),
+        ))
+
+    if not bars:
+        raise ValueError(f"{symbol}: no bars to normalize")
+
+    return CanonicalSeries(
+        meta=SeriesMeta(
+            symbol=symbol, market=market, currency=currency,
+            price_basis=price_basis, adjustment=contract["adjustment"],
+            source=source, warnings=warnings,
+        ),
+        bars=bars,
+    )

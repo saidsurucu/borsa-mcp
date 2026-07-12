@@ -3,7 +3,7 @@ import pytest
 
 from providers.canonical_series import (
     Bar, SeriesMeta, CanonicalSeries, StalePriceError, normalize_date,
-    resolve_fx_asset, FX_ASSET_SPECS,
+    resolve_fx_asset, FX_ASSET_SPECS, fund_valuation_date, to_canonical,
 )
 
 
@@ -141,3 +141,96 @@ def test_every_fx_asset_declares_its_price_basis():
 def test_an_unknown_fx_asset_raises_rather_than_defaulting_to_usd():
     with pytest.raises(ValueError):
         resolve_fx_asset("DOGECOIN-MOON")
+
+
+# --- Fund NAV lag -----------------------------------------------------------
+# Measured, not assumed: regressing TI2's daily NAV returns against XU100 gives
+# correlation 0.014 at lag 0 and 0.938 at lag 1 (confirmed on AFA, a different
+# founder's fund). TEFAS's `tarih` is the PUBLICATION date; the NAV it carries is
+# marked to the close of the previous trading day.
+
+def test_fund_valuation_date_is_the_previous_trading_day():
+    assert fund_valuation_date("2026-07-10") == "2026-07-09"
+
+
+def test_fund_valuation_date_skips_the_weekend():
+    # NAV published Monday 2026-07-06 is marked to Friday 2026-07-03, not Sunday.
+    assert fund_valuation_date("2026-07-06") == "2026-07-03"
+
+
+def test_fund_series_is_keyed_on_the_valuation_date_not_the_publication_date():
+    # The whole point: a fund's [A,B] is economically [A-1,B-1]. Comparing a fund's
+    # published dates against a stock's session dates silently offsets the two
+    # windows by a trading day.
+    raw = {
+        "symbol": "TI2",
+        "currency": "TRY",
+        "source": "tefas",
+        "data": [
+            {"published_date": "2026-07-09", "close": 10.0},
+            {"published_date": "2026-07-10", "close": 11.0},
+        ],
+    }
+    series = to_canonical(raw, market="fund")
+
+    assert [b.date for b in series.bars] == ["2026-07-08", "2026-07-09"]
+    assert series.meta.price_basis == "nav"
+    assert series.meta.currency == "TRY"
+    assert any("valuation date" in w.lower() for w in series.meta.warnings)
+    assert any("total return" in w.lower() for w in series.meta.warnings)
+
+
+# --- to_canonical dispatcher ------------------------------------------------
+# The one function compare_assets will call, and the only place that knows the six
+# markets differ.
+
+def test_bist_series_declares_try_last_split():
+    raw = {"symbol": "ASELS", "metadata": {"source": "borsapy"},
+           "data": [{"date": "2026-07-10T00:00:00", "close": 129.0}]}
+    s = to_canonical(raw, market="bist")
+    assert (s.meta.currency, s.meta.price_basis, s.meta.adjustment) == ("TRY", "last", "split")
+    assert s.bars[0].date == "2026-07-10"
+
+
+def test_us_series_declares_usd_last_split():
+    raw = {"symbol": "AAPL", "metadata": {"source": "yfinance"},
+           "data": [{"date": "2026-07-10T00:00:00-04:00", "close": 230.0}]}
+    s = to_canonical(raw, market="us")
+    assert (s.meta.currency, s.meta.price_basis, s.meta.adjustment) == ("USD", "last", "split")
+    assert s.bars[0].date == "2026-07-10"
+
+
+def test_crypto_currency_comes_from_the_pair_not_a_default():
+    # BTCTRY at 3,005,375 and BTC-USD at 64,034 arrive in identically-shaped payloads
+    # today. The quote currency must be derived, never assumed.
+    tr = to_canonical({"symbol": "BTCTRY", "metadata": {"source": "btcturk"},
+                       "data": [{"date": "2026-07-10", "close": 3005375.0}]},
+                      market="crypto_tr")
+    gl = to_canonical({"symbol": "BTC-USD", "metadata": {"source": "coinbase"},
+                       "data": [{"date": "2026-07-10", "close": 64034.0}]},
+                      market="crypto_global")
+    assert tr.meta.currency == "TRY"
+    assert gl.meta.currency == "USD"
+    assert tr.meta.adjustment == "n/a" and gl.meta.adjustment == "n/a"
+
+
+def test_crypto_pair_with_an_underivable_quote_raises():
+    with pytest.raises(ValueError):
+        to_canonical({"symbol": "MYSTERY", "data": [{"date": "2026-07-10", "close": 1.0}]},
+                     market="crypto_tr")
+
+
+def test_fx_currency_and_basis_come_from_the_registry():
+    s = to_canonical({"symbol": "gram-altin", "metadata": {"source": "borsapy"},
+                      "data": [{"date": "2026-07-10", "close": 6225.55}]}, market="fx")
+    assert (s.meta.currency, s.meta.price_basis) == ("TRY", "ask")
+
+    brent = to_canonical({"symbol": "BRENT", "metadata": {"source": "borsapy"},
+                          "data": [{"date": "2026-07-10", "close": 76.02}]}, market="fx")
+    assert brent.meta.currency == "USD"
+
+
+def test_an_unknown_market_raises():
+    with pytest.raises(ValueError):
+        to_canonical({"symbol": "X", "data": [{"date": "2026-07-10", "close": 1.0}]},
+                     market="martian_exchange")
