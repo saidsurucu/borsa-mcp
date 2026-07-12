@@ -69,12 +69,16 @@ def drop_allnull_statement_rows(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def downsample_ohlcv(payload: Dict[str, Any], max_points: int = 300) -> Dict[str, Any]:
-    """Downsample 'data_points' OHLCV lists by stride so len <= max_points.
+    """Downsample the OHLCV row list under 'data' by stride so len <= max_points.
+
+    The rows live under 'data'; 'data_points' is their integer count, and is kept
+    consistent. (This function previously read 'data_points', got an int, failed
+    its isinstance check and returned immediately — it never fired in production.)
 
     The final (most recent) point is always preserved exactly. Adds
     meta.truncated/guidance when fired. Mutates payload in place and returns it.
     """
-    points = payload.get("data_points")
+    points = payload.get("data")
     if not isinstance(points, list) or len(points) <= max_points:
         return payload
     original_len = len(points)
@@ -85,7 +89,8 @@ def downsample_ohlcv(payload: Dict[str, Any], max_points: int = 300) -> Dict[str
         if len(sampled) >= max_points:
             sampled = sampled[:-1]  # drop last strided point to make room
         sampled.append(points[-1])
-    payload["data_points"] = sampled
+    payload["data"] = sampled
+    payload["data_points"] = len(sampled)
     _attach_meta(
         payload,
         f"Series downsampled from {original_len} to {len(sampled)} points "
