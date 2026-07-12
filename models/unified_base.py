@@ -11,13 +11,70 @@ from pydantic import BaseModel, Field
 # --- Market Type Enums ---
 
 class MarketType(str, Enum):
-    """Supported market types for unified tools."""
+    """The one market vocabulary.
+
+    CRYPTO_TR and CRYPTO_GLOBAL used to sit here, but they named an *exchange*, not a
+    market: BTCTRY and BTC-USD are the same asset class bought in two places. They are
+    kept as internal routing values and as accepted aliases, but the tool surface takes
+    market="crypto" plus an optional exchange, which is inferred from the pair.
+    """
     BIST = "bist"          # Istanbul Stock Exchange
     US = "us"              # NYSE/NASDAQ
-    CRYPTO_TR = "crypto_tr"     # BtcTurk (Turkish crypto)
-    CRYPTO_GLOBAL = "crypto_global"  # Coinbase (Global crypto)
+    CRYPTO = "crypto"      # Cryptocurrency (exchange chosen by `exchange` or the pair)
     FUND = "fund"          # TEFAS Turkish Funds
     FX = "fx"              # Currency & Commodities
+    INDEX = "index"        # Stock market indices
+
+    # Internal routing values. Still accepted at the boundary for a transition period.
+    CRYPTO_TR = "crypto_tr"          # BtcTurk
+    CRYPTO_GLOBAL = "crypto_global"  # Coinbase
+
+
+# Every BtcTurk pair is quoted in one of these; Coinbase products carry a dash.
+_BTCTURK_QUOTES = ("TRY", "USDT")
+
+
+def resolve_crypto_market(symbol: str, exchange: Optional[str] = None) -> MarketType:
+    """Which exchange serves this pair.
+
+    `exchange` wins when given. Otherwise it comes from the pair's shape: Coinbase
+    products are dash-delimited (BTC-USD), BtcTurk pairs are concatenated and quoted in
+    TRY or USDT (BTCTRY). Guessing is not an option — a BTCTRY close of 3,005,375 and a
+    BTC-USD close of 64,034 are indistinguishable by shape alone.
+    """
+    if exchange:
+        normalized = str(exchange).lower()
+        if normalized == "btcturk":
+            return MarketType.CRYPTO_TR
+        if normalized == "coinbase":
+            return MarketType.CRYPTO_GLOBAL
+        raise ValueError(
+            f"unknown exchange {exchange!r}; known: btcturk, coinbase"
+        )
+
+    up = str(symbol).upper()
+    if "-" in up:
+        return MarketType.CRYPTO_GLOBAL
+    if any(up.endswith(q) and len(up) > len(q) for q in _BTCTURK_QUOTES):
+        return MarketType.CRYPTO_TR
+    raise ValueError(
+        f"cannot tell which exchange serves {symbol!r}. Coinbase products are "
+        "dash-delimited (BTC-USD); BtcTurk pairs end in TRY or USDT (BTCTRY). "
+        "Name the exchange explicitly if the pair does not follow either shape."
+    )
+
+
+def resolve_market(market: str, symbol: Any = None, exchange: Optional[str] = None) -> MarketType:
+    """Turn a tool's `market` argument into the routing MarketType.
+
+    market="crypto" resolves to the exchange that actually serves the pair. The legacy
+    crypto_tr / crypto_global values are still accepted and pass straight through.
+    """
+    mt = MarketType(market)
+    if mt is MarketType.CRYPTO:
+        first = symbol[0] if isinstance(symbol, list) and symbol else symbol
+        return resolve_crypto_market(first, exchange)
+    return mt
 
 
 class StatementType(str, Enum):

@@ -54,12 +54,60 @@ from models.tcmb_models import EnflasyonHesaplamaSonucu, TcmbEnflasyonSonucu
 
 logger = logging.getLogger(__name__)
 
+
+class LoopBoundHttpClient:
+    """An httpx.AsyncClient that follows the event loop it is used on.
+
+    BorsaApiClient is built at import time (market_router is a module-level singleton),
+    so its httpx client used to be constructed before any loop existed. httpx binds a
+    connection pool to the loop of its first request; when that loop closes, every later
+    request dies with `RuntimeError: Event loop is closed`.
+
+    Production runs one long-lived loop, so this only ever bit the test suite — except
+    for what the error *became*. The exchange providers catch their own exceptions and
+    return an empty result carrying `error_message`, and the callers only checked whether
+    the data was empty. So a dead connection reached the model as "BTCTRY has no quote",
+    which reads as "this pair does not trade". A transport failure had been laundered
+    into a false claim about the market.
+
+    One client per loop, created on first use, so the pool is always live.
+    """
+
+    def __init__(self, timeout: float = 60.0, verify: bool = False):
+        self._timeout = timeout
+        self._verify = verify
+        self._clients: Dict[Any, httpx.AsyncClient] = {}
+
+    def _client_for_current_loop(self) -> httpx.AsyncClient:
+        loop = asyncio.get_running_loop()
+        client = self._clients.get(loop)
+        if client is None or client.is_closed:
+            client = httpx.AsyncClient(timeout=self._timeout, verify=self._verify)
+            self._clients[loop] = client
+        return client
+
+    async def get(self, *args, **kwargs):
+        return await self._client_for_current_loop().get(*args, **kwargs)
+
+    async def post(self, *args, **kwargs):
+        return await self._client_for_current_loop().post(*args, **kwargs)
+
+    async def request(self, *args, **kwargs):
+        return await self._client_for_current_loop().request(*args, **kwargs)
+
+    async def aclose(self) -> None:
+        for client in list(self._clients.values()):
+            await client.aclose()
+        self._clients.clear()
+
+
 class BorsaApiClient:
     def __init__(self, timeout: float = 60.0):
-        # A single httpx client for providers that need it (like KAP)
+        # One httpx client per event loop. Constructing it eagerly here bound the pool
+        # to whichever loop first touched it, and it died with that loop.
         # SSL verification disabled to avoid certificate issues
-        self._http_client = httpx.AsyncClient(timeout=timeout, verify=False)
-        
+        self._http_client = LoopBoundHttpClient(timeout=timeout, verify=False)
+
         # Initialize all data providers
         self.kap_provider = KAPProvider(self._http_client)
         self.yfinance_provider = YahooFinanceProvider()

@@ -97,7 +97,7 @@ async def test_help_plus_filters_is_an_error_not_a_silent_precedence():
     ("GARAN", "bist"),
     ("AAPL", "us"),
     ("gram-altin", "fx"),
-    ("BTCTRY", "crypto_tr"),
+    ("BTCTRY", "crypto"),   # not crypto_tr: the exchange is inferred from the pair
 ])
 async def test_get_quote_answers_what_is_it_worth_now_in_every_market(symbol, market):
     text = await _call("get_quote", {"symbol": symbol, "market": market})

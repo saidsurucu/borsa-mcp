@@ -198,10 +198,27 @@ class MarketRouter:
 
     async def get_profile(
         self,
-        symbol: str,
+        symbol: Union[str, List[str]],
         market: MarketType
     ) -> Dict[str, Any]:
         """Get company profile. Returns raw dict (no Pydantic validation)."""
+        if isinstance(symbol, list):
+            if len(symbol) == 1:
+                symbol = symbol[0]
+            else:
+                return await self._fan_out_multi(
+                    symbol, market, "yfinance",
+                    lambda s: self._get_profile_single(s, market),
+                )
+        return await self._get_profile_single(symbol, market, with_metadata=True)
+
+    async def _get_profile_single(
+        self,
+        symbol: str,
+        market: MarketType,
+        with_metadata: bool = False,
+    ) -> Dict[str, Any]:
+        """One symbol's profile."""
         profile = None
         source = "unknown"
 
@@ -275,10 +292,22 @@ class MarketRouter:
                     "price": result.fiyat
                 }
 
-        return {
-            "metadata": self._create_metadata(market, symbol, source),
-            "profile": profile
-        }
+        if profile is None:
+            # get_profile advertised crypto and fx in its schema and had no branch for
+            # either, so it answered with metadata, `successful_count: 1` and nothing
+            # else. An empty-but-successful profile tells the model the company exists
+            # and has no description (CLAUDE.md #7).
+            raise DataNotAvailableError(
+                f"No profile for '{symbol}' in market '{market.value}'. "
+                "Profiles are served for bist, us and fund."
+            )
+
+        if with_metadata:
+            return {
+                "metadata": self._create_metadata(market, symbol, source),
+                "profile": profile,
+            }
+        return {"symbol": symbol.upper(), "profile": profile}
 
     # --- Quick Info ---
 
@@ -447,6 +476,36 @@ class MarketRouter:
 
         bar_interval = None
         raw_count = None
+
+        if market == MarketType.FUND:
+            # The schema promised fund history and the router refused it. The series
+            # exists — get_fund_price_series — it was simply never wired in. TEFAS is
+            # close-only, and its dates are PUBLICATION dates: the NAV they carry is
+            # marked to the previous trading day (canonical_series.fund_valuation_date).
+            raw = await self.get_fund_price_series(symbol, start_date, end_date)
+            rows = [
+                {
+                    "date": r["published_date"],
+                    "open": None, "high": None, "low": None,
+                    "close": r["close"], "volume": None,
+                }
+                for r in raw["data"]
+            ]
+            return {
+                "metadata": self._create_metadata(market, symbol, "tefas"),
+                "symbol": symbol.upper(),
+                "period": period,
+                "start_date": start_date,
+                "end_date": end_date,
+                "data": rows,
+                "data_points": len(rows),
+                "warnings": [
+                    "Fund dates are TEFAS publication dates. The NAV each one carries "
+                    "is marked to the close of the previous trading day, so a fund's "
+                    "window sits one trading day behind a stock's.",
+                    "TEFAS publishes a NAV only — there is no open/high/low or volume.",
+                ],
+            }
 
         if market == MarketType.BIST:
             source = "borsapy"
@@ -928,6 +987,15 @@ class MarketRouter:
                     "bb_middle": ind.bollinger_middle,
                     "bb_lower": ind.bollinger_lower
                 }
+
+        if indicators is None:
+            # The schema advertised fx and fund; the router has no branch for either,
+            # so it returned symbol + timeframe and not one indicator, under
+            # `successful_count: 1`.
+            raise DataNotAvailableError(
+                f"No technical analysis for '{symbol}' in market '{market.value}'. "
+                "Indicators are computed for bist, us and crypto."
+            )
 
         return {
             "metadata": self._create_metadata(market, symbol, source),
@@ -1962,9 +2030,15 @@ class MarketRouter:
         exchange_info = None
         ohlc = None
 
+        # The exchange providers catch their own exceptions and return an empty result
+        # carrying `error_message`. Carry it up: a failed fetch and an absent quote are
+        # different claims, and the callers were treating them as one.
+        upstream_error = None
+
         if exchange == ExchangeType.BTCTURK:
             if data_type == DataType.TICKER:
                 result = await self._client.get_kripto_ticker(pair_symbol=symbol)
+                upstream_error = getattr(result, "error_message", None)
                 if result and result.ticker_data:
                     t = result.ticker_data[0]
                     ticker = {
@@ -2103,7 +2177,8 @@ class MarketRouter:
             "orderbook": orderbook,
             "trades": trades,
             "exchange_info": exchange_info,
-            "ohlc": ohlc
+            "ohlc": ohlc,
+            "error_message": upstream_error,
         }
 
     # --- FX Data ---
@@ -2257,6 +2332,73 @@ class MarketRouter:
         from providers.canonical_series import CanonicalSeries
         return CanonicalSeries(meta=merged[0].meta, bars=list(seen.values()))
 
+    async def get_technical_analysis_multi(
+        self,
+        symbols: List[str],
+        market: MarketType,
+        timeframe: str = "1d",
+    ) -> Dict[str, Any]:
+        """Several symbols' indicators in parallel."""
+        async def one(s):
+            raw = await self.get_technical_analysis(s, market, timeframe)
+            raw.pop("metadata", None)
+            return raw
+
+        return await self._fan_out_multi(symbols, market, "mixed", one)
+
+    async def get_financial_ratios_multi(
+        self,
+        symbols: List[str],
+        market: MarketType,
+        ratio_set: "RatioSetType",
+    ) -> Dict[str, Any]:
+        """Several symbols' ratios in parallel."""
+        async def one(s):
+            raw = await self.get_financial_ratios(s, market, ratio_set)
+            raw.pop("metadata", None)
+            return raw
+
+        return await self._fan_out_multi(symbols, market, "mixed", one)
+
+    async def get_sector_comparison_multi(
+        self,
+        symbols: List[str],
+        market: MarketType,
+    ) -> Dict[str, Any]:
+        """Several symbols' sector positioning in parallel."""
+        async def one(s):
+            raw = await self.get_sector_comparison(s, market)
+            raw.pop("metadata", None)
+            return raw
+
+        return await self._fan_out_multi(symbols, market, "mixed", one)
+
+    async def get_historical_data_multi(
+        self,
+        symbols: List[str],
+        market: MarketType,
+        period: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        adjust: bool = True,
+    ) -> Dict[str, Any]:
+        """Several symbols' history in parallel, under the standard multi envelope."""
+        return await self._fan_out_multi(
+            symbols, market, "mixed",
+            lambda s: self._historical_single_body(
+                s, market, period, start_date, end_date, adjust
+            ),
+        )
+
+    async def _historical_single_body(
+        self, symbol, market, period, start_date, end_date, adjust
+    ) -> Dict[str, Any]:
+        raw = await self.get_historical_data(
+            symbol, market, period, start_date, end_date, adjust=adjust
+        )
+        raw.pop("metadata", None)
+        return raw
+
     async def get_quote(
         self,
         symbol: Union[str, List[str]],
@@ -2283,15 +2425,20 @@ class MarketRouter:
         if market in (MarketType.CRYPTO_TR, MarketType.CRYPTO_GLOBAL):
             exchange = (ExchangeType.BTCTURK if market == MarketType.CRYPTO_TR
                         else ExchangeType.COINBASE)
+            venue = "BtcTurk" if market == MarketType.CRYPTO_TR else "Coinbase"
             quotes = []
             for sym in symbols:
                 raw = await self.get_crypto_market(sym, exchange, DataType.TICKER)
                 ticker = raw.get("ticker") or {}
                 if not ticker:
-                    raise DataNotAvailableError(
-                        f"No current quote for '{sym}' on "
-                        f"{'BtcTurk' if market == MarketType.CRYPTO_TR else 'Coinbase'}"
-                    )
+                    # The providers catch their own exceptions and return an empty
+                    # result carrying `error_message`, which the callers then ignored —
+                    # so a failed fetch became "this pair has no quote". They are not
+                    # the same thing, and only one of them is the caller's fault.
+                    detail = raw.get("error_message")
+                    if detail:
+                        raise RuntimeError(f"{venue} quote fetch failed for '{sym}': {detail}")
+                    raise DataNotAvailableError(f"No current quote for '{sym}' on {venue}")
                 quotes.append({"symbol": sym, **ticker})
             return {
                 "metadata": self._create_metadata(market, symbols, "exchange"),
