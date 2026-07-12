@@ -579,7 +579,11 @@ class BorsaApiClient:
     async def search_funds(self, search_term: str, limit: int = 20, use_takasbank: bool = True) -> FonAramaSonucu:
         """Search for funds by name, code, or founder using Takasbank data by default."""
         try:
-            result = self.tefas_provider.search_funds(search_term, limit, use_takasbank)
+            # `await` was missing, so this passed a coroutine to FonAramaSonucu(**...),
+            # which raised, which the except below swallowed into an empty-but-
+            # successful result. Fund search has never returned a single match:
+            # search_symbol(market="fund") reported successful_count: 1, total_count: 0.
+            result = await self.tefas_provider.search_funds(search_term, limit, use_takasbank)
             return FonAramaSonucu(**result)
         except Exception as e:
             logger.exception(f"Error searching funds with term {search_term}")
