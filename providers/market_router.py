@@ -420,9 +420,23 @@ class MarketRouter:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         interval: str = "1d",
-        adjust: bool = False
+        adjust: bool = True
     ) -> Dict[str, Any]:
-        """Get historical OHLCV data. Returns raw dict."""
+        """Get historical OHLCV data. Returns raw dict.
+
+        One adjustment basis across every market (design doc §3.3, "Decision A"):
+        **splits adjusted everywhere, dividends nowhere.**
+
+        BIST used to default to raw prices while US returned a split- AND
+        dividend-adjusted series. Each was internally consistent; putting them in one
+        table was nonsense. BIMAS's 100% bonus issue took the BIST series
+        813.00 -> 414.00, so any window spanning 2026-05-14 reported -49% for a
+        company that had merely split.
+
+        `adjust=False` is still honoured for BIST when a caller genuinely wants the
+        prices printed on the exchange that day — but it is no longer the default,
+        because a return computed from it is wrong.
+        """
         source = "unknown"
         data_points = []
 
@@ -462,11 +476,17 @@ class MarketRouter:
 
         elif market == MarketType.US:
             source = "yfinance"
+            # auto_adjust=False gives Yahoo's `Close`: split-adjusted but NOT
+            # dividend-adjusted — the same basis as BIST's adjusted frame. yfinance
+            # 1.1.0 defaults it to True, which folds dividends in and quietly makes
+            # the two markets incomparable. The `adjust` flag was accepted here and
+            # never forwarded at all.
             result = await self._client.get_us_stock_data(
                 symbol,
                 period=period or "1mo",
                 start_date=start_date,
-                end_date=end_date
+                end_date=end_date,
+                auto_adjust=False,
             )
             if result and result.get("data_points"):
                 for dp in result["data_points"]:

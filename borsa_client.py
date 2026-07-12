@@ -1239,9 +1239,14 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
         ticker: str,
         period: str = "1mo",
         start_date: str = None,
-        end_date: str = None
+        end_date: str = None,
+        auto_adjust: bool = False
     ) -> Dict[str, Any]:
-        """Get US stock historical OHLCV data."""
+        """Get US stock historical OHLCV data.
+
+        auto_adjust=False (the default) keeps `Close` split-adjusted but NOT
+        dividend-adjusted, matching BIST. See design doc §3.3.
+        """
         from models import YFinancePeriodEnum
 
         # Convert string period to enum if needed
@@ -1257,7 +1262,8 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
             period=period_enum,
             start_date=start_date,
             end_date=end_date,
-            market="US"
+            market="US",
+            auto_adjust=auto_adjust
         )
         if "error" in result:
             return {"error_message": result.get("error"), "ticker": ticker}
