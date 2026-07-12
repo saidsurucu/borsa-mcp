@@ -62,6 +62,30 @@ These ship first, on their own, as non-breaking fixes. All three were verified i
 
 The FX empty-`rates` render bug (section 2.5) also ships in this phase.
 
+**Status: all of the above are fixed and merged** (`a5bd011`), verified live against BtcTurk,
+Coinbase, BIST, US and FX.
+
+### 0b. Further live bugs, found while measuring the price contract (section 3)
+
+Surveying what the six markets actually return turned up more of the same class. Listed with
+where they get fixed, so none is silently dropped.
+
+| Bug | Fixed by |
+|---|---|
+| **`XPT-USD` resolves to two different assets.** `get_fx_data` applies `ASSET_MAPPING` → gram-platin, **2,477 TRY**. `get_historical_data` passes the symbol raw → platinum ounce, **1,637 USD**. Same name, different asset, different currency. *(verified)* | Phase 1 (one resolution path) |
+| **`ons` is a TRY series labelled USD.** `birim = "TRY" if asset in ["gram-altin","gumus"] else "USD"`, but `ons` maps to `ons-altin` = ounce-of-gold-**in-lira** (106,463 TRY vs the real USD ounce at 4,120). | Phase 1 (declared currency) |
+| **`gumus` / `ons` have no historical path at all** — `ASSET_MAPPING` is not applied in `get_historical_data`. | Phase 1 |
+| **US `adjust` is accepted and ignored**, and the tool description is wrong in both directions: it claims "False = real trading prices (default)" while yfinance 1.1.0 defaults `auto_adjust=True`, so the default is fully adjusted and the flag does nothing. | Phase 1 (§3.3) |
+| **US resampling is silent.** `raw_count` is only set in the BIST branch, so `bar_interval` and the "these are NOT daily candles" warning never fire for US. `KO` at `period=1y` returns **13 monthly bars** presented as the raw series — exactly what the BIST warning exists to prevent. | Phase 2 (history adapter) |
+| **Resampled bars are stamped in the future** — that same query's last row is dated `2026-07-31`, three weeks ahead of today. | Phase 2 |
+| **Coinbase rows come back descending** while every other market ascends, and the router does not normalize. `data[-1]` is the newest bar on BtcTurk and the *oldest* on Coinbase. (CLAUDE.md #6 already records this trap in a different tool.) | Phase 1 (always ascending) |
+| **Coinbase caps at 350 candles.** A 1-year daily request is 365 → HTTP 400 → now raises (Phase 0), but the message says "no data" when the truth is "window too wide". | Phase 1 (surface real cause) |
+| **Crypto volume is truncated to int** — 6.779 BTC becomes `6`. | Phase 1 |
+| **BIST's un-adjust is flaky**, so `adjust=False` can silently return adjusted data (§3.2). | Phase 1 (declared adjustment) |
+| **`guncel_deger` is a stale daily close (up to 2 days old) mislabelled `sell`.** borsapy's `get_current` just returns the last row of a 5-day history; there is no live quote and no `buy`/`sell` in the source. | Phase 3 (`get_quote`) |
+| `get_fund_data` drops the order cutoff and settlement valor fields it already receives, and its `price` carries no date. | Phase 3 |
+| **The TradingView websocket behind BIST fails roughly half the time with no retry anywhere.** A single failure surfaces as a hard error. | Separate — reliability, not contract |
+
 ---
 
 ## 1. Tool map (28 → 22)
@@ -172,33 +196,87 @@ empty-but-successful payload" rule (CLAUDE.md #7). Instead:
 
 ## 3. The canonical price/return contract *(the piece the first draft was missing)*
 
-Without this, `compare_assets` produces precise-looking but economically incomparable numbers.
-The markdown skeleton is a presentation contract; this is the data contract. It must be specified
-and implemented **before** the history adapter, which must land **before** `compare_assets`.
+The markdown skeleton is a presentation contract; this is the data contract. It must be
+implemented **before** the history adapter, which must land **before** `compare_assets`.
 
-For every market, define and test:
+### 3.1 What the six markets actually do — measured, not assumed
 
-| Dimension | Must be specified per market |
-|---|---|
-| Native currency | TRY, USD, … |
-| Price column | close / adjusted close / NAV |
-| Price basis | bid, ask, mid, last, NAV — **gram-altin is a dealer quote with a spread; today's FX OHLC does not say which side it is** |
-| Timezone & valuation date | Europe/Istanbul, America/New_York, UTC for crypto |
-| Interval / granularity | Coinbase candle limits; intraday crypto vs daily equities |
-| Start/end inclusivity | |
-| Ordering | Coinbase returns newest-first, BtcTurk oldest-first (CLAUDE.md #6) |
-| Stale-price tolerance | max days a suspended/delisted asset may reach back |
-| Split adjustment | **always applied** |
-| Dividend treatment | how the total-return series is actually constructed |
-| Fund NAV lag | TEFAS publication date ≠ valuation date ≠ order cutoff ≠ executable date |
-| FX conversion date | aligned to *each asset's actual* observation dates, not the requested dates |
-| Empty vs failure | per section 2.5 |
+Every cell below was verified against live data, not inferred from code.
 
-Note this exposes an unresolved implementation question: US history currently ignores its
-`adjust` flag, BIST adjustment semantics are provider-specific, and typical "adjusted close"
-series bundle split *and* dividend adjustment together. "Splits always adjusted, dividends
-optional" is a requirement, not yet a mechanism. **Two endpoints are only sufficient once a
-trustworthy split-adjusted or total-return series exists.**
+| | **BIST** | **US** | **Crypto TR** | **Crypto Global** | **FX** | **Fund** |
+|---|---|---|---|---|---|---|
+| Native currency | TRY | USD | TRY | USD | TRY *and* USD (mixed) | TRY |
+| **Declared in payload?** | ❌ never | ❌ never | ❌ never | ❌ never | ⚠️ hardcoded `TRY`, wrong for USD assets | ❌ never |
+| Price basis | last | last | last traded | last traded | **satış/ask** of canlidoviz *Serbest Piyasa* | NAV |
+| Splits adjusted | ❌ **not by default** | ✅ always | — | — | — | — |
+| Dividends adjusted | ❌ **never** | ✅ always | — | — | — | ✅ accrue into NAV |
+| `adjust` flag | ✅ honoured (but flaky) | ❌ **accepted and ignored** | — | — | — | — |
+| Date format | `2026-06-01T00:00:00` (naive) | `...T00:00:00-04:00` (NY) | UTC datetime | UTC datetime | `2026-07-11` | `2026-07-10` |
+| Date means | Istanbul session date | NY session date | UTC day | UTC day | Istanbul day | **publication date; value = close of D−1** |
+| Row order | ascending | ascending | ascending | **descending** | ascending | ascending (provider) / **descending** (tool) |
+| Shape | OHLCV | OHLCV | OHLCV | OHLCV | OHLC, no volume | **close-only NAV** |
+| Window cap | — | — | — | **350 candles** | — | **5 years** |
+
+### 3.2 The three findings that would have made `compare_assets` produce garbage
+
+**BIST is raw; US is fully adjusted.** They are directly incomparable. BIMAS did a 100% bonus
+issue (bedelsiz) on 2026-05-14: at the default `adjust=False` the series goes 813.00 → 414.00
+across that date. A comparison spanning it would have reported **−49% for BIMAS** — a company
+that did nothing but split. Meanwhile AAPL would sit in the next row as a dividend-and-split
+adjusted total-return series.
+
+Worse, **you cannot tell which series you got.** BIST's `adjust=False` path un-adjusts the
+TradingView frame using İş Yatırım split data fetched inside a bare `try/except: return df`. That
+fetch is flaky; when it fails, `adjust=False` silently returns the *adjusted* frame. Same call,
+same parameter, two different series.
+
+**A fund's window is shifted one trading day.** Measured by regressing TI2's daily NAV returns
+against XU100: correlation **0.014 at lag 0, 0.938 at lag 1** (confirmed on AFA, a different
+founder's fund). The NAV stamped date D is marked to market at the **close of D−1**. TEFAS's
+`tarih` is the publication date, and it is the only date the data exposes. So a fund's `[A, B]`
+is economically `[A−1, B−1]`, and the freshest NAV always trails the freshest stock close by one
+trading day — structurally, not as a weekend artifact.
+
+**Currency is never declared.** A BTCTRY close of 3,005,375 and a BTC-USD close of 64,034 arrive
+in identically-shaped payloads.
+
+### 3.3 Decision: price return, not total return
+
+`include_dividends=True` cannot be honoured consistently across BIST and US today. US bundles
+split *and* dividend adjustment together inside yfinance's `auto_adjust=True`; BIST never adjusts
+dividends in any mode, so a BIST total-return series would have to be reconstructed from dividend
+history (İş Yatırım gives `brut_oran` as a percentage of nominal, which needs its own validation
+before anyone's return depends on it).
+
+**v1 computes a price return:**
+
+- **Splits are adjusted everywhere.** BIST: request `adjust=True`. US: fetch with
+  `auto_adjust=False` and take the **raw `Close`**, which is split-adjusted but not
+  dividend-adjusted, matching BIST.
+- **Dividends are adjusted nowhere.** Results are labelled a **price return, excluding
+  dividends**, and say so in `## Warnings` rather than in a footnote nobody reads.
+- **Funds keep their asymmetry, disclosed.** Fund NAV accrues underlying dividends and there is no
+  distribution stream in the data to strip out. A fund therefore *is* a total return while the
+  stocks beside it are not. This is stated in the output, not hidden.
+
+Total return is a v2 feature, gated on validating the BIST dividend-per-share reconstruction.
+
+### 3.4 What Phase 1 must therefore build
+
+Not a document — a **normalization layer**. A canonical series adapter that, for any
+(symbol, market), returns:
+
+- rows sorted **ascending**, always;
+- a `date` as a plain `YYYY-MM-DD` in one convention, per market's session date;
+- for funds, both the published date and the derived **valuation date** (D−1);
+- a **declared** `currency`, correct per asset (not hardcoded);
+- a **declared** `price_basis` (`last`, `ask`, `nav`);
+- a **declared** `adjustment` stating what was actually applied — including detecting the BIST
+  un-adjust failure rather than trusting the flag;
+- an explicit stale-price tolerance, so a suspended asset cannot silently reach far outside the
+  requested window;
+- provider window caps surfaced as their real cause (Coinbase's 350-candle limit currently
+  reports "no data" when the truth is "window too wide").
 
 ---
 
