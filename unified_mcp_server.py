@@ -91,7 +91,9 @@ IndexLiteral = Literal[
     "XHOLD", "XGIDA", "XELKT", "XILTM", "XK100", "XK050", "XK030"
 ]
 CalendarCountryLiteral = Literal["TR", "US", "EU", "DE", "GB", "JP", "CN"]
-BondCountryLiteral = Literal["TR", "US"]
+# Only TR is served: the handler always calls BorsapyBondProvider, which is
+# Turkey-only. Offering "US" here returned Turkish yields under a US label.
+BondCountryLiteral = Literal["TR"]
 
 # --- Response Caching Middleware ---
 cache_middleware = ResponseCachingMiddleware(
@@ -1253,19 +1255,18 @@ async def get_economic_calendar(
 )
 async def get_bond_yields(
     country: Annotated[BondCountryLiteral, Field(
-        description="Country: TR or US",
+        description="Country: TR (Turkey is the only market served)",
         default="TR"
     )] = "TR"
 ) -> str:
     """
-    Get government bond yields via borsapy.
+    Get Turkish government bond yields via borsapy.
 
     Turkish bonds: 2Y, 5Y, 10Y yields
     Risk-free rate for DCF calculations
 
     Examples:
     - get_bond_yields() → TR bond yields
-    - get_bond_yields("TR")
     """
     logger.info(f"get_bond_yields: country='{country}'")
     try:

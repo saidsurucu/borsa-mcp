@@ -95,9 +95,24 @@ def test_scalar_list_renders_inline():
     assert "tickers: GARAN, AKBNK, THYAO" in out
 
 
-def test_empty_list_renders_empty_marker():
-    out = render_markdown({"results": []})
-    assert "results: Sonuç bulunamadı." in out
+def test_payload_with_nothing_but_an_empty_list_still_reports_no_result():
+    # The whole payload is empty, so the top-level fallback fires. What changed is
+    # that it no longer prefixes the key: previously this rendered
+    # "results: Sonuç bulunamadı." from the nested-list branch.
+    assert render_markdown({"results": []}) == "Sonuç bulunamadı."
+
+
+def test_empty_list_beside_real_data_is_omitted_not_reported_as_failure():
+    # The bug: get_fx_data(historical) returned rates=[] alongside a populated
+    # historical_data, and this branch printed "rates: Sonuç bulunamadı." next to
+    # perfectly good data. Explaining an empty field is the provider's job.
+    out = render_markdown({
+        "historical_data": [{"date": "2026-01-02", "close": 1.5}],
+        "rates": [],
+    })
+    assert "Sonuç bulunamadı" not in out
+    assert "rates" not in out
+    assert "2026-01-02" in out
 
 
 def test_nested_dict_renders_subheading():

@@ -6,8 +6,8 @@ Uses BorsaApiClient as the underlying service layer.
 NOTE: This module returns raw dicts, not Pydantic models, to avoid validation overhead.
 """
 import asyncio
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple, Union
 import logging
 
 from borsapy.exceptions import DataNotAvailableError
@@ -484,7 +484,14 @@ class MarketRouter:
 
         elif market == MarketType.CRYPTO_TR:
             source = "btcturk"
-            result = await self._client.get_kripto_ohlc(symbol)
+            # BtcTurk's graph API takes a unix-second window. The requested window
+            # used to be dropped here entirely: the call was get_kripto_ohlc(symbol).
+            win_start, win_end = self._resolve_window(period, start_date, end_date)
+            result = await self._client.get_kripto_ohlc(
+                symbol,
+                from_time=int(win_start.timestamp()) if win_start else None,
+                to_time=int(win_end.timestamp()) if win_end else None,
+            )
             if result and result.ohlc_data:
                 for dp in result.ohlc_data:
                     data_points.append({
@@ -498,7 +505,17 @@ class MarketRouter:
 
         elif market == MarketType.CRYPTO_GLOBAL:
             source = "coinbase"
-            result = await self._client.get_coinbase_ohlc(symbol)
+            # Same bug as CRYPTO_TR: the window was never forwarded. Coinbase's
+            # Advanced Trade API wants unix seconds as strings — an ISO date earns
+            # an HTTP 400 ("Invalid start timestamp") that the provider swallows
+            # into an empty candle list.
+            win_start, win_end = self._resolve_window(period, start_date, end_date)
+            result = await self._client.get_coinbase_ohlc(
+                symbol,
+                start=str(int(win_start.timestamp())) if win_start else None,
+                end=str(int(win_end.timestamp())) if win_end else None,
+                granularity=self._coinbase_granularity(interval),
+            )
             if result and result.candles:
                 for dp in result.candles:
                     data_points.append({
@@ -531,6 +548,26 @@ class MarketRouter:
             except Exception as e:
                 logger.warning(f"FX historical data error for {symbol}: {e}")
 
+        # Forwarding the window to the provider is not enough: BtcTurk's graph API is
+        # handed from/to and still answers with a superset (a 07-01..07-10 request came
+        # back 06-30..07-12). Clamp to what was actually asked for. Providers that do
+        # honour the window are unaffected.
+        if start_date or end_date:
+            data_points = self._clamp_to_window(data_points, start_date, end_date)
+
+        if not data_points:
+            # An empty-but-successful payload tells the model "this asset exists and
+            # has no history here", which is a far stronger claim than "the fetch
+            # failed" — and it is usually the false one. See CLAUDE.md #7. Coinbase's
+            # HTTP 400 used to arrive here as a cheerful empty series.
+            window = (
+                f"{start_date or 'start'}..{end_date or 'now'}"
+                if (start_date or end_date) else (period or "default period")
+            )
+            raise DataNotAvailableError(
+                f"No historical data for '{symbol}' ({market.value}) over {window}"
+            )
+
         result_dict = {
             "metadata": self._create_metadata(market, symbol, source),
             "symbol": symbol.upper(),
@@ -555,6 +592,79 @@ class MarketRouter:
             ]
 
         return result_dict
+
+    @staticmethod
+    def _clamp_to_window(
+        rows: List[Dict[str, Any]],
+        start_date: Optional[str],
+        end_date: Optional[str],
+    ) -> List[Dict[str, Any]]:
+        """Drop rows outside [start_date, end_date]. Both bounds are inclusive.
+
+        Row dates may carry a time component or a timezone; only the date part is
+        compared. A row whose date cannot be parsed is kept, so a format change
+        upstream degrades to "too much data" rather than to silence.
+        """
+        def in_window(row: Dict[str, Any]) -> bool:
+            raw = str(row.get("date", ""))[:10]
+            if len(raw) != 10:
+                return True
+            if start_date and raw < start_date:
+                return False
+            if end_date and raw > end_date:
+                return False
+            return True
+
+        return [row for row in rows if in_window(row)]
+
+    # Approximate calendar spans for the period vocabulary. Used only to turn a
+    # period into an explicit window for providers that take dates rather than a
+    # period keyword (the crypto exchanges).
+    _PERIOD_DAYS = {
+        "1d": 1, "5d": 5, "1mo": 31, "3mo": 92, "6mo": 183,
+        "1y": 365, "2y": 730, "5y": 1826,
+    }
+
+    @staticmethod
+    def _resolve_window(
+        period: Optional[str],
+        start_date: Optional[str],
+        end_date: Optional[str],
+    ) -> Tuple[Optional[datetime], Optional[datetime]]:
+        """Resolve (period | start/end) into an explicit datetime window.
+
+        Explicit dates win. A period is measured back from now. Returns (None, None)
+        when neither is given, letting the provider apply its own default.
+        """
+        if start_date or end_date:
+            start = datetime.fromisoformat(start_date) if start_date else None
+            end = datetime.fromisoformat(end_date) if end_date else datetime.now()
+            return start, end
+
+        if period:
+            days = MarketRouter._PERIOD_DAYS.get(period)
+            if days is None:
+                # "ytd" / "max" have no fixed span; let the provider default.
+                if period == "ytd":
+                    now = datetime.now()
+                    return datetime(now.year, 1, 1), now
+                return None, None
+            end = datetime.now()
+            return end - timedelta(days=days), end
+
+        return None, None
+
+    @staticmethod
+    def _coinbase_granularity(interval: str) -> str:
+        """Map the interval vocabulary onto Coinbase's granularity keywords."""
+        return {
+            "1m": "ONE_MINUTE",
+            "5m": "FIVE_MINUTE",
+            "15m": "FIFTEEN_MINUTE",
+            "1h": "ONE_HOUR",
+            "6h": "SIX_HOUR",
+            "1d": "ONE_DAY",
+        }.get(interval, "ONE_DAY")
 
     @staticmethod
     def _infer_bar_interval(data_points: List[Dict[str, Any]]) -> str:
@@ -1881,7 +1991,13 @@ class MarketRouter:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Get foreign exchange rates. Returns raw dict."""
+        """Get foreign exchange rates. Returns raw dict.
+
+        The payload is mode-specific: historical mode carries 'historical_data' and
+        current mode carries 'rates'. It used to always carry both, so a historical
+        request shipped an empty 'rates' list, which the markdown renderer then
+        announced as "rates: Sonuç bulunamadı." right next to perfectly good data.
+        """
         source = "borsapy"
         rates = []
         historical_data = None
@@ -1902,6 +2018,18 @@ class MarketRouter:
                     }
                     for v in result.ohlc_verileri
                 ]
+            if not historical_data:
+                # An empty-but-successful payload reads to an LLM as "this asset
+                # exists and has no history", which is a far stronger claim than
+                # "the fetch failed". See CLAUDE.md "Common Issues" #7.
+                raise DataNotAvailableError(
+                    f"No historical FX data for '{symbols[0]}' between "
+                    f"{start_date or 'start'} and {end_date or 'now'}"
+                )
+            return {
+                "metadata": self._create_metadata(MarketType.FX, symbols, source),
+                "historical_data": historical_data,
+            }
         else:
             if symbols:
                 # Fetch all symbols concurrently instead of serially; each
@@ -1932,7 +2060,6 @@ class MarketRouter:
         return {
             "metadata": self._create_metadata(MarketType.FX, symbols or ["all"], source),
             "rates": rates,
-            "historical_data": historical_data
         }
 
     # --- Fund Data ---
