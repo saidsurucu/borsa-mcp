@@ -322,42 +322,46 @@ async def get_profile(
 
 
 @app.tool(
-    name="get_quick_info",
-    title="Quick Stock Info",
-    description="Get key metrics (P/E, P/B, ROE, 52w range) for one or multiple stocks. Batch support up to 10.",
-    tags={"stocks", "metrics", "multi-ticker"},
+    name="get_quote",
+    title="Current Quote",
+    description="What is it worth right now: stocks (with P/E, P/B, 52w range), currencies, metals and crypto. Batch up to 10.",
+    tags={"stocks", "fx", "crypto", "quote", "multi-ticker"},
     output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
-async def get_quick_info(
+async def get_quote(
     symbol: Annotated[Union[str, List[str]], Field(
-        description="Ticker(s), max 10: 'GARAN' or ['GARAN', 'AKBNK']",
-        examples=["GARAN", ["GARAN", "AKBNK", "THYAO"]]
+        description="Symbol(s), max 10. Stocks: GARAN, AAPL. FX and metals: USD, EUR, gram-altin, BRENT. Crypto pairs: BTCTRY, BTC-USD.",
+        examples=["GARAN", ["GARAN", "AKBNK"], "gram-altin", "BTCTRY"]
     )],
-    market: Annotated[MarketLiteral, Field(
-        description="Market: bist or us",
-        examples=["bist", "us"]
+    market: Annotated[Literal["bist", "us", "fx", "crypto_tr", "crypto_global"], Field(
+        description="Market: bist, us, fx, crypto_tr (BtcTurk), crypto_global (Coinbase)",
+        examples=["bist", "fx", "crypto_tr"]
     )]
 ) -> str:
     """
-    Get quick metrics for one or more stocks:
-    - Current price and change %
-    - P/E, P/B, P/S ratios
-    - ROE, dividend yield
-    - 52-week high/low, beta
+    Get the current price of anything: a stock, a currency, a metal, a coin.
 
-    Supports batch queries (up to 10 tickers) with 75% faster parallel execution.
+    Each market answers with what it actually has:
+    - bist / us: price, change %, P/E, P/B, P/S, ROE, dividend yield, 52-week range, beta
+    - fx: the current dealer quote (satış/ask side of the free-market rate)
+    - crypto_tr / crypto_global: last trade, bid/ask, 24h volume and change
+
+    For historical prices use get_historical_data. To compare what several assets did
+    over the same window, use compare_assets.
 
     Examples:
-    - get_quick_info("GARAN", "bist") → Single stock metrics
-    - get_quick_info(["GARAN", "AKBNK", "THYAO"], "bist") → Multiple stocks
+    - get_quote("GARAN", "bist")
+    - get_quote(["GARAN", "AKBNK", "THYAO"], "bist")
+    - get_quote("gram-altin", "fx")
+    - get_quote("BTCTRY", "crypto_tr")
     """
-    logger.info(f"get_quick_info: symbol='{symbol}', market='{market}'")
+    logger.info(f"get_quote: symbol='{symbol}', market='{market}'")
     try:
-        return shape(await market_router.get_quick_info(symbol, MarketType(market)))
+        return shape(await market_router.get_quote(symbol, MarketType(market)))
     except Exception as e:
-        logger.exception(f"Error in get_quick_info for '{symbol}'")
-        raise classify_tool_error(e, "Quick info fetch")
+        logger.exception(f"Error in get_quote for '{symbol}'")
+        raise classify_tool_error(e, "Quote fetch")
 
 
 @app.tool(
@@ -449,7 +453,11 @@ async def get_technical_analysis(
     timeframe: Annotated[TimeframeLiteral, Field(
         description="Analysis timeframe: 1d (daily), 1h (hourly), 4h, 1W (weekly)",
         default="1d"
-    )] = "1d"
+    )] = "1d",
+    include_pivots: Annotated[bool, Field(
+        description="Also compute classic pivot points: PP, R1-R3, S1-S3, plus the nearest level and distance (bist and us only).",
+        default=False
+    )] = False
 ) -> str:
     """
     Get technical analysis with indicators and signals:
@@ -457,9 +465,11 @@ async def get_technical_analysis(
     - Oscillators: RSI 14, MACD, Stochastic
     - Bands: Bollinger Bands, ATR
     - Signals: Trend direction, RSI signal, MACD signal
+    - Pivot points (include_pivots=True): PP, R1-R3, S1-S3, nearest level, distance %
 
     Examples:
     - get_technical_analysis("GARAN", "bist") → BIST stock technicals
+    - get_technical_analysis("GARAN", "bist", include_pivots=True) → with support/resistance
     - get_technical_analysis("BTCTRY", "crypto_tr") → BtcTurk crypto technicals
     """
     logger.info(f"get_technical_analysis: symbol='{symbol}', market='{market}'")
@@ -468,49 +478,25 @@ async def get_technical_analysis(
         warning = timeframe_warning(market, timeframe)
         if warning:
             result.setdefault("warnings", []).append(warning)
+
+        if include_pivots:
+            # Pivots are an indicator; a separate tool for them was a historical
+            # accident. They are opt-in so the default response stays small.
+            if market not in ("bist", "us"):
+                result.setdefault("warnings", []).append(
+                    f"include_pivots is not supported for market '{market}'; "
+                    "pivot points are computed for bist and us only."
+                )
+            else:
+                pivots = await market_router.get_pivot_points(symbol, MarketType(market))
+                result["pivots"] = {
+                    k: v for k, v in pivots.items() if k != "metadata"
+                }
+
         return shape(result)
     except Exception as e:
         logger.exception(f"Error in get_technical_analysis for '{symbol}'")
         raise classify_tool_error(e, "Technical analysis")
-
-
-@app.tool(
-    name="get_pivot_points",
-    title="Pivot Points",
-    description="Get classic pivot points with 7 levels: PP, S1-S3, R1-R3, and distance to nearest levels.",
-    tags={"stocks", "technical"},
-    output_schema=None,
-    annotations={"readOnlyHint": True, "idempotentHint": True}
-)
-async def get_pivot_points(
-    symbol: Annotated[str, Field(
-        description="Ticker symbol",
-        pattern=r"^[A-Za-z0-9.\-]{1,20}$",
-        examples=["GARAN", "AAPL"]
-    )],
-    market: Annotated[Literal["bist", "us"], Field(
-        description="Market: bist or us",
-        examples=["bist", "us"]
-    )]
-) -> str:
-    """
-    Get classic pivot points with 7 levels:
-    - Pivot Point (PP)
-    - Resistance: R1, R2, R3
-    - Support: S1, S2, S3
-
-    Also includes current position, nearest support/resistance, and distance %.
-
-    Examples:
-    - get_pivot_points("GARAN", "bist")
-    - get_pivot_points("AAPL", "us")
-    """
-    logger.info(f"get_pivot_points: symbol='{symbol}', market='{market}'")
-    try:
-        return shape(await market_router.get_pivot_points(symbol, MarketType(market)))
-    except Exception as e:
-        logger.exception(f"Error in get_pivot_points for '{symbol}'")
-        raise classify_tool_error(e, "Pivot points calculation")
 
 
 @app.tool(
@@ -548,43 +534,6 @@ async def get_analyst_data(
     except Exception as e:
         logger.exception(f"Error in get_analyst_data for '{symbol}'")
         raise classify_tool_error(e, "Analyst data fetch")
-
-
-@app.tool(
-    name="get_dividends",
-    title="Dividend History",
-    description="Get dividend yield, history, payout ratio, and stock splits. Batch support up to 10.",
-    tags={"stocks", "dividends", "multi-ticker"},
-    output_schema=None,
-    annotations={"readOnlyHint": True, "idempotentHint": True}
-)
-async def get_dividends(
-    symbol: Annotated[Union[str, List[str]], Field(
-        description="Single ticker or list of tickers (max 10)",
-        examples=["GARAN", ["GARAN", "TUPRS"]]
-    )],
-    market: Annotated[Literal["bist", "us"], Field(
-        description="Market: bist or us",
-        examples=["bist", "us"]
-    )]
-) -> str:
-    """
-    Get dividend information:
-    - Current yield and annual dividend
-    - Ex-dividend date and payout ratio
-    - Dividend history with amounts and dates
-    - Stock split history
-
-    Examples:
-    - get_dividends("TUPRS", "bist") → High-dividend BIST stock
-    - get_dividends("AAPL", "us") → Apple dividends
-    """
-    logger.info(f"get_dividends: symbol='{symbol}', market='{market}'")
-    try:
-        return shape(await market_router.get_dividends(symbol, MarketType(market)))
-    except Exception as e:
-        logger.exception(f"Error in get_dividends for '{symbol}'")
-        raise classify_tool_error(e, "Dividend data fetch")
 
 
 @app.tool(
@@ -734,45 +683,52 @@ async def get_financial_ratios(
 @app.tool(
     name="get_corporate_actions",
     title="Corporate Actions",
-    description="Get BIST corporate actions: capital increases (bedelli/bedelsiz), IPOs, dividends. Batch up to 10.",
-    tags={"stocks", "corporate-actions", "multi-ticker"},
+    description="What the company paid out or issued: dividends, stock splits, and (BIST) capital increases. Batch up to 10.",
+    tags={"stocks", "corporate-actions", "dividends", "multi-ticker"},
     output_schema=None,
     annotations={"readOnlyHint": True, "idempotentHint": True}
 )
 async def get_corporate_actions(
     symbol: Annotated[Union[str, List[str]], Field(
         description="Single ticker or list of tickers (max 10)",
-        examples=["GARAN", ["GARAN", "THYAO"]]
+        examples=["GARAN", ["GARAN", "THYAO"], "KO"]
     )],
+    market: Annotated[Literal["bist", "us"], Field(
+        description="Market: bist or us",
+        default="bist",
+        examples=["bist", "us"]
+    )] = "bist",
     year: Annotated[Optional[int], Field(
-        description="Filter by year (optional)",
+        description="Filter capital increases by year (BIST only)",
         default=None,
         ge=2000,
         le=2030
     )] = None
 ) -> str:
     """
-    Get BIST corporate actions:
+    Everything the company distributed or issued.
 
-    Capital Increases:
-    - Bedelli (Rights Issue)
-    - Bedelsiz (Bonus Issue)
-    - IPO (Primary Offering)
-    - Capital before/after
+    Both markets:
+    - dividends: per-share cash amounts with ex-dates
+    - stock_splits: date and ratio
+    - current_yield, annual_dividend, ex_dividend_date, payout_ratio
 
-    Dividend History:
-    - Gross/net rates
-    - Total dividend amounts
-    - Distribution dates
+    BIST also:
+    - capital_increases: bedelli (rights), bedelsiz (bonus), IPO, capital before/after
+    - dividend_rates: İş Yatırım's gross rates as a percentage of nominal
+
+    Note that `dividends` and `dividend_rates` are different measurements, not two
+    views of one: the first is lira per share, the second a percentage of nominal.
 
     Examples:
-    - get_corporate_actions("GARAN") → All corporate actions
-    - get_corporate_actions("THYAO", 2024) → 2024 actions only
+    - get_corporate_actions("GARAN") → BIST dividends, splits and capital increases
+    - get_corporate_actions("KO", "us") → US dividends and splits
+    - get_corporate_actions("THYAO", year=2024) → 2024 capital increases only
     """
-    logger.info(f"get_corporate_actions: symbol='{symbol}'")
+    logger.info(f"get_corporate_actions: symbol='{symbol}', market='{market}'")
     try:
         return shape(await market_router.get_corporate_actions(
-            symbol, MarketType.BIST, year
+            symbol, MarketType(market), year
         ))
     except Exception as e:
         logger.exception(f"Error in get_corporate_actions for '{symbol}'")
@@ -877,7 +833,11 @@ async def screen_securities(
         default=25,
         ge=1,
         le=250
-    )] = 25
+    )] = 25,
+    help: Annotated[bool, Field(
+        description="Return this market's presets, filter fields and operators instead of running a screen. Cannot be combined with preset or custom_filters.",
+        default=False
+    )] = False
 ) -> str:
     """
     Screen securities with 24 presets or custom filters.
@@ -892,10 +852,28 @@ async def screen_securities(
     - ETF: large_etfs, top_performing_etfs, low_expense_etfs
     - Funds: large_mutual_funds, top_performing_funds
 
+    help=True documents the presets and filters for the market you name, so you do not
+    have to guess which vocabulary applies.
+
     Examples:
     - screen_securities("us", preset="tech_sector")
-    - screen_securities("bist", preset="dividend_stocks")
+    - screen_securities("bist", help=True)
     """
+    if help:
+        # Help AND filters is a contradiction. Quietly honouring one of them is how a
+        # caller comes to believe they ran a screen that never ran.
+        if preset or custom_filters:
+            raise ValueError(
+                "help=True cannot be combined with preset or custom_filters. Ask for "
+                "the documentation, or run a screen — not both."
+            )
+        logger.info(f"screen_securities: help for market='{market}'")
+        try:
+            return shape(await market_router.get_screener_help(MarketType(market)))
+        except Exception as e:
+            logger.exception("Error in screen_securities help")
+            raise classify_tool_error(e, "Screener help fetch")
+
     validate_screen_params(preset, custom_filters)
     logger.info(f"screen_securities: market='{market}', preset='{preset}'")
     try:
@@ -916,10 +894,11 @@ async def screen_securities(
     annotations={"readOnlyHint": True, "openWorldHint": True}
 )
 async def scan_stocks(
-    index: Annotated[IndexLiteral, Field(
-        description="BIST index to scan",
+    index: Annotated[Optional[IndexLiteral], Field(
+        description="BIST index to scan. Required unless help=True.",
+        default=None,
         examples=["XU030", "XU100", "XBANK"]
-    )],
+    )] = None,
     condition: Annotated[Optional[str], Field(
         description="Custom: 'RSI < 30', 'supertrend_direction == 1'",
         default=None
@@ -931,7 +910,11 @@ async def scan_stocks(
     timeframe: Annotated[Literal["1d", "1h", "4h", "1W"], Field(
         description="Timeframe: 1d, 1h, 4h, 1W",
         default="1d"
-    )] = "1d"
+    )] = "1d",
+    help: Annotated[bool, Field(
+        description="Return the available indicators, operators and presets instead of running a scan.",
+        default=False
+    )] = False
 ) -> str:
     """
     Scan BIST stocks by technical conditions using TradingView data.
@@ -950,8 +933,27 @@ async def scan_stocks(
     Examples:
     - scan_stocks("XU030", preset="oversold")
     - scan_stocks("XU100", condition="RSI < 30 and volume > 10000000")
-    - scan_stocks("XBANK", condition="supertrend_direction == 1")
+    - scan_stocks(help=True)
     """
+    if help:
+        if condition or preset:
+            raise ValueError(
+                "help=True cannot be combined with condition or preset. Ask for the "
+                "documentation, or run a scan — not both."
+            )
+        logger.info("scan_stocks: help")
+        try:
+            return shape(await market_router.get_scanner_help())
+        except Exception as e:
+            logger.exception("Error in scan_stocks help")
+            raise classify_tool_error(e, "Scanner help fetch")
+
+    if not index:
+        raise ValueError(
+            "index is required to run a scan (e.g. XU030, XU100, XBANK). "
+            "Pass help=True to see the available indicators and presets."
+        )
+
     logger.info(f"scan_stocks: index='{index}', preset='{preset}'")
     try:
         if not condition and not preset:
@@ -1123,78 +1125,6 @@ async def get_crypto_market(
 
 # =============================================================================
 # FX & COMMODITIES TOOLS (1 tool)
-# =============================================================================
-
-@app.tool(
-    name="get_fx_data",
-    title="FX & Commodities",
-    description="Get FX rates (65 currencies), precious metals, and commodities. Current or historical OHLC.",
-    tags={"fx", "commodities"},
-    output_schema=None,
-    annotations={"readOnlyHint": True, "idempotentHint": True}
-)
-async def get_fx_data(
-    symbol: Annotated[Optional[Union[str, List[str]]], Field(
-        description="Symbol(s) to fetch: 'GBP' or ['USD', 'EUR', 'gram-altin']. None for all. Use base codes (GBP, not GBPTRY).",
-        default=None
-    )] = None,
-    data_type: Annotated[Optional[Literal["current", "historical"]], Field(
-        description="'current' for real-time rates (default), 'historical' for OHLC over a date range",
-        default=None
-    )] = None,
-    category: Annotated[Optional[str], Field(
-        description="Filter by category: currency, precious_metals, commodities, all",
-        default=None
-    )] = None,
-    historical: Annotated[bool, Field(
-        description="Deprecated alias for data_type='historical'. Get historical OHLC instead of current rates.",
-        default=False
-    )] = False,
-    start_date: Annotated[Optional[str], Field(
-        description="Start date for historical (YYYY-MM-DD)",
-        pattern=r"^\d{4}-\d{2}-\d{2}$",
-        default=None
-    )] = None,
-    end_date: Annotated[Optional[str], Field(
-        description="End date for historical (YYYY-MM-DD)",
-        pattern=r"^\d{4}-\d{2}-\d{2}$",
-        default=None
-    )] = None
-) -> str:
-    """
-    Get foreign exchange rates, precious metals, and commodities.
-
-    65 symbols available:
-    - Major currencies: USD, EUR, GBP, JPY, CHF, CAD, AUD
-    - Precious metals: gram-altin, gram-gumus, ons-altin
-    - Commodities: BRENT, WTI, diesel, gasoline, lpg
-
-    Modes:
-    - Current rates: Default, real-time data
-    - Historical: OHLC data with date range
-    - Minute-by-minute: Real-time updates
-
-    Examples:
-    - get_fx_data() → All current rates
-    - get_fx_data(symbol=["USD", "EUR", "gram-altin"]) → Specific symbols
-    - get_fx_data(symbol="GBP", data_type="current") → Single rate
-    - get_fx_data(symbol="USD", data_type="historical", start_date="2024-01-01")
-    """
-    # Normalize: accept single str or list; map data_type to the historical flag
-    symbols = [symbol] if isinstance(symbol, str) else symbol
-    is_historical = historical or (data_type == "historical")
-    logger.info(f"get_fx_data: symbol='{symbol}', data_type='{data_type}', historical={is_historical}")
-    try:
-        return shape(await market_router.get_fx_data(
-            symbols, category, is_historical, start_date, end_date
-        ))
-    except Exception as e:
-        logger.exception("Error in get_fx_data")
-        raise classify_tool_error(e, "FX data fetch")
-
-
-# =============================================================================
-# MACRO & CALENDAR TOOLS (2 tools)
 # =============================================================================
 
 @app.tool(
@@ -1391,10 +1321,15 @@ async def get_bond_yields(
     annotations={"readOnlyHint": True}
 )
 async def get_fund_data(
-    symbol: Annotated[Union[str, List[str]], Field(
-        description="Single fund code or list of fund codes for comparison (max 10). Examples: 'TPC' or ['TPC', 'TI2', 'NMG']",
+    symbol: Annotated[Optional[Union[str, List[str]]], Field(
+        description="Single fund code or list of fund codes for comparison (max 10). Not needed when data_type='regulations'.",
+        default=None,
         examples=["TPC", ["TPC", "TI2", "NMG"]]
-    )],
+    )] = None,
+    data_type: Annotated[Literal["fund", "regulations"], Field(
+        description="'fund' (default) returns fund data. 'regulations' returns the Turkish investment fund regulations (CMB rules) and needs no symbol.",
+        default="fund"
+    )] = "fund",
     include_portfolio: Annotated[bool, Field(
         description="Include portfolio allocation breakdown (single fund only). NOTE: since the 2026-04 TEFAS migration the JSON feed no longer exposes allocation, so this currently returns portfolio=null with a warning explaining how to enable it.",
         default=False
@@ -1447,7 +1382,22 @@ async def get_fund_data(
     - get_fund_data("TPC", include_portfolio=True) → With portfolio
     - get_fund_data("TPC", start_date="2025-01-01") → Custom range return
     - get_fund_data(["TPC", "TI2"], compare_mode=True) → Fund comparison
+    - get_fund_data(data_type="regulations") → CMB fund regulations
     """
+    if data_type == "regulations":
+        logger.info("get_fund_data: regulations")
+        try:
+            return shape(await market_router.get_regulations("fund"))
+        except Exception as e:
+            logger.exception("Error in get_fund_data regulations")
+            raise classify_tool_error(e, "Regulations fetch")
+
+    if not symbol:
+        raise ValueError(
+            "symbol is required for fund data (e.g. 'TPC'). "
+            "Pass data_type='regulations' for the fund regulations, which need none."
+        )
+
     logger.info(f"get_fund_data: symbol='{symbol}', compare_mode={compare_mode}")
     try:
         is_multi = isinstance(symbol, list)
@@ -2032,104 +1982,6 @@ async def get_evds_data(
 # =============================================================================
 # HELP TOOLS (3 tools)
 # =============================================================================
-
-@app.tool(
-    name="get_screener_help",
-    title="Screener Help",
-    description="Get screener documentation: 24 presets, filter fields, operators, and examples.",
-    tags={"help", "screener"},
-    output_schema=None,
-    annotations={"readOnlyHint": True, "idempotentHint": True}
-)
-async def get_screener_help(
-    market: Annotated[Literal["bist", "us"], Field(
-        description="Market: bist or us",
-        examples=["bist", "us"]
-    )]
-) -> str:
-    """
-    Get screener help with available presets and filter documentation.
-
-    Returns:
-    - Available presets with descriptions
-    - Filter fields and operators
-    - Example queries
-
-    Examples:
-    - get_screener_help("us") → US screener documentation
-    - get_screener_help("bist") → BIST screener documentation
-    """
-    logger.info(f"get_screener_help: market='{market}'")
-    try:
-        return shape(await market_router.get_screener_help(MarketType(market)))
-    except Exception as e:
-        logger.exception("Error in get_screener_help")
-        raise classify_tool_error(e, "Screener help fetch")
-
-
-@app.tool(
-    name="get_scanner_help",
-    title="Scanner Help",
-    description="Get scanner documentation: indicators (RSI, MACD, Supertrend, T3), operators, 22 presets.",
-    tags={"help", "scanner"},
-    output_schema=None,
-    annotations={"readOnlyHint": True, "idempotentHint": True}
-)
-async def get_scanner_help() -> str:
-    """
-    Get BIST scanner help with indicators, operators, and preset strategies.
-
-    Returns:
-    - Available indicators (RSI, MACD, Supertrend, T3, etc.)
-    - Available operators (>, <, ==, and, or)
-    - 22 preset strategies
-    - Supported indices (XU030, XU100, XBANK, etc.)
-    - Example conditions
-
-    Examples:
-    - get_scanner_help() → Full scanner documentation
-    """
-    logger.info("get_scanner_help")
-    try:
-        return shape(await market_router.get_scanner_help())
-    except Exception as e:
-        logger.exception("Error in get_scanner_help")
-        raise classify_tool_error(e, "Scanner help fetch")
-
-
-@app.tool(
-    name="get_regulations",
-    title="Fund Regulations",
-    description="Get Turkish investment fund regulations (CMB rules) documentation.",
-    tags={"regulations", "help"},
-    output_schema=None,
-    annotations={"readOnlyHint": True, "idempotentHint": True}
-)
-async def get_regulations(
-    regulation_type: Annotated[Literal["fund"], Field(
-        description="Regulation type: fund (Turkish investment fund regulations)",
-        default="fund"
-    )] = "fund"
-) -> str:
-    """
-    Get Turkish financial regulations documentation.
-
-    Currently available:
-    - fund: Turkish investment fund regulations (CMB - Capital Markets Board rules)
-
-    Returns regulation content with categories and explanations in Turkish.
-
-    Examples:
-    - get_regulations() → Fund regulations
-    - get_regulations("fund") → Fund regulations
-    """
-    logger.info(f"get_regulations: type='{regulation_type}'")
-    try:
-        return shape(await market_router.get_regulations(regulation_type))
-    except Exception as e:
-        logger.exception("Error in get_regulations")
-        raise classify_tool_error(e, "Regulations fetch")
-
 
 # =============================================================================
 # MIGRATION MODE

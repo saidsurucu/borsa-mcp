@@ -1684,6 +1684,9 @@ class MarketRouter:
 
     # --- Corporate Actions ---
 
+    # A blue chip can carry 60 years of quarterly dividends. Keep the recent ones.
+    _MAX_DIVIDEND_ROWS = 24
+
     async def _get_corporate_actions_single(
         self,
         symbol: str,
@@ -1720,19 +1723,54 @@ class MarketRouter:
                     for t in result["temettuler"]:
                         dividend_history.append({
                             "ex_date": t.get("tarih"),
-                            "amount": t.get("toplam_tutar"),
-                            "yield_percent": t.get("brut_oran"),
+                            "total_amount": t.get("toplam_tutar"),
+                            "gross_rate_percent": t.get("brut_oran"),
                             "currency": "TRY",
-                            "type": "cash"
                         })
             except Exception as e:
-                logger.warning(f"Error fetching dividend history: {e}")
+                logger.warning(f"Error fetching dividend rates: {e}")
 
-        return {
+        # get_dividends used to be its own tool. It covered BIST *and* US and carried
+        # stock splits, while corporate actions were BIST-only — so absorbing it
+        # without merging would have dropped every US dividend and every split.
+        #
+        # The two dividend sources are genuinely different data and keep different
+        # names: `dividends` are per-share cash amounts from yfinance, `dividend_rates`
+        # are İş Yatırım's gross percentages of nominal. Collapsing them into one list
+        # called `dividend_history` (as both tools did, separately) would have silently
+        # mixed lira-per-share with percent-of-nominal.
+        payout = await self._get_dividends_single(symbol, market)
+
+        # KO has paid a dividend every quarter since 1962 — 258 of them, ~9.7k
+        # characters of ancient history nobody asked for. Keep the recent ones and say
+        # how many were dropped; a silent truncation reads as "this is all of them".
+        dividends = payout.get("dividend_history") or []
+        total_dividends = len(dividends)
+        warnings: List[str] = []
+        if total_dividends > self._MAX_DIVIDEND_ROWS:
+            dividends = dividends[-self._MAX_DIVIDEND_ROWS:]
+            warnings.append(
+                f"Showing the {self._MAX_DIVIDEND_ROWS} most recent of "
+                f"{total_dividends} dividends. The full history goes back to "
+                f"{payout['dividend_history'][0].get('ex_date', 'inception')}."
+            )
+
+        merged = {
             "symbol": symbol.upper(),
-            "capital_increases": capital_increases,
-            "dividend_history": dividend_history
+            "current_yield": payout.get("current_yield"),
+            "annual_dividend": payout.get("annual_dividend"),
+            "ex_dividend_date": payout.get("ex_dividend_date"),
+            "payout_ratio": payout.get("payout_ratio"),
+            "dividends": dividends,
+            "dividends_total_count": total_dividends,
+            "stock_splits": payout.get("stock_splits") or [],
         }
+        if market == MarketType.BIST:
+            merged["capital_increases"] = capital_increases
+            merged["dividend_rates"] = dividend_history
+        if warnings:
+            merged["warnings"] = warnings
+        return merged
 
     async def get_corporate_actions(
         self,
@@ -1740,10 +1778,12 @@ class MarketRouter:
         market: MarketType = MarketType.BIST,
         year: Optional[int] = None
     ) -> Dict[str, Any]:
-        """Get corporate actions (capital increases, dividends). Returns raw dict."""
+        """Get corporate actions (dividends, splits, capital increases). Raw dict."""
         is_multi = isinstance(symbols, list)
         symbol_list = symbols if is_multi else [symbols]
-        source = "isyatirim"
+        # BIST capital increases come from İş Yatırım; everything else is yfinance.
+        # Reporting "isyatirim" for a US ticker was simply false.
+        source = "isyatirim+yfinance" if market == MarketType.BIST else "yfinance"
 
         if not is_multi or len(symbol_list) == 1:
             single_result = await self._get_corporate_actions_single(symbol_list[0], market, year)
@@ -2216,6 +2256,52 @@ class MarketRouter:
                 seen[bar.date] = bar
         from providers.canonical_series import CanonicalSeries
         return CanonicalSeries(meta=merged[0].meta, bars=list(seen.values()))
+
+    async def get_quote(
+        self,
+        symbol: Union[str, List[str]],
+        market: MarketType,
+    ) -> Dict[str, Any]:
+        """"What is it worth right now" — for a stock, a currency, a metal or a coin.
+
+        Absorbs get_quick_info (equity metrics), get_fx_data's current mode, and
+        get_crypto_market's ticker mode. They asked one question through three shapes.
+
+        Each market answers with what it actually has: equities carry P/E, P/B and the
+        52-week range; FX carries a dealer quote; crypto carries bid/ask and 24h volume.
+        The skeleton is shared, the payload is not padded with nulls to pretend
+        otherwise.
+        """
+        if market in (MarketType.BIST, MarketType.US):
+            return await self.get_quick_info(symbol, market)
+
+        symbols = symbol if isinstance(symbol, list) else [symbol]
+
+        if market == MarketType.FX:
+            return await self.get_fx_data(symbols=symbols, historical=False)
+
+        if market in (MarketType.CRYPTO_TR, MarketType.CRYPTO_GLOBAL):
+            exchange = (ExchangeType.BTCTURK if market == MarketType.CRYPTO_TR
+                        else ExchangeType.COINBASE)
+            quotes = []
+            for sym in symbols:
+                raw = await self.get_crypto_market(sym, exchange, DataType.TICKER)
+                ticker = raw.get("ticker") or {}
+                if not ticker:
+                    raise DataNotAvailableError(
+                        f"No current quote for '{sym}' on "
+                        f"{'BtcTurk' if market == MarketType.CRYPTO_TR else 'Coinbase'}"
+                    )
+                quotes.append({"symbol": sym, **ticker})
+            return {
+                "metadata": self._create_metadata(market, symbols, "exchange"),
+                "quotes": quotes,
+            }
+
+        raise ValueError(
+            f"get_quote does not serve market '{market.value}'. "
+            "Supported: bist, us, fx, crypto_tr, crypto_global."
+        )
 
     async def compare_assets(
         self,

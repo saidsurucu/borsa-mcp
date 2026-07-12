@@ -443,39 +443,70 @@ class YahooFinanceProvider:
             logger.exception(f"Error fetching dividends and corporate actions for {ticker_kodu}")
             return {"error": str(e)}
     
+    @staticmethod
+    def _fast(fast_info, attr: str):
+        """Read one field from yfinance's FastInfo.
+
+        FastInfo's *attributes* are snake_case (`last_price`) while its *mapping keys*
+        are camelCase (`lastPrice`). The provider used to call
+        `fast_info.get('last_price')` — the one combination that matches neither, so it
+        returned None for every price field, every time, in both markets.
+
+        Worse, the call site read `fast_info.get(x) if fast_info else info.get(y)`,
+        which is an either/or rather than a fallback: FastInfo is truthy, so `info` was
+        never consulted. current_price, market_cap and the 52-week range came back None
+        and strip_nulls removed them, so the response looked clean rather than broken.
+        """
+        if fast_info is None:
+            return None
+        try:
+            return getattr(fast_info, attr)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _first(*values):
+        """The first value that is actually present. A real fallback chain."""
+        for value in values:
+            if value is not None:
+                return value
+        return None
+
     async def get_hizli_bilgi(self, ticker_kodu: str, market: str = "BIST") -> Dict[str, Any]:
         """Fetches fast info - key metrics without heavy data processing."""
         try:
             ticker = self._get_ticker(ticker_kodu, market=market)
-            
+
             # Get fast_info (lightweight) and basic info
             fast_info = getattr(ticker, 'fast_info', None)
             basic_info = ticker.info
-            
+            fast = self._fast
+            first = self._first
+
             # Build fast info object
             hizli_bilgi = HizliBilgi(
                 # Basic Info
                 symbol=basic_info.get('symbol'),
                 long_name=basic_info.get('longName'),
-                currency=basic_info.get('currency'),
-                exchange=basic_info.get('exchange'),
-                
-                # Price Info - prefer fast_info when available
-                last_price=fast_info.get('last_price') if fast_info else basic_info.get('currentPrice'),
-                previous_close=fast_info.get('previous_close') if fast_info else basic_info.get('previousClose'),
-                open_price=fast_info.get('open') if fast_info else basic_info.get('open'),
-                day_high=fast_info.get('day_high') if fast_info else basic_info.get('dayHigh'),
-                day_low=fast_info.get('day_low') if fast_info else basic_info.get('dayLow'),
-                
+                currency=first(fast(fast_info, 'currency'), basic_info.get('currency')),
+                exchange=first(fast(fast_info, 'exchange'), basic_info.get('exchange')),
+
+                # Price Info - fast_info first, then info. Both are consulted.
+                last_price=first(fast(fast_info, 'last_price'), basic_info.get('currentPrice'), basic_info.get('regularMarketPrice')),
+                previous_close=first(fast(fast_info, 'previous_close'), basic_info.get('previousClose')),
+                open_price=first(fast(fast_info, 'open'), basic_info.get('open')),
+                day_high=first(fast(fast_info, 'day_high'), basic_info.get('dayHigh')),
+                day_low=first(fast(fast_info, 'day_low'), basic_info.get('dayLow')),
+
                 # 52-week range
-                fifty_two_week_high=fast_info.get('year_high') if fast_info else basic_info.get('fiftyTwoWeekHigh'),
-                fifty_two_week_low=fast_info.get('year_low') if fast_info else basic_info.get('fiftyTwoWeekLow'),
-                
+                fifty_two_week_high=first(fast(fast_info, 'year_high'), basic_info.get('fiftyTwoWeekHigh')),
+                fifty_two_week_low=first(fast(fast_info, 'year_low'), basic_info.get('fiftyTwoWeekLow')),
+
                 # Volume and Market Data
-                volume=fast_info.get('last_volume') if fast_info else basic_info.get('volume'),
+                volume=first(fast(fast_info, 'last_volume'), basic_info.get('volume')),
                 average_volume=basic_info.get('averageVolume'),
-                market_cap=fast_info.get('market_cap') if fast_info else basic_info.get('marketCap'),
-                shares_outstanding=fast_info.get('shares') if fast_info else basic_info.get('sharesOutstanding'),
+                market_cap=first(fast(fast_info, 'market_cap'), basic_info.get('marketCap')),
+                shares_outstanding=first(fast(fast_info, 'shares'), basic_info.get('sharesOutstanding')),
                 
                 # Valuation Metrics
                 pe_ratio=basic_info.get('trailingPE'),
