@@ -63,6 +63,7 @@ async def test_failed_tr_call_surfaces_an_error_not_zero_percent():
     assert "failed" in str(exc.value).lower()
 
 
-async def test_tool_count_is_still_28():
+async def test_tool_count_is_still_29():
+    # 28 unified tools + compare_assets.
     tools = await app.get_tools()
-    assert len(tools) == 28
+    assert len(tools) == 29

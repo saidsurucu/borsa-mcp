@@ -965,6 +965,74 @@ async def scan_stocks(
 
 
 @app.tool(
+    name="compare_assets",
+    title="Compare Assets",
+    description="Compare period returns across markets in one table: BIST/US stocks, gold, FX, crypto and TEFAS funds, in both TRY and USD.",
+    tags={"stocks", "fx", "crypto", "funds", "compare"},
+    output_schema=None,
+    annotations={"readOnlyHint": True, "openWorldHint": True}
+)
+async def compare_assets(
+    assets: Annotated[List[str], Field(
+        description="Assets to compare. Bare symbols are resolved automatically: BIST tickers (ASELS), US tickers (AAPL), FX and metals (USD, EUR, gram-altin, gram-gumus, BRENT), crypto pairs (BTCTRY, BTC-USD), TEFAS fund codes (TI2). If a symbol names an asset in two markets, the call fails and asks you to disambiguate.",
+        min_length=1,
+        max_length=10,
+        examples=[["ASELS", "gram-altin", "USD"], ["THYAO", "BTCTRY", "TI2"]]
+    )],
+    start_date: Annotated[str, Field(
+        description="Window start (YYYY-MM-DD). The entry price is the first session ON OR AFTER this date.",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        examples=["2026-01-02"]
+    )],
+    end_date: Annotated[Optional[str], Field(
+        description="Window end (YYYY-MM-DD). Defaults to today. The exit price is the last session on or before it.",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        default=None
+    )] = None,
+    base_currency: Annotated[Literal["TRY", "USD"], Field(
+        description="Currency the table is sorted by. Both TRY and USD returns are always reported.",
+        default="TRY"
+    )] = "TRY",
+    initial_amount: Annotated[Optional[float], Field(
+        description="If given, also report what this amount would have grown to, in both currencies.",
+        gt=0,
+        default=None,
+        examples=[100000]
+    )] = None,
+) -> str:
+    """
+    Compare what several assets did over the same window, in TRY and in USD.
+
+    Answers "was ASELS or gold the better place to be this year?" in one call, with the
+    currency conversion and the calendar alignment done server-side.
+
+    Returns are PRICE returns: splits are adjusted, dividends are NOT. A TEFAS fund is
+    the one asymmetry — its NAV accrues its holdings' dividends, so it is a total
+    return, and the response says so.
+
+    Each asset is priced on the day it actually traded, and the USD rate is read on
+    that same day — so a fund, whose NAV lags a trading day, converts at its own rate
+    rather than the stock's.
+
+    Examples:
+    - compare_assets(["ASELS", "gram-altin", "USD"], "2026-01-02")
+    - compare_assets(["THYAO", "BTCTRY"], "2026-01-02", initial_amount=100000)
+    """
+    logger.info(f"compare_assets: assets={assets}, start={start_date}, end={end_date}")
+    try:
+        return shape(await market_router.compare_assets(
+            assets=assets,
+            start_date=start_date,
+            end_date=end_date,
+            base_currency=base_currency,
+            initial_amount=initial_amount,
+        ))
+    except Exception as e:
+        logger.exception("Error in compare_assets")
+        raise classify_tool_error(e, "Asset comparison")
+
+
+@app.tool(
     name="get_sector_comparison",
     title="Sector Comparison",
     description="Get sector peers, average P/E and P/B, and comparative positioning for a stock.",

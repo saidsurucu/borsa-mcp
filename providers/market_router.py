@@ -2169,6 +2169,121 @@ class MarketRouter:
 
     # --- Fund Data ---
 
+    # A window this wide around each endpoint stays under TokenOptimizer's 30-day
+    # daily/weekly threshold, so the bars we price from are real daily closes.
+    #
+    # Fetching the WHOLE comparison window instead would be the obvious thing and the
+    # wrong one: a 6-month span comes back resampled to weekly bars, and
+    # first_on_or_after(start) would then land on some Monday's bucket rather than the
+    # close on the day actually requested.
+    _ENDPOINT_PAD_DAYS = 12
+
+    async def _canonical_window(self, ref, start_date: str, end_date: str):
+        """Fetch just enough of an asset's history to price both endpoints."""
+        from providers.canonical_series import to_canonical
+
+        pad = timedelta(days=self._ENDPOINT_PAD_DAYS)
+        s = datetime.fromisoformat(start_date)
+        e = datetime.fromisoformat(end_date)
+
+        # One fetch if the padded endpoint windows would meet anyway; two if not.
+        if (e - s).days <= 2 * self._ENDPOINT_PAD_DAYS:
+            windows = [((s - pad).strftime("%Y-%m-%d"), e.strftime("%Y-%m-%d"))]
+        else:
+            windows = [
+                ((s - pad).strftime("%Y-%m-%d"), (s + pad).strftime("%Y-%m-%d")),
+                ((e - pad).strftime("%Y-%m-%d"), e.strftime("%Y-%m-%d")),
+            ]
+
+        merged = []
+        for w_start, w_end in windows:
+            if ref.market == "fund":
+                raw = await self.get_fund_price_series(ref.symbol, w_start, w_end)
+            else:
+                raw = await self.get_historical_data(
+                    ref.symbol, MarketType(ref.market),
+                    start_date=w_start, end_date=w_end,
+                )
+            merged.append(to_canonical(raw, market=ref.market))
+
+        if len(merged) == 1:
+            return merged[0]
+
+        # Same asset, two windows: one series, deduplicated by date.
+        seen = {}
+        for series in merged:
+            for bar in series.bars:
+                seen[bar.date] = bar
+        from providers.canonical_series import CanonicalSeries
+        return CanonicalSeries(meta=merged[0].meta, bars=list(seen.values()))
+
+    async def compare_assets(
+        self,
+        assets: List[Any],
+        start_date: str,
+        end_date: Optional[str] = None,
+        base_currency: str = "TRY",
+        initial_amount: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Compare period returns across markets, in TRY and USD.
+
+        The whole reason this exists: answering "ASELS mi altın mı?" took six tool
+        calls and left the currency conversion and the window alignment to the model.
+        """
+        from providers.asset_resolver import AssetResolver
+        from providers.compare import AssetWindow, compute_comparison
+
+        end_date = end_date or datetime.now().strftime("%Y-%m-%d")
+        if start_date >= end_date:
+            raise ValueError(
+                f"start_date ({start_date}) must be before end_date ({end_date})"
+            )
+
+        if not hasattr(self, "_asset_resolver"):
+            self._asset_resolver = AssetResolver(self._client)
+
+        refs = [await self._asset_resolver.resolve(a) for a in assets]
+
+        # USDTRY is fetched over the same padded windows and read at each asset's own
+        # endpoint dates, so a fund converting a day earlier than a stock uses the rate
+        # that applied on the day it actually traded.
+        from providers.asset_resolver import AssetRef
+        usdtry = await self._canonical_window(
+            AssetRef("USD", "fx"), start_date, end_date
+        )
+
+        series = await asyncio.gather(
+            *(self._canonical_window(r, start_date, end_date) for r in refs)
+        )
+
+        rows = compute_comparison(
+            [AssetWindow(s) for s in series],
+            usdtry,
+            start_date=start_date,
+            end_date=end_date,
+            initial_amount=initial_amount,
+        )
+
+        warnings = [
+            "Returns are PRICE returns and exclude dividends. Splits are adjusted.",
+        ]
+        for row in rows:
+            for w in row.pop("warnings", []):
+                if w not in warnings:
+                    warnings.append(f"{row['asset']}: {w}")
+
+        return {
+            "metadata": {
+                "window": f"{start_date} .. {end_date}",
+                "base_currency": base_currency,
+                "fx_series": "USD (borsapy/canlidoviz)",
+                "initial_amount": initial_amount,
+                "resolved": [f"{r.symbol}={r.market}" for r in refs],
+            },
+            "comparison": rows,
+            "warnings": warnings,
+        }
+
     async def get_fund_price_series(
         self,
         symbol: str,

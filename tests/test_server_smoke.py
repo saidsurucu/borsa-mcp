@@ -4,6 +4,11 @@ import asyncio
 from unified_mcp_server import app
 
 
-def test_server_exposes_28_tools():
+def test_server_exposes_29_tools():
     tools = asyncio.run(app.get_tools())
-    assert len(tools) == 28
+    assert len(tools) == 29
+
+
+def test_compare_assets_is_exposed():
+    tools = asyncio.run(app.get_tools())
+    assert "compare_assets" in tools
