@@ -199,7 +199,8 @@ class BorsapyCalendarProvider:
                                 hour=int(m.group(1)), minute=int(m.group(2))
                             )
 
-                        clean = lambda td: td.get_text(strip=True) or None
+                        def clean(td):
+                            return td.get_text(strip=True) or None
 
                         key = (event_dt, country_name, event_name)
                         events[key] = {

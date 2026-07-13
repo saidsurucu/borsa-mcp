@@ -55,7 +55,7 @@ def parse_tcmb_number(value: Optional[str]) -> Optional[float]:
     try:
         return float(text)
     except ValueError as e:
-        raise ValueError(f"Could not parse TCMB number {value!r}: {e}")
+        raise ValueError(f"Could not parse TCMB number {value!r}: {e}") from e
 
 
 class MarketRouter:

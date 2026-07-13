@@ -1,7 +1,14 @@
 """Validation behavior tests for unified tools and EVDS routing."""
 import pytest
+from fastmcp.exceptions import ToolError
 
 from providers.market_router import market_router
+from unified_mcp_server import (
+    fund_flags_warning,
+    timeframe_warning,
+    validate_evds_params,
+    validate_screen_params,
+)
 
 
 async def test_evds_datagroups_requires_category_id():
@@ -22,16 +29,6 @@ async def test_evds_unknown_action_raises():
 # ---------------------------------------------------------------------------
 # Up-front parameter validation (tool-level) — Task 10
 # ---------------------------------------------------------------------------
-
-from fastmcp.exceptions import ToolError
-
-from unified_mcp_server import (
-    validate_evds_params,
-    validate_screen_params,
-    fund_flags_warning,
-    timeframe_warning,
-)
-
 
 def test_evds_validation_lists_required_params():
     with pytest.raises(ToolError, match="series_code"):

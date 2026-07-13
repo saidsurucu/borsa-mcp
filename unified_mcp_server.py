@@ -288,7 +288,7 @@ async def search_symbol(
         return shape(await market_router.search_symbol(query, MarketType(market), limit))
     except Exception as e:
         logger.exception(f"Error in search_symbol for '{query}'")
-        raise classify_tool_error(e, "Search")
+        raise classify_tool_error(e, "Search") from e
 
 
 @app.tool(
@@ -342,7 +342,7 @@ async def get_profile(
         return shape(result)
     except Exception as e:
         logger.exception(f"Error in get_profile for '{symbol}'")
-        raise classify_tool_error(e, "Profile fetch")
+        raise classify_tool_error(e, "Profile fetch") from e
 
 
 @app.tool(
@@ -389,7 +389,7 @@ async def get_quote(
         return shape(await market_router.get_quote(symbol, resolve_market(market, symbol, exchange)))
     except Exception as e:
         logger.exception(f"Error in get_quote for '{symbol}'")
-        raise classify_tool_error(e, "Quote fetch")
+        raise classify_tool_error(e, "Quote fetch") from e
 
 
 @app.tool(
@@ -471,7 +471,7 @@ async def get_historical_data(
         ))
     except Exception as e:
         logger.exception(f"Error in get_historical_data for '{symbol}'")
-        raise classify_tool_error(e, "Historical data fetch")
+        raise classify_tool_error(e, "Historical data fetch") from e
 
 
 @app.tool(
@@ -549,7 +549,7 @@ async def get_technical_analysis(
         return shape(result)
     except Exception as e:
         logger.exception(f"Error in get_technical_analysis for '{symbol}'")
-        raise classify_tool_error(e, "Technical analysis")
+        raise classify_tool_error(e, "Technical analysis") from e
 
 
 @app.tool(
@@ -586,7 +586,7 @@ async def get_analyst_data(
         return shape(await market_router.get_analyst_data(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_analyst_data for '{symbol}'")
-        raise classify_tool_error(e, "Analyst data fetch")
+        raise classify_tool_error(e, "Analyst data fetch") from e
 
 
 @app.tool(
@@ -623,7 +623,7 @@ async def get_earnings(
         return shape(await market_router.get_earnings(symbol, MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_earnings for '{symbol}'")
-        raise classify_tool_error(e, "Earnings data fetch")
+        raise classify_tool_error(e, "Earnings data fetch") from e
 
 
 @app.tool(
@@ -684,7 +684,7 @@ async def get_financial_statements(
         )))
     except Exception as e:
         logger.exception(f"Error in get_financial_statements for '{symbol}'")
-        raise classify_tool_error(e, "Financial statements fetch")
+        raise classify_tool_error(e, "Financial statements fetch") from e
 
 
 @app.tool(
@@ -734,7 +734,7 @@ async def get_financial_ratios(
         ))
     except Exception as e:
         logger.exception(f"Error in get_financial_ratios for '{symbol}'")
-        raise classify_tool_error(e, "Financial ratios calculation")
+        raise classify_tool_error(e, "Financial ratios calculation") from e
 
 
 @app.tool(
@@ -789,7 +789,7 @@ async def get_corporate_actions(
         ))
     except Exception as e:
         logger.exception(f"Error in get_corporate_actions for '{symbol}'")
-        raise classify_tool_error(e, "Corporate actions fetch")
+        raise classify_tool_error(e, "Corporate actions fetch") from e
 
 
 @app.tool(
@@ -852,8 +852,8 @@ async def get_news(
     except ToolError:
         raise
     except Exception as e:
-        logger.exception(f"Error in get_news")
-        raise classify_tool_error(e, "News fetch")
+        logger.exception("Error in get_news")
+        raise classify_tool_error(e, "News fetch") from e
 
 
 # =============================================================================
@@ -929,7 +929,7 @@ async def screen_securities(
             return shape(await market_router.get_screener_help(MarketType(market)))
         except Exception as e:
             logger.exception("Error in screen_securities help")
-            raise classify_tool_error(e, "Screener help fetch")
+            raise classify_tool_error(e, "Screener help fetch") from e
 
     validate_screen_params(preset, custom_filters)
     logger.info(f"screen_securities: market='{market}', preset='{preset}'")
@@ -939,7 +939,7 @@ async def screen_securities(
         ))
     except Exception as e:
         logger.exception("Error in screen_securities")
-        raise classify_tool_error(e, "Screening")
+        raise classify_tool_error(e, "Screening") from e
 
 
 @app.tool(
@@ -1003,7 +1003,7 @@ async def scan_stocks(
             return shape(await market_router.get_scanner_help())
         except Exception as e:
             logger.exception("Error in scan_stocks help")
-            raise classify_tool_error(e, "Scanner help fetch")
+            raise classify_tool_error(e, "Scanner help fetch") from e
 
     if not index:
         raise ValueError(
@@ -1020,7 +1020,7 @@ async def scan_stocks(
         ))
     except Exception as e:
         logger.exception("Error in scan_stocks")
-        raise classify_tool_error(e, "Scanning")
+        raise classify_tool_error(e, "Scanning") from e
 
 
 @app.tool(
@@ -1088,7 +1088,7 @@ async def compare_assets(
         ))
     except Exception as e:
         logger.exception("Error in compare_assets")
-        raise classify_tool_error(e, "Asset comparison")
+        raise classify_tool_error(e, "Asset comparison") from e
 
 
 @app.tool(
@@ -1130,7 +1130,7 @@ async def get_sector_comparison(
         return shape(await market_router.get_sector_comparison(symbols[0], MarketType(market)))
     except Exception as e:
         logger.exception(f"Error in get_sector_comparison for '{symbol}'")
-        raise classify_tool_error(e, "Sector comparison")
+        raise classify_tool_error(e, "Sector comparison") from e
 
 
 # =============================================================================
@@ -1181,7 +1181,7 @@ async def get_crypto_market(
         ))
     except Exception as e:
         logger.exception(f"Error in get_crypto_market for '{symbol}'")
-        raise classify_tool_error(e, "Crypto market data fetch")
+        raise classify_tool_error(e, "Crypto market data fetch") from e
 
 
 # =============================================================================
@@ -1304,7 +1304,7 @@ async def get_economic_calendar(
         return shape(payload)
     except Exception as e:
         logger.exception("Error in get_economic_calendar")
-        raise classify_tool_error(e, "Economic calendar fetch")
+        raise classify_tool_error(e, "Economic calendar fetch") from e
 
 
 @app.tool(
@@ -1366,7 +1366,7 @@ async def get_bond_yields(
         })
     except Exception as e:
         logger.exception("Error in get_bond_yields")
-        raise classify_tool_error(e, "Bond yields fetch")
+        raise classify_tool_error(e, "Bond yields fetch") from e
 
 
 # =============================================================================
@@ -1451,7 +1451,7 @@ async def get_fund_data(
             return shape(await market_router.get_regulations("fund"))
         except Exception as e:
             logger.exception("Error in get_fund_data regulations")
-            raise classify_tool_error(e, "Regulations fetch")
+            raise classify_tool_error(e, "Regulations fetch") from e
 
     if not symbol:
         raise ValueError(
@@ -1479,7 +1479,7 @@ async def get_fund_data(
             ))
     except Exception as e:
         logger.exception(f"Error in get_fund_data for '{symbol}'")
-        raise classify_tool_error(e, "Fund data fetch")
+        raise classify_tool_error(e, "Fund data fetch") from e
 
 
 @app.tool(
@@ -1664,8 +1664,8 @@ async def screen_funds(
         })
 
     except Exception as e:
-        logger.exception(f"Error in screen_funds")
-        raise classify_tool_error(e, "Fund screening")
+        logger.exception("Error in screen_funds")
+        raise classify_tool_error(e, "Fund screening") from e
 
 
 # =============================================================================
@@ -1716,7 +1716,7 @@ async def get_index_data(
         return shape(await market_router.get_index_data(code, MarketType(market), include_components))
     except Exception as e:
         logger.exception(f"Error in get_index_data for '{code}'")
-        raise classify_tool_error(e, "Index data fetch")
+        raise classify_tool_error(e, "Index data fetch") from e
 
 
 # =============================================================================
@@ -1839,7 +1839,7 @@ async def get_macro_data(
         ))
     except Exception as e:
         logger.exception("Error in get_macro_data")
-        raise classify_tool_error(e, "Macro data fetch")
+        raise classify_tool_error(e, "Macro data fetch") from e
 
 
 # =============================================================================
@@ -2037,7 +2037,7 @@ async def get_evds_data(
         ))
     except Exception as e:
         logger.exception("Error in get_evds_data")
-        raise classify_tool_error(e, "EVDS operation")
+        raise classify_tool_error(e, "EVDS operation") from e
 
 
 # =============================================================================

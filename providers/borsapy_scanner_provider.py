@@ -722,7 +722,10 @@ Ornekler:
                 if ts and isinstance(ts, (int, float)) and ts > 0:
                     try:
                         return dt.fromtimestamp(ts).strftime("%Y-%m-%d")
-                    except:
+                    except (ValueError, OSError, OverflowError):
+                        # A bare `except` here also swallowed KeyboardInterrupt and
+                        # SystemExit. These are the only ways a unix timestamp can fail
+                        # to convert.
                         return None
                 return None
 

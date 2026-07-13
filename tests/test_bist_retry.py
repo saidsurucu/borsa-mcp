@@ -8,7 +8,6 @@ own test suite unreliable, which is how it was noticed.
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-import pytest
 
 from providers.borsapy_provider import BorsapyProvider
 
