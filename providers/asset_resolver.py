@@ -12,7 +12,7 @@ plausible number for it, and never find out.
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional, Set, Union
+from typing import Any, Set, Union
 
 from providers.canonical_series import FX_ASSET_SPECS, resolve_fx_asset
 

@@ -40,7 +40,6 @@ def test_the_http_client_survives_a_closed_event_loop():
 def test_a_transport_failure_is_not_reported_as_a_missing_quote():
     """The masking bug. get_crypto_market discarded the provider's error_message, so a
     dead connection was indistinguishable from a pair that does not trade."""
-    from models.unified_base import DataType, ExchangeType
     from providers.market_router import MarketRouter
 
     router = MarketRouter()

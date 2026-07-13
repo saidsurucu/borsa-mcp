@@ -15,7 +15,6 @@ The rules:
 3. **symbol is always `str | list[str]`** where a tool takes one.
 4. **period XOR start_date/end_date.** Passing both is an error, not a precedence rule.
 """
-import asyncio
 
 import pytest
 from fastmcp import Client

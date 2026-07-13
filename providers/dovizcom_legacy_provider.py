@@ -119,7 +119,7 @@ class DovizcomProvider:
             
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error for {endpoint}: {e}")
-            raise Exception(f"HTTP {e.response.status_code}: {e.response.text}")
+            raise Exception(f"HTTP {e.response.status_code}: {e.response.text}") from e
         except Exception as e:
             logger.error(f"Error making request to {endpoint}: {e}")
             raise

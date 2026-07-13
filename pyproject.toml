@@ -49,3 +49,18 @@ markers = [
     "live: hits real providers over the network; excluded from the default run",
 ]
 addopts = "-m 'not live'"
+
+[tool.ruff]
+target-version = "py312"
+exclude = ["tests/adhoc", "build", ".venv"]
+
+[tool.ruff.lint]
+# Defaults (E4, E7, E9, F) plus the rules that catch the failure mode this codebase
+# keeps producing: an exception swallowed into a plausible-looking value.
+select = ["E4", "E7", "E9", "F", "B904", "B012"]
+
+[tool.ruff.lint.per-file-ignores]
+# unified_mcp_server.py patches mcp.types' pydantic models to reject null JSON-RPC IDs,
+# and model_rebuild() must run BEFORE anything else imports those models. The imports
+# below that block are therefore deliberately not at the top of the file.
+"unified_mcp_server.py" = ["E402"]

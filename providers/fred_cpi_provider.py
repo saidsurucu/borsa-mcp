@@ -147,7 +147,7 @@ def parse_bls_json(payload: dict) -> Dict[str, float]:
     try:
         rows = payload["Results"]["series"][0]["data"]
     except (KeyError, IndexError) as e:
-        raise ValueError(f"BLS response has an unexpected shape: {e}")
+        raise ValueError(f"BLS response has an unexpected shape: {e}") from e
 
     values: Dict[str, float] = {}
     for row in rows:
@@ -169,7 +169,7 @@ def parse_eurostat_json(payload: dict) -> Dict[str, float]:
         index = payload["dimension"]["time"]["category"]["index"]
         value = payload["value"]
     except KeyError as e:
-        raise ValueError(f"Eurostat response has an unexpected shape: {e}")
+        raise ValueError(f"Eurostat response has an unexpected shape: {e}") from e
 
     values = {
         month: float(value[str(i)])
