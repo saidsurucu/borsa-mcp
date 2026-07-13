@@ -2232,6 +2232,7 @@ class MarketRouter:
             }
         else:
             failed: List[str] = []
+            stale: List[str] = []
             if symbols:
                 # Fetch all symbols concurrently instead of serially; each
                 # get_dovizcom_guncel_kur is an independent network round-trip.
@@ -2253,17 +2254,24 @@ class MarketRouter:
                         logger.warning(f"FX quote unavailable for {sym}")
                         failed.append(f"{sym}: no current quote available")
                         continue
+                    # `sell` was a double lie. borsapy's get_current does not fetch a
+                    # quote at all — it asks canlidoviz for a 5-day history and returns
+                    # the last row. So this is a LAST CLOSE, not an ask (the source dict
+                    # has no buy/sell keys whatsoever), and it can be two days old.
                     ts = result.son_guncelleme
+                    as_of = ts.strftime("%Y-%m-%d") if ts else None
+                    if as_of:
+                        age = (datetime.now().date() - ts.date()).days
+                        if age > 1:
+                            stale.append(f"{sym} ({as_of}, {age} days old)")
+
                     rates.append({
                         "symbol": sym,
                         "name": result.varlik_adi or sym,
-                        "buy": None,
-                        "sell": result.guncel_deger,
+                        "last": result.guncel_deger,
+                        "as_of": as_of,
                         "change": result.degisim,
                         "change_percent": result.degisim_yuzde,
-                        "high": None,
-                        "low": None,
-                        "timestamp": ts.isoformat() if ts else None,
                     })
 
             if not rates:
@@ -2276,6 +2284,11 @@ class MarketRouter:
             "metadata": self._create_metadata(MarketType.FX, symbols or ["all"], source),
             "rates": rates,
         }
+        if stale:
+            payload.setdefault("warnings", []).append(
+                "These are the last published closes, not live quotes, and they are "
+                f"stale: {', '.join(stale)}. Do not treat them as the price right now."
+            )
         # A partial batch keeps its good rows, but never silently: one dead symbol
         # among five must not read as five healthy quotes.
         if failed:
@@ -2684,7 +2697,17 @@ class MarketRouter:
                     "category_fund_count": info.get("category_fund_count"),
                     "market_share": info.get("market_share"),
                     "isin": info.get("isin"),
-                    "kap_link": info.get("kap_link")
+                    "kap_link": info.get("kap_link"),
+
+                    # When you can actually trade this, and when the money moves.
+                    # TEFAS hands these over and the tool used to throw them away —
+                    # which matters precisely because a fund's NAV is already a trading
+                    # day behind (see canonical_series.fund_valuation_date). Without
+                    # them, the price you are shown is not an executable price.
+                    "order_cutoff_time": info.get("last_trading_time"),
+                    "order_open_time": info.get("first_trading_time"),
+                    "buy_valor_days": info.get("buy_valor"),
+                    "sell_valor_days": info.get("sell_valor"),
                 }
 
                 # Portfolio allocation from borsapy.
