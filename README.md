@@ -1,5 +1,7 @@
 # Borsa MCP: Türk Finans Piyasaları için MCP Sunucusu
 
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fsaidsurucu%2Fborsa-mcp.svg)](https://mcptoplist.com/server/glama%2Fsaidsurucu%2Fborsa-mcp)
+
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
 Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, borsapy ve TCMB gibi kaynaklardan **26 birleşik araç** ile kapsamlı finansal analiz.
