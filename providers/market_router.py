@@ -2594,9 +2594,9 @@ class MarketRouter:
         from datetime import datetime, timedelta
 
         from providers.tefas_allocation import (
-            AllocationUnavailable,
-            fetch_allocation,
+            rows_from_frame,
             to_matrix,
+            unlabeled_codes,
         )
 
         source = "borsapy"
@@ -2717,33 +2717,42 @@ class MarketRouter:
                     "sell_valor_days": info.get("sell_valor"),
                 }
 
-                # Portfolio allocation.
-                # NOT from borsapy: info["allocation"] has been None for every
-                # fund since the 2026-04 TEFAS migration. TEFAS still serves the
-                # breakdown as JSON under a renamed endpoint that borsapy does
-                # not know about — see providers/tefas_allocation.py.
+                # Portfolio allocation, via borsapy >=0.11.0.
+                # Not info["allocation"] — that stays None; it belongs to the
+                # pre-0.11 code path. Fund.allocation hits TEFAS's renamed JSON
+                # endpoint and owns the window cap, rate limiting and universe
+                # probing, so nothing upstream-specific lives here.
                 if include_portfolio:
                     # start_date/end_date already scope this call's window, so
                     # they scope the allocation too rather than introducing a
                     # second time contract (CLAUDE.md: period XOR start/end).
                     try:
-                        allocation_result = await fetch_allocation(
-                            symbol, start_date=start_date, end_date=end_date
-                        )
-                    except AllocationUnavailable as exc:
+                        if start_date:
+                            alloc_df = await loop.run_in_executor(
+                                None,
+                                lambda: fund.allocation_history(
+                                    start=start_date, end=end_date
+                                ),
+                            )
+                        else:
+                            alloc_df = await loop.run_in_executor(
+                                None, lambda: fund.allocation
+                            )
+                        rows = rows_from_frame(alloc_df)
+                    except Exception as exc:
                         # The fund data itself is fine; only the optional
                         # breakdown is missing. Say why instead of returning a
                         # silent null that reads as "holds nothing".
+                        logger.warning(f"allocation failed for {symbol}: {exc}")
                         warnings.append(f"Portfolio allocation unavailable: {exc}")
                     else:
-                        rows = allocation_result["rows"]
                         portfolio = rows[-1] if rows else None
                         if start_date:
                             # date x asset matrix, not a list of nested lists:
                             # the latter renders as raw JSON inside a TSV cell.
                             portfolio_history = to_matrix(rows)
 
-                        unlabeled = allocation_result["unlabeled"]
+                        unlabeled = unlabeled_codes(rows)
                         if unlabeled:
                             warnings.append(
                                 "TEFAS asset codes without a verified Turkish label "
