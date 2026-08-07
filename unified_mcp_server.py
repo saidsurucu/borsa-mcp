@@ -1392,7 +1392,7 @@ async def get_fund_data(
         default="fund"
     )] = "fund",
     include_portfolio: Annotated[bool, Field(
-        description="Include portfolio allocation breakdown (single fund only). NOTE: since the 2026-04 TEFAS migration the JSON feed no longer exposes allocation, so this currently returns portfolio=null with a warning explaining how to enable it.",
+        description="Include the asset-type breakdown (single fund only) as portfolio={date, allocation:[{code, label, weight}]}, weights in percent, largest first. With start_date/end_date it also returns portfolio_history, one entry per publication day in that window.",
         default=False
     )] = False,
     include_performance: Annotated[bool, Field(
@@ -1428,7 +1428,8 @@ async def get_fund_data(
     - recent_prices: last ~7 trading days as [{date, price}] at full 6-decimal
       precision, newest first. Trading days only (holidays/weekends skipped).
     - Custom range return (start_date/end_date), 6-decimal start/end prices
-    - Portfolio allocation (optional)
+    - Portfolio allocation (optional): asset-type breakdown in percent. Weights
+      can be negative (a leveraged fund's repo leg) and need not sum to 100.
     - Side-by-side comparison
 
     IMPORTANT - getting a previous day's actual price:
@@ -1440,7 +1441,9 @@ async def get_fund_data(
 
     Examples:
     - get_fund_data("TPC") → Fund info + recent_prices (last 7 trading days)
-    - get_fund_data("TPC", include_portfolio=True) → With portfolio
+    - get_fund_data("TPC", include_portfolio=True) → Latest asset-type breakdown
+    - get_fund_data("TPC", include_portfolio=True, start_date="2026-06-01")
+      → Breakdown per publication day since that date (portfolio_history)
     - get_fund_data("TPC", start_date="2025-01-01") → Custom range return
     - get_fund_data(["TPC", "TI2"], compare_mode=True) → Fund comparison
     - get_fund_data(data_type="regulations") → CMB fund regulations
