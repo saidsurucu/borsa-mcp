@@ -2593,9 +2593,16 @@ class MarketRouter:
         import borsapy as bp
         from datetime import datetime, timedelta
 
+        from providers.tefas_allocation import (
+            AllocationUnavailable,
+            fetch_allocation,
+            to_matrix,
+        )
+
         source = "borsapy"
         fund_info = None
         portfolio = None
+        portfolio_history = None
         performance = None
         custom_return = None
         recent_prices = None
@@ -2710,27 +2717,39 @@ class MarketRouter:
                     "sell_valor_days": info.get("sell_valor"),
                 }
 
-                # Portfolio allocation from borsapy.
-                # NOTE: TEFAS migrated (2026-04) to an Akamai-protected Next.js
-                # SSR site, so info["allocation"] is no longer populated by the
-                # JSON path and comes back None for every fund. Surface an
-                # actionable warning instead of silently returning portfolio=null.
+                # Portfolio allocation.
+                # NOT from borsapy: info["allocation"] has been None for every
+                # fund since the 2026-04 TEFAS migration. TEFAS still serves the
+                # breakdown as JSON under a renamed endpoint that borsapy does
+                # not know about — see providers/tefas_allocation.py.
                 if include_portfolio:
-                    allocation = info.get("allocation")
-                    if allocation:
-                        portfolio = [
-                            {"asset_type": a.get("asset_type"), "asset_name": a.get("asset_name"), "weight": a.get("weight")}
-                            for a in allocation
-                        ]
-                    else:
-                        warnings.append(
-                            "Portfolio allocation is unavailable from the TEFAS JSON "
-                            "feed since the 2026-04 TEFAS migration to an Akamai-protected "
-                            "SSR site. To enable asset-type breakdown install the "
-                            "borsapy[allocation] extra (Scrapling + chromium); for "
-                            "individual holdings use borsapy Fund.get_holdings() with an "
-                            "OpenRouter API key."
+                    # start_date/end_date already scope this call's window, so
+                    # they scope the allocation too rather than introducing a
+                    # second time contract (CLAUDE.md: period XOR start/end).
+                    try:
+                        allocation_result = await fetch_allocation(
+                            symbol, start_date=start_date, end_date=end_date
                         )
+                    except AllocationUnavailable as exc:
+                        # The fund data itself is fine; only the optional
+                        # breakdown is missing. Say why instead of returning a
+                        # silent null that reads as "holds nothing".
+                        warnings.append(f"Portfolio allocation unavailable: {exc}")
+                    else:
+                        rows = allocation_result["rows"]
+                        portfolio = rows[-1] if rows else None
+                        if start_date:
+                            # date x asset matrix, not a list of nested lists:
+                            # the latter renders as raw JSON inside a TSV cell.
+                            portfolio_history = to_matrix(rows)
+
+                        unlabeled = allocation_result["unlabeled"]
+                        if unlabeled:
+                            warnings.append(
+                                "TEFAS asset codes without a verified Turkish label "
+                                "are returned with label=null rather than a guessed "
+                                "name: " + ", ".join(unlabeled)
+                            )
 
         except Exception as e:
             # Do not swallow: an unknown/delisted fund code makes borsapy raise
@@ -2743,6 +2762,7 @@ class MarketRouter:
             "metadata": self._create_metadata(MarketType.FUND, symbol, source),
             "fund": fund_info,
             "portfolio": portfolio,
+            "portfolio_history": portfolio_history,
             "performance_history": performance,
             "custom_return": custom_return,
             "recent_prices": recent_prices
