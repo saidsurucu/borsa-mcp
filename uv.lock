@@ -127,7 +127,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12.3" },
-    { name = "borsapy", editable = "../borsa-py" },
+    { name = "borsapy", specifier = ">=0.11.0" },
     { name = "fastmcp", specifier = ">=2.14.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "lxml", specifier = ">=5.2.0" },
@@ -147,7 +147,7 @@ dev = [{ name = "pytest-asyncio", specifier = ">=1.4.0" }]
 [[package]]
 name = "borsapy"
 version = "0.11.0"
-source = { editable = "../borsa-py" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "httpx" },
@@ -163,33 +163,9 @@ dependencies = [
     { name = "urllib3" },
     { name = "websocket-client" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "beautifulsoup4", specifier = ">=4.12.0" },
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "lxml", specifier = ">=5.0.0" },
-    { name = "openai", specifier = ">=1.0.0" },
-    { name = "openpyxl", specifier = ">=3.1.0" },
-    { name = "pandas", specifier = ">=2.0.0" },
-    { name = "pydantic", specifier = ">=2.0.0" },
-    { name = "pymupdf4llm", specifier = ">=0.2.9" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
-    { name = "rich", specifier = ">=13.0.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
-    { name = "scweet", marker = "extra == 'twitter'", specifier = ">=4.0.0" },
-    { name = "tradingview-screener", specifier = ">=3.0.0" },
-    { name = "typer", specifier = ">=0.12.0" },
-    { name = "urllib3", specifier = ">=2.0.0" },
-    { name = "websocket-client", specifier = ">=1.9.0" },
-]
-provides-extras = ["dev", "twitter", "allocation"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pdoc", specifier = ">=15.0.4" },
-    { name = "pytest", specifier = ">=8.4.2" },
+sdist = { url = "https://files.pythonhosted.org/packages/e5/e4/34dfb7973561afff93cbc7e925487126fb38f67fe9ae4a0a4a6c1b7c055b/borsapy-0.11.0.tar.gz", hash = "sha256:a40b3182d35bb5bd71be66485a96f7c9d283ce7afd3a93c50013d8d6cd25f152", size = 3318528, upload-time = "2026-08-07T16:57:34.823Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/7b/ed69d82b2e40d367be45f3711df7b083b67053b3801dd658cf69f78bd3a3/borsapy-0.11.0-py3-none-any.whl", hash = "sha256:e54ee46c115dd2dd865e60e854e8d0e2920db00d0c39255b714d16a512876f44", size = 334264, upload-time = "2026-08-07T16:57:33.213Z" },
 ]
 
 [[package]]

@@ -64,8 +64,3 @@ select = ["E4", "E7", "E9", "F", "B904", "B012"]
 # and model_rebuild() must run BEFORE anything else imports those models. The imports
 # below that block are therefore deliberately not at the top of the file.
 "unified_mcp_server.py" = ["E402"]
-
-# TEMPORARY: borsapy 0.11.0 (TEFAS allocation via JSON) is not on PyPI yet.
-# Remove this block once it is published.
-[tool.uv.sources]
-borsapy = { path = "../borsa-py", editable = true }
