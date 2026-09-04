@@ -53,7 +53,10 @@ class FinansalVeriNoktasi(BaseModel):
     en_yuksek: float = Field(description="Highest price.")
     en_dusuk: float = Field(description="Lowest price.")
     kapanis: float = Field(description="Closing price.")
-    hacim: float = Field(description="Trading volume.")
+    # Optional because "the source published no volume" is a real answer: TradingView
+    # sends no volume series for most BIST sub-indices. A required float forced that
+    # silence to be spelled 0, which reads as "nothing traded" (issue #14).
+    hacim: Optional[float] = Field(None, description="Trading volume, null when the source publishes none.")
 
 class FinansalVeriSonucu(BaseModel):
     """The result of a historical financial data query from yfinance."""

@@ -15,6 +15,9 @@ from borsapy.exceptions import DataNotAvailableError
 from models.unified_base import (
     MarketType, StatementType, PeriodType, DataType, RatioSetType, ExchangeType
 )
+from providers.volume_sanitizer import (
+    NO_VOLUME_WARNING, sanitize_series_volume, sanitize_volume
+)
 
 logger = logging.getLogger(__name__)
 
@@ -548,7 +551,7 @@ class MarketRouter:
                         "high": dp.get("en_yuksek") or 0.0,
                         "low": dp.get("en_dusuk") or 0.0,
                         "close": dp.get("kapanis") or 0.0,
-                        "volume": int(dp.get("hacim") or 0),
+                        "volume": sanitize_volume(dp.get("hacim")),
                         "adj_close": None
                     })
 
@@ -681,6 +684,11 @@ class MarketRouter:
         if start_date or end_date:
             data_points = self._clamp_to_window(data_points, start_date, end_date)
 
+        # A feed that publishes no volume for a symbol says so by omission, and
+        # borsapy fills the gap with 0.0. Forwarding that turned TradingView's silence
+        # about XHOLD into "nothing traded in the holding sector for a month" (#14).
+        volume_published = sanitize_series_volume(data_points)
+
         if not data_points:
             # An empty-but-successful payload tells the model "this asset exists and
             # has no history here", which is a far stronger claim than "the fetch
@@ -706,18 +714,28 @@ class MarketRouter:
             "data_points": len(data_points)
         }
 
+        warnings: List[str] = []
+
         # Ranges longer than a month are resampled to weekly/monthly bars to bound
         # response size. Without saying so, rows spaced 7 or 30 days apart look like
         # daily candles with gaps, and any indicator computed off them is wrong.
         if raw_count and len(data_points) < raw_count:
             bar_interval = self._infer_bar_interval(data_points)
             result_dict["bar_interval"] = bar_interval
-            result_dict["warnings"] = [
+            warnings.append(
                 f"Resampled from {raw_count} daily bars to {len(data_points)} "
                 f"{bar_interval} bars to bound response size. These are NOT daily "
                 f"candles. For daily bars, request a period of 1mo or shorter, or pass "
                 f"an explicit start_date/end_date range."
-            ]
+            )
+
+        # Only for markets that have a volume series at all — FX and funds legitimately
+        # have none, and already say so in their own words.
+        if not volume_published and market not in (MarketType.FX, MarketType.FUND):
+            warnings.append(NO_VOLUME_WARNING)
+
+        if warnings:
+            result_dict["warnings"] = warnings
 
         return result_dict
 
@@ -2792,6 +2810,7 @@ class MarketRouter:
         source = "unknown"
         index_info = None
         components = []
+        warnings: List[str] = []
 
         if market == MarketType.BIST:
             # borsapy is the only source here that carries the index *level*. KAP's
@@ -2822,8 +2841,12 @@ class MarketRouter:
                 "high": info.get("high"),
                 "low": info.get("low"),
                 "previous_close": info.get("prev_close"),
-                "volume": info.get("volume"),
+                # 1e100 is TradingView's "no data", not a volume. It used to be
+                # rendered in full: a 101-digit integer where XHOLD's turnover belongs.
+                "volume": sanitize_volume(info.get("volume")),
             }
+            if index_info["volume"] is None:
+                warnings.append(NO_VOLUME_WARNING)
 
             if include_components:
                 symbols = await loop.run_in_executor(None, lambda: index_obj.component_symbols)
@@ -2861,11 +2884,14 @@ class MarketRouter:
                     "components_count": idx.get("components_count")
                 }
 
-        return {
+        result = {
             "metadata": self._create_metadata(market, code, source),
             "index": index_info,
             "components": components
         }
+        if warnings:
+            result["warnings"] = warnings
+        return result
 
     # --- Sector Comparison ---
 
