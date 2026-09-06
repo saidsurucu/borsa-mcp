@@ -17,6 +17,7 @@ from models import (
     Temettu, HisseBolunmesi, KurumsalAksiyon, HizliBilgi,
     KazancTarihi, KazancTakvimi, KazancBuyumeVerileri
 )
+from providers.volume_sanitizer import sanitize_volume
 
 logger = logging.getLogger(__name__)
 
@@ -133,36 +134,49 @@ class BorsapyProvider:
                 return val
         return default
 
+    def _build_hizli_bilgi(self, symbol: str, ticker) -> HizliBilgi:
+        """One quote builder for both the single and the batch path.
+
+        They used to be two copies of the same field list, which is how the 1e100
+        volume fix landed on one of them and get_quote(["XHOLD", ...]) kept coming
+        back `failed_count: 1` for a live index.
+        """
+        fast_info = ticker.fast_info
+        info = ticker.info
+
+        # Attribute access for FastInfo, .get() for Info.
+        return HizliBilgi(
+            symbol=symbol,
+            long_name=info.get('longName') or info.get('name'),
+            currency=self._safe_getattr(fast_info, 'currency', default='TRY'),
+            exchange=self._safe_getattr(fast_info, 'exchange', default='BIST'),
+            last_price=self._safe_getattr(fast_info, 'last_price', 'last'),
+            previous_close=self._safe_getattr(fast_info, 'previous_close'),
+            open_price=self._safe_getattr(fast_info, 'open'),
+            day_high=self._safe_getattr(fast_info, 'day_high', 'high'),
+            day_low=self._safe_getattr(fast_info, 'day_low', 'low'),
+            # TradingView answers 1e100 ("no data") for symbols without a volume
+            # series — most BIST sub-indices. HizliBilgi.volume is an Optional[int],
+            # so that sentinel raised int_parsing_size and get_quote('XHOLD')
+            # reported a live index as a failed symbol.
+            volume=sanitize_volume(self._safe_getattr(fast_info, 'volume')),
+            average_volume=sanitize_volume(
+                info.get('averageVolume') or info.get('average_volume')
+            ),
+            market_cap=self._safe_getattr(fast_info, 'market_cap') or info.get('marketCap'),
+            pe_ratio=self._safe_getattr(fast_info, 'pe_ratio') or info.get('trailingPE'),
+            price_to_book=self._safe_getattr(fast_info, 'pb_ratio') or info.get('priceToBook'),
+            fifty_two_week_high=self._safe_getattr(fast_info, 'year_high') or info.get('fiftyTwoWeekHigh'),
+            fifty_two_week_low=self._safe_getattr(fast_info, 'year_low') or info.get('fiftyTwoWeekLow'),
+            dividend_yield=info.get('dividendYield') or info.get('dividend_yield'),
+            return_on_equity=info.get('returnOnEquity') or info.get('roe'),
+        )
+
     async def get_hizli_bilgi(self, ticker_kodu: str) -> Dict[str, Any]:
         """Fetches fast info (quick metrics) from borsapy."""
         try:
             ticker = self._get_ticker(ticker_kodu)
-            fast_info = ticker.fast_info
-            info = ticker.info
-
-            # Build HizliBilgi model - use attribute access for FastInfo, get() for Info
-            hizli = HizliBilgi(
-                symbol=ticker_kodu,
-                long_name=info.get('longName') or info.get('name'),
-                currency=self._safe_getattr(fast_info, 'currency', default='TRY'),
-                exchange=self._safe_getattr(fast_info, 'exchange', default='BIST'),
-                last_price=self._safe_getattr(fast_info, 'last_price', 'last'),
-                previous_close=self._safe_getattr(fast_info, 'previous_close'),
-                open_price=self._safe_getattr(fast_info, 'open'),
-                day_high=self._safe_getattr(fast_info, 'day_high', 'high'),
-                day_low=self._safe_getattr(fast_info, 'day_low', 'low'),
-                volume=self._safe_getattr(fast_info, 'volume'),
-                average_volume=info.get('averageVolume') or info.get('average_volume'),
-                market_cap=self._safe_getattr(fast_info, 'market_cap') or info.get('marketCap'),
-                pe_ratio=self._safe_getattr(fast_info, 'pe_ratio') or info.get('trailingPE'),
-                price_to_book=self._safe_getattr(fast_info, 'pb_ratio') or info.get('priceToBook'),
-                fifty_two_week_high=self._safe_getattr(fast_info, 'year_high') or info.get('fiftyTwoWeekHigh'),
-                fifty_two_week_low=self._safe_getattr(fast_info, 'year_low') or info.get('fiftyTwoWeekLow'),
-                dividend_yield=info.get('dividendYield') or info.get('dividend_yield'),
-                return_on_equity=info.get('returnOnEquity') or info.get('roe')
-            )
-
-            return {"hizli_bilgi": hizli}
+            return {"hizli_bilgi": self._build_hizli_bilgi(ticker_kodu, ticker)}
         except Exception as e:
             logger.exception(f"Error fetching fast info from borsapy for {ticker_kodu}")
             return {"error": str(e)}
@@ -260,7 +274,10 @@ class BorsapyProvider:
                     en_yuksek=row.get('High'),
                     en_dusuk=row.get('Low'),
                     kapanis=row.get('Close'),
-                    hacim=row.get('Volume', 0)
+                    # Not `or 0`: a missing volume field (TradingView sends none
+                    # for most BIST sub-indices) is absence, and the router decides
+                    # what to say about it once it can see the whole series.
+                    hacim=sanitize_volume(row.get('Volume'))
                 )
                 veri_noktalari.append(nokta)
 
@@ -896,31 +913,7 @@ class BorsapyProvider:
             for symbol in tickers.symbols:
                 try:
                     ticker = tickers.tickers[symbol]
-                    fast_info = ticker.fast_info
-                    info = ticker.info
-
-                    # Use attribute access for FastInfo, get() for Info
-                    hizli = HizliBilgi(
-                        symbol=symbol,
-                        long_name=info.get('longName') or info.get('name'),
-                        currency=self._safe_getattr(fast_info, 'currency', default='TRY'),
-                        exchange=self._safe_getattr(fast_info, 'exchange', default='BIST'),
-                        last_price=self._safe_getattr(fast_info, 'last_price', 'last'),
-                        previous_close=self._safe_getattr(fast_info, 'previous_close'),
-                        open_price=self._safe_getattr(fast_info, 'open'),
-                        day_high=self._safe_getattr(fast_info, 'day_high', 'high'),
-                        day_low=self._safe_getattr(fast_info, 'day_low', 'low'),
-                        volume=self._safe_getattr(fast_info, 'volume'),
-                        average_volume=info.get('averageVolume') or info.get('average_volume'),
-                        market_cap=self._safe_getattr(fast_info, 'market_cap') or info.get('marketCap'),
-                        pe_ratio=self._safe_getattr(fast_info, 'pe_ratio') or info.get('trailingPE'),
-                        price_to_book=self._safe_getattr(fast_info, 'pb_ratio') or info.get('priceToBook'),
-                        fifty_two_week_high=self._safe_getattr(fast_info, 'year_high') or info.get('fiftyTwoWeekHigh'),
-                        fifty_two_week_low=self._safe_getattr(fast_info, 'year_low') or info.get('fiftyTwoWeekLow'),
-                        dividend_yield=info.get('dividendYield') or info.get('dividend_yield'),
-                        return_on_equity=info.get('returnOnEquity') or info.get('roe')
-                    )
-                    data.append({"hizli_bilgi": hizli})
+                    data.append({"hizli_bilgi": self._build_hizli_bilgi(symbol, ticker)})
                     successful.append(symbol)
                 except Exception as e:
                     failed.append(symbol)
