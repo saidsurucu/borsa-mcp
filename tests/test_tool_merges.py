@@ -13,6 +13,7 @@ import pytest
 from fastmcp import Client
 
 from unified_mcp_server import app
+from conftest import tools_by_name
 
 pytestmark = pytest.mark.live
 
@@ -26,7 +27,7 @@ async def _call(name, args):
 # --- The surface itself -----------------------------------------------------
 
 async def test_the_absorbed_tools_are_gone():
-    tools = await app.get_tools()
+    tools = await tools_by_name(app)
     for gone in ("get_pivot_points", "get_screener_help", "get_scanner_help",
                  "get_regulations", "get_quick_info", "get_fx_data", "get_dividends"):
         assert gone not in tools, f"{gone} should have been absorbed"
@@ -40,7 +41,7 @@ async def test_the_surface_is_23_tools():
     get_quote, which additionally absorbed FX's current mode and crypto's ticker. Six
     tools were removed, not seven.
     """
-    tools = await app.get_tools()
+    tools = await tools_by_name(app)
     assert len(tools) == 23, sorted(tools)
 
 

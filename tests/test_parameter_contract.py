@@ -20,6 +20,7 @@ import pytest
 from fastmcp import Client
 
 from unified_mcp_server import app
+from conftest import tools_by_name
 
 # The one vocabulary. Nothing outside this set may appear in any tool's market enum.
 MARKETS = {"bist", "us", "crypto", "fx", "fund", "index"}
@@ -56,7 +57,7 @@ def _market_enum(tool):
 # --- Rule 1 & 2: one vocabulary, narrowed per tool ---------------------------
 
 async def test_no_tool_uses_a_market_value_outside_the_vocabulary():
-    tools = await app.get_tools()
+    tools = await tools_by_name(app)
     for name, tool in tools.items():
         enum = _market_enum(tool)
         assert enum <= MARKETS, f"{name} uses {enum - MARKETS}, outside the vocabulary"
@@ -64,7 +65,7 @@ async def test_no_tool_uses_a_market_value_outside_the_vocabulary():
 
 async def test_crypto_tr_and_crypto_global_are_gone_from_every_schema():
     """They named an exchange, not a market."""
-    tools = await app.get_tools()
+    tools = await tools_by_name(app)
     for name, tool in tools.items():
         enum = _market_enum(tool)
         assert "crypto_tr" not in enum and "crypto_global" not in enum, (
@@ -78,7 +79,7 @@ async def test_each_tool_advertises_exactly_the_markets_it_serves(name, markets)
     carrying successful_count: 1. get_technical_analysis did the same for fx and fund.
     A schema that promises a market the router has no branch for is a lie the model
     cannot detect."""
-    tools = await app.get_tools()
+    tools = await tools_by_name(app)
     assert _market_enum(tools[name]) == markets
 
 
@@ -93,7 +94,7 @@ SYMBOL_TOOLS = [
 
 @pytest.mark.parametrize("name", SYMBOL_TOOLS)
 async def test_symbol_accepts_a_string_or_a_list_everywhere(name):
-    tools = await app.get_tools()
+    tools = await tools_by_name(app)
     prop = tools[name].parameters["properties"]["symbol"]
     types = {b.get("type") for b in prop.get("anyOf", [])} or {prop.get("type")}
     assert {"string", "array"} <= types, (
