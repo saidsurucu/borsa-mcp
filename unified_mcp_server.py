@@ -5,11 +5,18 @@ Uses market parameter to route requests to appropriate providers.
 """
 
 # --- MCP Spec Compliance: Reject null JSON-RPC IDs ---
-from mcp.types import JSONRPCNotification as _McpJSONRPCNotification, JSONRPCMessage as _McpJSONRPCMessage
+# Without this, {"id": null, "method": ...} parses as a JSONRPCNotification (id is
+# simply ignored as an extra field) instead of being rejected as the 2025-11-25
+# spec requires (mcp>=2 answers HTTP 400 / -32602 for it). Forbid extras on the
+# notification model, then rebuild the module-level adapter the transports actually
+# parse with — in mcp>=2 the adapter caches its schema at import, so model_rebuild
+# alone is not enough
+# (measured: model_rebuild only → still a notification; adapter.rebuild → rejected).
+from mcp import types as _mcp_types
 from pydantic import ConfigDict as _ConfigDict
-_McpJSONRPCNotification.model_config = _ConfigDict(extra="forbid")
-_McpJSONRPCNotification.model_rebuild(force=True)
-_McpJSONRPCMessage.model_rebuild(force=True)
+_mcp_types.JSONRPCNotification.model_config = _ConfigDict(extra="forbid")
+_mcp_types.JSONRPCNotification.model_rebuild(force=True)
+_mcp_types.jsonrpc_message_adapter.rebuild(force=True)
 # --- End MCP Spec Compliance ---
 
 import logging

@@ -20,6 +20,7 @@ from providers.markdown_renderer import render_markdown
 from providers.response_shaper import downsample_ohlcv
 from models.unified_base import MarketType
 from unified_mcp_server import app
+from conftest import tools_by_name
 
 
 def _router_with_client(**async_methods):
@@ -37,7 +38,7 @@ def _router_with_client(**async_methods):
 # country back. Only TR is actually served, so only TR may be offered.
 
 async def test_bond_yields_does_not_advertise_an_unserved_country():
-    tools = await app.get_tools()
+    tools = await tools_by_name(app)
     schema = tools["get_bond_yields"].parameters
     country = schema["properties"]["country"]
     allowed = country.get("enum") or country.get("const")

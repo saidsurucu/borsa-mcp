@@ -4,6 +4,7 @@ import pytest
 from fastmcp import Client
 
 from unified_mcp_server import app
+from conftest import tools_by_name
 
 
 async def test_us_calculation_renders_with_currency_and_source():
@@ -65,5 +66,5 @@ async def test_failed_tr_call_surfaces_an_error_not_zero_percent():
 
 async def test_tool_count_is_still_23():
     # 28 - 6 absorbed + compare_assets = 23.
-    tools = await app.get_tools()
+    tools = await tools_by_name(app)
     assert len(tools) == 23

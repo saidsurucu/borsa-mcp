@@ -1,4 +1,4 @@
-fastmcp>=2.14.0
+fastmcp>=4.0.3
 pydantic
 httpx
 pdfplumber
