@@ -6,8 +6,11 @@ Uses BorsaApiClient as the underlying service layer.
 NOTE: This module returns raw dicts, not Pydantic models, to avoid validation overhead.
 """
 import asyncio
+import ipaddress
+import socket
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 import logging
 
 from borsapy.exceptions import DataNotAvailableError
@@ -25,6 +28,42 @@ logger = logging.getLogger(__name__)
 # whatever the granularity. Verified live: 350 -> OK, 351 -> HTTP 400
 # ("number of candles requested should be less than 350").
 COINBASE_MAX_CANDLES = 350
+
+# `get_news` documents `news_id` as accepting a URL, and that URL is handed
+# straight to `httpx.get()`. Without an allow-list the tool is a blind SSRF
+# primitive: any http(s) host (cloud metadata, internal services, localhost) can
+# be fetched server-side. Keep detail URLs on the two legitimate hosts.
+ALLOWED_NEWS_HOSTS = frozenset({
+    "finans.mynet.com", "mynet.com", "kap.org.tr", "www.kap.org.tr",
+})
+
+
+async def validate_news_url(url: str) -> str:
+    """Reject news-detail URLs that leave the KAP/Mynet allow-list.
+
+    Also blocks hosts that resolve into private/loopback/link-local ranges so a
+    future allow-list entry cannot be pointed at internal infrastructure.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"news_id URL scheme not allowed: {parsed.scheme!r}")
+
+    host = (parsed.hostname or "").lower()
+    if host not in ALLOWED_NEWS_HOSTS:
+        raise ValueError(f"news_id host not allowed: {host!r}")
+
+    try:
+        infos = await asyncio.to_thread(socket.getaddrinfo, host, None)
+    except socket.gaierror as exc:
+        raise ValueError(f"news_id host did not resolve: {host!r}") from exc
+
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            raise ValueError(f"news_id host resolves to a blocked address: {ip}")
+
+    return url
 
 
 def parse_tcmb_number(value: Optional[str]) -> Optional[float]:
@@ -3071,7 +3110,7 @@ class MarketRouter:
         source = "mynet"
 
         if news_id.startswith("http"):
-            news_url = news_id
+            news_url = await validate_news_url(news_id)
         else:
             news_url = f"https://finans.mynet.com/borsa/haberdetay/{news_id}/"
 
