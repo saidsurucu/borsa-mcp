@@ -111,8 +111,20 @@ class KAPProvider:
         return self._company_list
     
     def _normalize_text(self, text: str) -> str:
+        """Fold Turkish characters and drop legal-form noise before token matching.
+
+        The hyphen becomes a SPACE rather than being dropped. KAP writes
+        "TÜPRAŞ-TÜRKİYE PETROL RAFİNERİLERİ A.Ş." and "COCA-COLA İÇECEK A.Ş.",
+        and search_companies matches whole tokens — so while the hyphen is glued
+        in, "tupras-turkiye" is a single token that the query "tüpraş" can never
+        equal, and the search returns nothing at all. Dropping the hyphen instead
+        would fuse the words into "tuprasturkiye", which is just as unmatchable.
+        """
         tr_map = str.maketrans("İıÖöÜüŞşÇçĞğ", "iioouussccgg")
-        return re.sub(r"[\.,']|\s+a\.s\.?|\s+anonim sirketi", "", text.translate(tr_map).lower()).strip()
+        normalized = text.translate(tr_map).lower()
+        normalized = re.sub(r"[\.,']|\s+a\.s\.?|\s+anonim sirketi", "", normalized)
+        normalized = normalized.replace("-", " ")
+        return re.sub(r"\s+", " ", normalized).strip()
 
     async def search_companies(self, query: str) -> List[SirketInfo]:
         if not query:
