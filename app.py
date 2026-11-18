@@ -18,7 +18,7 @@ async def health_check(request):
     return JSONResponse({
         "status": "healthy",
         "service": "Borsa MCP Server",
-        "version": "0.9.0"
+        "version": "1.0.0"
     })
 
 # Create ASGI app directly from FastMCP server
