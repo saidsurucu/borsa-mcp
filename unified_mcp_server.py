@@ -1,6 +1,6 @@
 """
 Unified FastMCP server for the Borsa MCP service.
-Consolidates 81 tools into ~20 unified, function-based tools.
+Consolidates 81 legacy tools into 23 unified, function-based tools.
 Uses market parameter to route requests to appropriate providers.
 """
 
@@ -64,7 +64,7 @@ app = FastMCP(
     name="BorsaMCP",
     instructions="""Unified MCP server for BIST (Istanbul Stock Exchange), US stocks,
     cryptocurrencies, mutual funds, FX, and economic data.
-    Provides 28 consolidated tools covering stocks, crypto, funds, FX, macro data, and TCMB EVDS."""
+    Provides 23 consolidated tools covering stocks, crypto, funds, FX, macro data, and TCMB EVDS."""
 )
 
 # --- Literal Types for Clean Schema ---
@@ -247,7 +247,7 @@ def shape(payload: Dict[str, Any]) -> str:
 
 
 # =============================================================================
-# UNIFIED STOCK TOOLS (12 tools covering BIST + US)
+# UNIFIED STOCK TOOLS (11 tools covering BIST + US)
 # =============================================================================
 
 @app.tool(
@@ -864,7 +864,7 @@ async def get_news(
 
 
 # =============================================================================
-# SCREENER & SCANNER TOOLS (3 tools)
+# SCREENER & SCANNER TOOLS (4 tools)
 # =============================================================================
 
 @app.tool(
@@ -1141,7 +1141,7 @@ async def get_sector_comparison(
 
 
 # =============================================================================
-# CRYPTO TOOLS (2 tools covering BtcTurk + Coinbase)
+# CRYPTO TOOLS (1 tool covering BtcTurk + Coinbase)
 # =============================================================================
 
 @app.tool(
@@ -1192,7 +1192,7 @@ async def get_crypto_market(
 
 
 # =============================================================================
-# FX & COMMODITIES TOOLS (1 tool)
+# FX & COMMODITIES TOOLS (2 tools)
 # =============================================================================
 
 @app.tool(
@@ -1377,7 +1377,7 @@ async def get_bond_yields(
 
 
 # =============================================================================
-# FUND TOOLS (1 tool)
+# FUND TOOLS (2 tools)
 # =============================================================================
 
 @app.tool(
@@ -2051,7 +2051,7 @@ async def get_evds_data(
 
 
 # =============================================================================
-# HELP TOOLS (3 tools)
+# HELP TOOLS (0 tools)
 # =============================================================================
 
 # =============================================================================
@@ -2060,7 +2060,7 @@ async def get_evds_data(
 #
 # The FastMCP Cloud deployment is retired. Anything still pointed at it should be
 # told where the server actually lives rather than being served stale data, so when
-# DEPLOY_TARGET=fastmcp the 28 tools are withdrawn and replaced by a single tool that
+# DEPLOY_TARGET=fastmcp the 23 tools are withdrawn and replaced by a single tool that
 # does nothing but hand back the new address.
 
 MIGRATION_TARGET_URL = "https://borsa.surucu.dev/mcp"
@@ -2068,7 +2068,7 @@ MIGRATION_TARGET_URL = "https://borsa.surucu.dev/mcp"
 MIGRATION_NOTICE = f"""\
 # BorsaMCP has moved
 
-This endpoint is retired and serves no market data. All 28 tools now live at:
+This endpoint is retired and serves no market data. All 23 tools now live at:
 
     {MIGRATION_TARGET_URL}
 
@@ -2088,7 +2088,7 @@ presenting them as current would be worse than saying nothing.
 def _build_migration_app() -> FastMCP:
     """Build a server that exposes nothing but the migration notice.
 
-    This replaces `app` wholesale rather than un-registering the 28 tools from it.
+    This replaces `app` wholesale rather than un-registering the 23 tools from it.
     Removing them would mean enumerating the registry, and the only synchronous way in
     is FastMCP's private internals -- which, if they shift between versions, fails by
     quietly leaving every tool in place. That failure is invisible until someone
@@ -2138,7 +2138,7 @@ def main():
     if MIGRATION_MODE:
         logger.warning(f"Starting BorsaMCP in MIGRATION MODE -> {MIGRATION_TARGET_URL}")
     else:
-        logger.info("Starting Unified BorsaMCP server with 28 tools")
+        logger.info("Starting Unified BorsaMCP server with 23 tools")
 
     # Run the server
     app.run()

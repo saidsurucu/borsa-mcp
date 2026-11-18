@@ -2,7 +2,7 @@
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/borsa-mcp&type=Date)](https://www.star-history.com/#saidsurucu/borsa-mcp&Date)
 
-Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, borsapy ve TCMB gibi kaynaklardan **26 birleşik araç** ile kapsamlı finansal analiz.
+Borsa İstanbul (BIST) ve ABD (US) hisseleri, TEFAS fonları, kripto paralar ve döviz/emtia verilerine LLM'ler üzerinden erişim sağlayan [FastMCP](https://gofastmcp.com/) sunucusu. KAP, Yahoo Finance, BtcTurk, Coinbase, borsapy ve TCMB gibi kaynaklardan **23 birleşik araç** ile kapsamlı finansal analiz.
 
 ![ornek](./ornek.jpeg)
 
@@ -80,13 +80,12 @@ Bitcoin'in TRY fiyatını kontrol et
 
 ## 🎯 Temel Özellikler
 
-**28 Birleşik Araç ile Kapsamlı Finansal Analiz (v0.9.0):**
+**23 Birleşik Araç ile Kapsamlı Finansal Analiz (v1.0.0):**
 
 * 📈 **Hisse Senetleri (BIST + US):** 758 BIST + tüm NYSE/NASDAQ şirketleri, tek araçla `market` parametresi ile
-* 🔍 **Teknik Tarama:** BIST teknik scanner (RSI, MACD, Supertrend, T3) + US screener (23 preset)
+* 🔍 **Teknik Tarama:** BIST teknik scanner (RSI, MACD, Supertrend, T3) + US screener (24 preset)
 * 🆕 **TCMB EVDS:** 145 kategori, on binlerce makro seri — faiz, döviz, ödemeler dengesi, enflasyon (`get_evds_data`, ücretsiz API key)
 * 🆕 **Makro Veriler:** TCMB enflasyon verileri ve hesaplama araçları (`get_macro_data`)
-* 🎯 **Pivot Points:** 3 direnç & 3 destek seviyesi hesaplama (klasik pivot formülü)
 * 📊 **Endeksler:** BIST + US endeksleri tek araçla (`get_index_data`)
 * 💡 **Değer Yatırımı:** Buffett analizi ve finansal sağlık araçları (ROE, ROIC, Altman Z-Score)
 * 💰 **TEFAS Fonları:** 836+ fon, performans, portföy, karşılaştırma (`compare_mode`)
@@ -95,16 +94,15 @@ Bitcoin'in TRY fiyatını kontrol et
 * 📅 **Ekonomik Takvim:** TR, US, EU, DE, GB, JP, CN (7 ülke)
 * ☪️ **Katılım Finans:** Katılım finans uygunluk bilgisi (`include_islamic` parametresi)
 * 📰 **KAP Haberleri:** Liste + detay (`news_id` parametresi ile)
-* 📋 **Yardım Araçları:** `get_screener_help`, `get_scanner_help`, `get_regulations`
 * ⚡ **LLM Optimizasyonu:** İngilizce açıklamalar, domain-spesifik araç seçimi
-* 🚀 **FastMCP 2.14:** Response Caching + Background Tasks
+* 🚀 **FastMCP 4.x:** Response Caching + Background Tasks
 
 ## 📑 İçindekiler
 
 | Bölüm | Açıklama |
 |-------|----------|
 | [🚀 5 Dakikada Başla](#-5-dakikada-başla-remote-mcp) | Kurulum gerektirmez - Remote MCP |
-| [🎯 Temel Özellikler](#-temel-özellikler) | 26 birleşik araç ile kapsamlı finansal analiz |
+| [🎯 Temel Özellikler](#-temel-özellikler) | 23 birleşik araç ile kapsamlı finansal analiz |
 | [💻 Gelişmiş Kurulum](#-gelişmiş-kurulum-isteğe-bağlı) | 5ire, Claude Desktop local kurulum |
 | [🛠️ Kullanılabilir Araçlar](#️-kullanılabilir-araçlar-mcp-tools) | BIST, US, Kripto, Döviz, Fon araçları |
 | [🔍 Veri Kaynakları](#-veri-kaynakları--kapsam) | KAP, Yahoo Finance, BtcTurk, Coinbase, TCMB |
@@ -167,54 +165,58 @@ Bu bölüm, Borsa MCP'yi 5ire gibi diğer MCP istemcileriyle local olarak kullan
 
 ## 🛠️ Kullanılabilir Araçlar (MCP Tools)
 
-Bu FastMCP sunucusu LLM modelleri için **26 birleşik araç** sunar. Tüm araçlar `market` parametresi ile BIST ve US piyasalarını destekler.
+Bu FastMCP sunucusu LLM modelleri için **23 birleşik araç** sunar. Tüm araçlar `market` parametresi ile BIST ve US piyasalarını destekler.
 
-### Hisse Senedi Araçları (15 araç - BIST + US)
+### Hisse Senedi Araçları (11 araç - BIST + US)
 | Araç | Açıklama | Multi-ticker |
 |------|----------|--------------|
 | `search_symbol` | Hisse, endeks, fon, kripto sembol arama | - |
-| `get_profile` | Şirket profili (sektör, açıklama, finansallar) + `include_islamic` | - |
-| `get_quick_info` | Hızlı metrikler (P/E, P/B, ROE, 52h aralık) | ✅ |
-| `get_historical_data` | OHLCV fiyat verileri (tarih aralığı desteği) | - |
+| `get_profile` | Şirket profili (sektör, finansallar, metrikler) + `include_islamic` | - |
+| `get_quote` | Güncel fiyat: hisse (P/E, P/B, 52h aralık), döviz, metal, kripto | ✅ |
+| `get_historical_data` | OHLCV fiyat geçmişi (tarih aralığı veya dönem 1d-5y) | - |
 | `get_technical_analysis` | RSI, MACD, Bollinger Bantları, hareketli ortalamalar | - |
-| `get_pivot_points` | Destek/direnç seviyeleri (S1-S3, R1-R3) | - |
 | `get_analyst_data` | Analist derecelendirmeleri ve fiyat hedefleri | ✅ |
-| `get_dividends` | Temettü geçmişi, verim, dağıtım oranı | ✅ |
-| `get_earnings` | Kazanç takvimi, EPS geçmişi, büyüme tahminleri | ✅ |
-| `get_financial_statements` | Bilanço, gelir tablosu, nakit akışı | ✅ |
-| `get_financial_ratios` | Değerleme, Buffett, sağlık, gelişmiş metrikler | - |
-| `get_corporate_actions` | Sermaye artırımları, temettü geçmişi (BIST) | ✅ |
-| `get_news` | KAP haberleri + `news_id` ile detay | - |
-| `screen_securities` | 23 preset veya özel filtreler ile tarama | - |
-| `scan_stocks` | Teknik scanner (RSI, MACD, Supertrend, T3) | - |
+| `get_earnings` | Kazanç tarihleri, EPS geçmişi, sürprizler, büyüme tahminleri | ✅ |
+| `get_financial_statements` | Bilanço, gelir tablosu, nakit akışı (yıllık/çeyreklik) | ✅ |
+| `get_financial_ratios` | Değerleme (P/E, EV/EBITDA), Buffett analizi, sağlık metrikleri | - |
+| `get_corporate_actions` | Temettü, hisse bölünmesi, sermaye artırımı (BIST) | ✅ |
+| `get_news` | KAP haber listesi + `news_id` ile tam içerik | - |
+
+### Tarama & Karşılaştırma Araçları (4 araç)
+| Araç | Açıklama |
+|------|----------|
+| `screen_securities` | Hisse/ETF tarama (24 preset: değer, büyüme, temettü, sektör) veya özel filtre |
+| `scan_stocks` | BIST teknik tarama (RSI, MACD, Supertrend, T3) |
+| `compare_assets` | Dönem getirilerini tek tabloda karşılaştır: BIST/US hisse, altın, FX, kripto, TEFAS fonu |
+| `get_sector_comparison` | Sektör emsalleri, ortalama P/E ve P/B, karşılaştırmalı konum |
 
 ### Kripto Araçları (1 araç - BtcTurk + Coinbase)
 | Araç | Açıklama |
 |------|----------|
-| `get_crypto_market` | Ticker, orderbook, trades, OHLC, borsa bilgileri |
+| `get_crypto_market` | Ticker, orderbook, trades, OHLC (BtcTurk TRY / Coinbase USD) |
 
-### FX & Makro Araçları (4 araç)
+### FX & Makro Araçları (2 araç)
 | Araç | Açıklama |
 |------|----------|
-| `get_fx_data` | 65 para birimi, metaller, emtialar (borsapy) |
-| `get_economic_calendar` | Ekonomik olaylar (TR, US, EU, DE, GB, JP, CN) |
-| `get_bond_yields` | Devlet tahvil faizleri (TR 2Y, 5Y, 10Y) |
-| `get_sector_comparison` | Sektör karşılaştırması ve ortalama metrikler |
+| `get_economic_calendar` | Ekonomik olaylar (TR, US, EU, DE, GB, JP, CN) + önem filtresi |
+| `get_bond_yields` | Türk devlet tahvil faizleri (2Y, 5Y, 10Y) + DCF için risksiz oran |
 
-### Fon & Endeks Araçları (2 araç)
+### Fon Araçları (2 araç)
 | Araç | Açıklama |
 |------|----------|
-| `get_fund_data` | TEFAS fon verileri + `compare_mode` ile karşılaştırma |
-| `get_index_data` | Borsa endeks verileri (BIST + US) |
+| `get_fund_data` | TEFAS fon bilgileri + getiri (günlük/1m/3m/6m/1y/3y/5y), portföy, karşılaştırma |
+| `screen_funds` | TEFAS fon tarama (tip, kategori, getiri, sıralama) |
 
-### Makro & Yardım Araçları (5 araç)
+### Endeks Araçları (1 araç)
+| Araç | Açıklama |
+|------|----------|
+| `get_index_data` | Endeks değeri, değişim, bileşen hisseler (BIST: XU100, XU030; US: SPY, QQQ) |
+
+### Makro & EVDS Araçları (2 araç)
 | Araç | Açıklama |
 |------|----------|
 | `get_macro_data` | TCMB enflasyon verileri ve hesaplama (TÜFE/ÜFE, key gerekmez) |
-| `get_evds_data` | TCMB EVDS — 145 kategori, on binlerce makro seri (rates, FX, BoP, expectation surveys); katalog/arama key gerekmez, veri çekme için `EVDS_API_KEY` env var (ücretsiz: https://evds3.tcmb.gov.tr) |
-| `get_screener_help` | Screener presetleri ve filtre dokümantasyonu |
-| `get_scanner_help` | BIST scanner göstergeleri ve presetler |
-| `get_regulations` | Türk yatırım fonu mevzuatı |
+| `get_evds_data` | TCMB EVDS — 145 kategori makro seri (veri çekme için ücretsiz `EVDS_API_KEY`) |
 
 #### 🔑 EVDS Kurulumu
 
