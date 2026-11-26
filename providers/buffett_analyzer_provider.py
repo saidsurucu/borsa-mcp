@@ -14,6 +14,7 @@ All calculations use dynamic parameters from:
 - World Bank: GDP growth (terminal_growth_real)
 """
 import logging
+from datetime import date
 from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -144,7 +145,7 @@ class BuffettAnalyzerProvider:
     async def calculate_dcf_fisher(
         self,
         ticker_kodu: str,
-        owner_earnings_quarterly: float,
+        owner_earnings_annual: float,
         nominal_rate: Optional[float] = None,
         expected_inflation: Optional[float] = None,
         growth_rate_real: Optional[float] = None,
@@ -173,7 +174,7 @@ class BuffettAnalyzerProvider:
 
         Args:
             ticker_kodu: Stock ticker for fetching analyst data
-            owner_earnings_quarterly: Quarterly owner earnings (Million TL or USD)
+            owner_earnings_annual: Trailing-year owner earnings (Million TL or USD)
             nominal_rate: Nominal discount rate (auto-fetched if None)
             expected_inflation: Expected inflation (auto-fetched if None)
             growth_rate_real: Real growth rate (auto-calculated if None)
@@ -224,7 +225,7 @@ class BuffettAnalyzerProvider:
                             data_sources['nominal_rate'] = 'Doviz.com (10Y Tahvil - canlı)'
                         else:
                             nominal_rate = 0.30
-                            data_sources['nominal_rate'] = 'Default 30% (Doviz.com hatası)'
+                            data_sources['nominal_rate'] = 'Default 30% (tahvil verisi alınamadı)'
                     else:
                         nominal_rate = 0.30
                         data_sources['nominal_rate'] = 'Default 30% (provider yok)'
@@ -362,8 +363,8 @@ class BuffettAnalyzerProvider:
             # 5. Calculate real WACC using Fisher Effect
             r_real = ((1 + nominal_rate) / (1 + expected_inflation)) - 1 + risk_premium
 
-            # 6. Calculate annual OE
-            oe_annual = owner_earnings_quarterly * 4
+            # 6. Annual OE
+            oe_annual = owner_earnings_annual
 
             # 7. Project cash flows
             projected_cash_flows = []
@@ -591,38 +592,20 @@ class BuffettAnalyzerProvider:
                     'market': market
                 }
 
+            def failure(message: str) -> Dict[str, Any]:
+                return {'error': message, 'ticker': ticker_kodu, 'period': 'N/A', 'market': market}
+
             # Fetch income statement for net income
             logger.info(f"Fetching income statement for {ticker_kodu}")
             income_result = await self.yfinance_provider.get_kar_zarar(ticker_kodu, period_type='quarterly', market=market)
             if income_result.get('error'):
-                return {
-                    'error': f"Income statement error: {income_result['error']}",
-                    'ticker': ticker_kodu,
-                    'period': 'N/A',
-                    'market': market
-                }
+                return failure(f"Income statement error: {income_result['error']}")
 
             # Fetch cash flow statement for depreciation, capex, working capital
             logger.info(f"Fetching cash flow statement for {ticker_kodu}")
             cashflow_result = await self.yfinance_provider.get_nakit_akisi(ticker_kodu, period_type='quarterly', market=market)
             if cashflow_result.get('error'):
-                return {
-                    'error': f"Cash flow error: {cashflow_result['error']}",
-                    'ticker': ticker_kodu,
-                    'period': 'N/A',
-                    'market': market
-                }
-
-            # Fetch balance sheet for working capital calculation
-            logger.info(f"Fetching balance sheet for {ticker_kodu}")
-            balance_result = await self.yfinance_provider.get_bilanco(ticker_kodu, period_type='quarterly', market=market)
-            if balance_result.get('error'):
-                return {
-                    'error': f"Balance sheet error: {balance_result['error']}",
-                    'ticker': ticker_kodu,
-                    'period': 'N/A',
-                    'market': market
-                }
+                return failure(f"Cash flow error: {cashflow_result['error']}")
 
             # Fetch company info for market cap, current price, shares outstanding
             # Note: We need to get raw info dict, not the Pydantic model
@@ -630,53 +613,51 @@ class BuffettAnalyzerProvider:
             ticker = self.yfinance_provider._get_ticker(ticker_kodu, market=market)
             company_info = ticker.info
 
-            # STEP 2: Extract required fields from financial statements
-            # Get latest quarterly data (most recent column)
-            # Data structure: [{"Kalem": "field_name", "2024-09-30": value, ...}, ...]
-            income_data = income_result.get('tablo', [])
-            cashflow_data = cashflow_result.get('tablo', [])
-            balance_data = balance_result.get('tablo', [])
+            # STEP 2: Sum the last four quarters (a single quarter x4 spreads one season over a year)
+            ttm = self._trailing_year(
+                income_result.get('tablo', []) + cashflow_result.get('tablo', [])
+            )
+            if ttm.get('error'):
+                return failure(ttm['error'])
+            latest_period = ttm['periods'][0]
 
-            # Helper function to extract value from financial statement list
-            def get_financial_value(data_list: List[Dict], field_name: str) -> tuple:
-                """Returns (latest_value, latest_period) for a financial field."""
-                for row in data_list:
-                    if row.get('Kalem') == field_name:
-                        # Get all date columns (exclude 'Kalem')
-                        date_columns = [k for k in row.keys() if k != 'Kalem']
-                        if date_columns:
-                            # Dates are sorted descending, so first is most recent
-                            latest_period = date_columns[0]
-                            latest_value = row.get(latest_period, 0)
-                            return latest_value, latest_period
-                return 0, None
+            # Statements can be published in another currency than the share trades in
+            quote_currency = company_info.get('currency')
+            statement_currency = company_info.get('financialCurrency')
+            if not quote_currency or not statement_currency:
+                return failure(
+                    f"Para birimi doğrulanamadı (fiyat: {quote_currency}, finansal tablo: {statement_currency})"
+                )
 
-            # Extract net income (quarterly, in millions)
-            net_income_raw, latest_period = get_financial_value(income_data, 'Net Income')
-            if not latest_period:
-                return {
-                    'error': 'Net income data not available',
-                    'ticker': ticker_kodu,
-                    'period': 'N/A'
-                }
-            net_income = net_income_raw / 1_000_000  # Convert to millions
+            assumption_notes = [
+                f"ℹ️ Nakit akışı son 4 çeyreğin toplamı: {ttm['periods'][-1]} - {latest_period}"
+            ]
+            fx_rate = 1.0
+            if statement_currency != quote_currency:
+                fx_rate = await self.yfinance_provider.get_fx_rate(statement_currency, quote_currency)
+                if not fx_rate:
+                    return failure(
+                        f"Finansal tablolar {statement_currency}, fiyat {quote_currency}; "
+                        f"{statement_currency}/{quote_currency} kuru alınamadı"
+                    )
+                assumption_notes.append(
+                    f"ℹ️ Finansal tablolar {statement_currency}, güncel kurla "
+                    f"({fx_rate:.4f}) {quote_currency} cinsine çevrildi"
+                )
 
-            # Extract depreciation
-            depreciation_raw, _ = get_financial_value(cashflow_data, 'Depreciation And Amortization')
-            depreciation = depreciation_raw / 1_000_000
+            to_millions = fx_rate / 1_000_000
+            net_income = ttm['Net Income'] * to_millions
+            depreciation = ttm['Depreciation And Amortization'] * to_millions
+            capex = ttm['Capital Expenditure'] * to_millions  # negative value
 
-            # Extract capex (negative value)
-            capex_raw, _ = get_financial_value(cashflow_data, 'Capital Expenditure')
-            capex = capex_raw / 1_000_000
-
-            # Calculate working capital change
-            current_assets_raw, _ = get_financial_value(balance_data, 'Current Assets')
-            current_liabilities_raw, _ = get_financial_value(balance_data, 'Current Liabilities')
-
-            # Get previous period values for working capital calculation
-            # For now, use 0 as a conservative estimate (could be enhanced to get historical data)
-            working_capital_change = 0
-            logger.warning("Working capital change set to 0 (historical comparison not implemented yet)")
+            # Yahoo reports the cash effect (positive = inflow); the formula
+            # subtracts the increase in working capital, hence the sign flip.
+            wc_cash_effect = ttm.get('Change In Working Capital')
+            if wc_cash_effect is None:
+                working_capital_change = 0
+                assumption_notes.append("⚠️ İşletme sermayesi değişimi verisi yok, 0 kabul edildi")
+            else:
+                working_capital_change = 0 - wc_cash_effect * to_millions
 
             # Extract market cap (in millions), current price, shares outstanding
             market_cap = company_info.get('marketCap', 0) / 1_000_000
@@ -708,10 +689,11 @@ class BuffettAnalyzerProvider:
             owner_earnings = oe_result.get('owner_earnings', 0)
             if owner_earnings <= 0:
                 logger.warning(f"{ticker_kodu}: Negative Owner Earnings ({owner_earnings:.2f}M {currency}) - Cannot calculate DCF")
+                loss = net_income < 0
                 if market == "US":
                     error_msg = (
                         f"Negative Owner Earnings: {owner_earnings:,.2f}M {currency}. "
-                        f"Company not generating real cash flow (losing money). "
+                        f"Company not generating real cash flow{' (losing money)' if loss else ''}. "
                         f"Not suitable for Buffett value investing. "
                         f"Details: Net Income={net_income:,.2f}M, Depreciation={depreciation:,.2f}M, "
                         f"CapEx={capex:,.2f}M, ΔWC={working_capital_change:,.2f}M"
@@ -722,11 +704,11 @@ class BuffettAnalyzerProvider:
                         f'❌ Net Income: {net_income:,.2f}M {currency} ({"loss" if net_income < 0 else "profit"})',
                         '⚠️ Company not generating sustainable cash flow'
                     ]
-                    data_quality = f'Financial data available but company losing money (Period: {latest_period})'
+                    data_quality = f'Financial data available but owner earnings are negative (Period: {latest_period})'
                 else:
                     error_msg = (
                         f"Negatif Owner Earnings: {owner_earnings:,.2f}M {currency}. "
-                        f"Şirket gerçek nakit akışı üretmiyor (zarar ediyor). "
+                        f"Şirket gerçek nakit akışı üretmiyor{' (zarar ediyor)' if loss else ''}. "
                         f"Buffett değer yatırımı için uygun değil. "
                         f"Detay: Net Income={net_income:,.2f}M, Depreciation={depreciation:,.2f}M, "
                         f"CapEx={capex:,.2f}M, ΔWC={working_capital_change:,.2f}M"
@@ -737,7 +719,7 @@ class BuffettAnalyzerProvider:
                         f'❌ Net Income: {net_income:,.2f}M {currency} ({"zarar" if net_income < 0 else "kar"})',
                         '⚠️ Şirket sürdürülebilir nakit akışı üretmiyor'
                     ]
-                    data_quality = f'Finansal veri mevcut ama şirket zarar ediyor (Period: {latest_period})'
+                    data_quality = f'Finansal veri mevcut ama Owner Earnings negatif (Period: {latest_period})'
 
                 return {
                     'error': error_msg,
@@ -748,7 +730,7 @@ class BuffettAnalyzerProvider:
                     'buffett_score': 'AVOID',
                     'buffett_score_rationale': rationale,
                     'key_insights': [],
-                    'warnings': warnings_list,
+                    'warnings': warnings_list + assumption_notes,
                     'data_quality_notes': data_quality
                 }
 
@@ -757,14 +739,14 @@ class BuffettAnalyzerProvider:
             oe_yield_result = self.calculate_oe_yield(
                 owner_earnings=owner_earnings,
                 market_cap=market_cap,
-                is_quarterly=True
+                is_quarterly=False
             )
 
-            # 3. DCF Fisher (async, takes ticker_kodu and owner_earnings_quarterly)
+            # 3. DCF Fisher (async, takes ticker_kodu and owner_earnings_annual)
             logger.info("Calculating DCF Fisher")
             dcf_result = await self.calculate_dcf_fisher(
                 ticker_kodu=ticker_kodu,
-                owner_earnings_quarterly=owner_earnings,
+                owner_earnings_annual=owner_earnings,
                 market=market
             )
 
@@ -842,6 +824,10 @@ class BuffettAnalyzerProvider:
                 oe_result, oe_yield_result, dcf_result, safety_margin_result
             )
 
+            # Say which inputs are hard-coded fallbacks rather than market data
+            assumption_notes.extend(self._default_assumption_warnings(dcf_result))
+            warnings = warnings + assumption_notes
+
             # Data quality notes
             data_quality_notes = self._check_buffett_data_quality(
                 oe_result, oe_yield_result, dcf_result, safety_margin_result
@@ -870,6 +856,58 @@ class BuffettAnalyzerProvider:
                 'ticker': ticker_kodu,
                 'period': 'N/A'
             }
+
+    def _trailing_year(self, rows: List[Dict]) -> Dict[str, Any]:
+        """
+        Sum the four most recent quarters of the cash flow inputs.
+
+        Returns the raw sums keyed by Yahoo field name plus 'periods' (newest first),
+        or {'error': ...} when four consecutive complete quarters are not available.
+        'Change In Working Capital' is omitted when any of those quarters lacks it.
+        """
+        required = ('Net Income', 'Depreciation And Amortization', 'Capital Expenditure')
+        optional = 'Change In Working Capital'
+
+        def series(field: str) -> Dict[str, float]:
+            for row in rows:
+                if row.get('Kalem') == field:
+                    # v == v filters out NaN
+                    return {k: v for k, v in row.items() if k != 'Kalem' and v is not None and v == v}
+            return {}
+
+        values = {field: series(field) for field in required}
+        common = set.intersection(*(set(v) for v in values.values()))
+        periods = sorted(common, reverse=True)[:4]
+        if len(periods) < 4:
+            return {'error': f"Son 4 çeyreğin tamamı yok ({len(periods)}/4 çeyrek: {', '.join(required)})"}
+
+        # Four consecutive quarter ends are about nine months apart, first to last
+        span = (date.fromisoformat(periods[0]) - date.fromisoformat(periods[-1])).days
+        if span > 300:
+            return {'error': f"Son 4 çeyrek ardışık değil: {', '.join(periods)}"}
+
+        result: Dict[str, Any] = {f: sum(values[f][p] for p in periods) for f in required}
+        wc = series(optional)
+        if all(p in wc for p in periods):
+            result[optional] = sum(wc[p] for p in periods)
+        result['periods'] = periods
+        return result
+
+    def _default_assumption_warnings(self, dcf_result: Dict) -> List[str]:
+        """One warning for each DCF input that fell back to a hard-coded default."""
+        labels = {
+            'nominal_rate': 'tahvil faizi',
+            'expected_inflation': 'enflasyon',
+            'growth_rate_real': 'reel büyüme',
+            'terminal_growth_real': 'terminal büyüme'
+        }
+        sources = dcf_result.get('data_sources', {})
+        params = dcf_result.get('parameters', {})
+        return [
+            f"⚠️ Varsayılan değer kullanıldı: {label} %{params.get(key, 0) * 100:.2f} ({sources[key]})"
+            for key, label in labels.items()
+            if str(sources.get(key, '')).startswith('Default')
+        ]
 
     def _calculate_buffett_score(
         self,
