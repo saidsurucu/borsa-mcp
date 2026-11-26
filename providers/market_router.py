@@ -100,6 +100,34 @@ def parse_tcmb_number(value: Optional[str]) -> Optional[float]:
         raise ValueError(f"Could not parse TCMB number {value!r}: {e}") from e
 
 
+# İş Yatırım serves non-bank year-end (FY2024 onwards) figures multiplied by Turkish
+# CPI factors: THYAO FY2025 revenue arrived 24% above the reported amount, and its
+# P/E matched the inflated earnings. The numbers are passed through, so say so.
+FIRST_INDEXED_YEAR = 2024
+
+INDEXED_RATIO_WARNING = (
+    "Banka dışı şirketlerde İş Yatırım kaynaklı değerleme oranları (F/K, FD/FAVÖK, "
+    "FD/Satışlar), enflasyonla endekslenmiş olabilecek yıl sonu verisine dayanabilir; "
+    "oranlar olduğundan düşük görünebilir."
+)
+
+
+def _indexed_year_end_warning(periods: List[str]) -> Optional[str]:
+    """Warning naming the year-end columns ('2025' or '2025Q4') at risk, if any."""
+    affected = [
+        p for p in sorted(periods, reverse=True)
+        if (len(p) == 4 or p.endswith("Q4"))
+        and p[:4].isdigit() and int(p[:4]) >= FIRST_INDEXED_YEAR
+    ]
+    if not affected:
+        return None
+    return (
+        f"{', '.join(affected)} yıl sonu sütunları İş Yatırım tarafından enflasyonla "
+        "endekslenmiş olabilir (banka dışı şirketler); açıklanan finansal tablolardan "
+        "yüksek çıkabilir. Ara dönemlerle karşılaştırırken veya son 12 ay hesabında dikkat edin."
+    )
+
+
 class MarketRouter:
     """Routes unified tool requests to appropriate market-specific providers."""
 
@@ -248,10 +276,15 @@ class MarketRouter:
             if len(symbol) == 1:
                 symbol = symbol[0]
             else:
-                return await self._fan_out_multi(
+                response = await self._fan_out_multi(
                     symbol, market, "yfinance",
                     lambda s: self._get_profile_single(s, market),
                 )
+                if market == MarketType.BIST and any(
+                    item["profile"].get("pe_ratio") is not None for item in response["data"]
+                ):
+                    response["warnings"].append(INDEXED_RATIO_WARNING)
+                return response
         return await self._get_profile_single(symbol, market, with_metadata=True)
 
     async def _get_profile_single(
@@ -345,8 +378,12 @@ class MarketRouter:
             )
 
         if with_metadata:
+            indexed = market == MarketType.BIST and profile.get("pe_ratio") is not None
             return {
-                "metadata": self._create_metadata(market, symbol, source),
+                "metadata": self._create_metadata(
+                    market, symbol, source,
+                    warnings=[INDEXED_RATIO_WARNING] if indexed else None
+                ),
                 "profile": profile,
             }
         return {"symbol": symbol.upper(), "profile": profile}
@@ -474,6 +511,9 @@ class MarketRouter:
                         "avg_volume": getattr(i, 'average_volume', None),
                         "beta": getattr(i, 'beta', None)
                     })
+
+        if market == MarketType.BIST and any(r.get("pe_ratio") is not None for r in results):
+            warnings = list(warnings or []) + [INDEXED_RATIO_WARNING]
 
         data = results if is_multi else (results[0] if results else None)
         return {
@@ -1545,6 +1585,7 @@ class MarketRouter:
         """Get financial statements for a single symbol (no metadata)."""
         statements = []
         warnings = []
+        indexed_periods = set()
         period_str = "annual" if period == PeriodType.ANNUAL else "quarterly"
 
         if market == MarketType.BIST:
@@ -1576,8 +1617,14 @@ class MarketRouter:
                             "data": data_dict,
                             "currency": "TRY"
                         })
+                        if result.get("yil_sonu_endeks_riski"):
+                            indexed_periods.update(periods_list)
                 except Exception as e:
                     warnings.append(f"Failed to fetch {stmt_name}: {str(e)}")
+
+            indexed_warning = _indexed_year_end_warning(list(indexed_periods))
+            if indexed_warning:
+                warnings.append(indexed_warning)
 
         elif market == MarketType.US:
             types_to_fetch = []
@@ -1686,6 +1733,9 @@ class MarketRouter:
                             "ev_ebitda": result.get("fd_favok"),
                             "ev_sales": result.get("fd_satislar")
                         }
+
+                        if any(valuation[k] is not None for k in ("pe_ratio", "ev_ebitda", "ev_sales")):
+                            ratio_warnings.append(INDEXED_RATIO_WARNING)
 
                         # Fallback: borsapy/İş Yatırım frequently omits trailingPE for
                         # BIST names (e.g. ASELS), which then gets null-stripped from the
@@ -2014,8 +2064,12 @@ class MarketRouter:
                         "additional_data": {}
                     })
 
+        indexed = market == MarketType.BIST and any(s["pe_ratio"] is not None for s in stocks)
         return {
-            "metadata": self._create_metadata(market, "screener", source),
+            "metadata": self._create_metadata(
+                market, "screener", source,
+                warnings=[INDEXED_RATIO_WARNING] if indexed else None
+            ),
             "preset": preset,
             "security_type": security_type,
             "filters_applied": custom_filters,
@@ -2436,12 +2490,16 @@ class MarketRouter:
         market: MarketType,
     ) -> Dict[str, Any]:
         """Several symbols' sector positioning in parallel."""
+        warnings: List[str] = []
+
         async def one(s):
             raw = await self.get_sector_comparison(s, market)
-            raw.pop("metadata", None)
+            for w in raw.pop("metadata", {}).get("warnings", []):
+                if w not in warnings:
+                    warnings.append(w)
             return raw
 
-        return await self._fan_out_multi(symbols, market, "mixed", one)
+        return await self._fan_out_multi(symbols, market, "mixed", one, warnings=warnings)
 
     async def get_historical_data_multi(
         self,
@@ -3088,8 +3146,12 @@ class MarketRouter:
                             "change_percent": p.get("change_percent")
                         })
 
+        indexed = market == MarketType.BIST and any(p["pe_ratio"] is not None for p in peers)
         return {
-            "metadata": self._create_metadata(market, symbol, source),
+            "metadata": self._create_metadata(
+                market, symbol, source,
+                warnings=[INDEXED_RATIO_WARNING] if indexed else None
+            ),
             "symbol": symbol.upper(),
             "sector": sector,
             "industry": industry,

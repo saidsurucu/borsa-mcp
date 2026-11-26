@@ -6,7 +6,7 @@ Includes BIST stock screener functionality.
 """
 import borsapy as bp
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import pandas as pd
 import datetime
 import asyncio
@@ -311,13 +311,17 @@ class BorsapyProvider:
     # FINANCIAL STATEMENT METHODS (Fallback for İş Yatırım)
     # =========================================================================
 
-    def _get_financial_data(self, ticker_kodu: str, period_type: str, statement_type: str, last_n: Optional[int] = None) -> pd.DataFrame:
+    def _get_financial_data(self, ticker_kodu: str, period_type: str, statement_type: str, last_n: Optional[int] = None) -> Tuple[pd.DataFrame, bool]:
         """
         Fetches financial statement data, trying XI_29 first then UFRS for banks.
 
         Args:
             statement_type: 'balance_sheet', 'income_stmt', or 'cashflow'
             last_n: Number of periods to fetch. None for default (5).
+
+        Returns:
+            The table, and whether it came from XI_29 (non-bank), whose year-end
+            columns İş Yatırım may serve inflation-indexed.
         """
         ticker = self._get_ticker(ticker_kodu)
         quarterly = period_type == 'quarterly'
@@ -337,7 +341,7 @@ class BorsapyProvider:
                     kwargs["financial_group"] = group
                 if last_n is not None:
                     kwargs["last_n"] = last_n
-                return method(**kwargs)
+                return method(**kwargs), group is None
             except Exception:
                 if group == "UFRS":
                     raise  # Last attempt, let it propagate
@@ -347,9 +351,9 @@ class BorsapyProvider:
     async def get_bilanco(self, ticker_kodu: str, period_type: str, last_n: Optional[int] = None) -> Dict[str, Any]:
         """Fetches balance sheet from borsapy. Tries XI_29 then UFRS for banks."""
         try:
-            data = self._get_financial_data(ticker_kodu, period_type, 'balance_sheet', last_n)
+            data, indexing_risk = self._get_financial_data(ticker_kodu, period_type, 'balance_sheet', last_n)
             records = self._financial_statement_to_dict_list(data)
-            return {"tablo": records}
+            return {"tablo": records, "yil_sonu_endeks_riski": indexing_risk}
         except Exception as e:
             logger.exception(f"Error fetching balance sheet from borsapy for {ticker_kodu}")
             return {"error": str(e)}
@@ -357,9 +361,9 @@ class BorsapyProvider:
     async def get_kar_zarar(self, ticker_kodu: str, period_type: str, last_n: Optional[int] = None) -> Dict[str, Any]:
         """Fetches income statement from borsapy. Tries XI_29 then UFRS for banks."""
         try:
-            data = self._get_financial_data(ticker_kodu, period_type, 'income_stmt', last_n)
+            data, indexing_risk = self._get_financial_data(ticker_kodu, period_type, 'income_stmt', last_n)
             records = self._financial_statement_to_dict_list(data)
-            return {"tablo": records}
+            return {"tablo": records, "yil_sonu_endeks_riski": indexing_risk}
         except Exception as e:
             logger.exception(f"Error fetching income statement from borsapy for {ticker_kodu}")
             return {"error": str(e)}
@@ -367,9 +371,9 @@ class BorsapyProvider:
     async def get_nakit_akisi(self, ticker_kodu: str, period_type: str, last_n: Optional[int] = None) -> Dict[str, Any]:
         """Fetches cash flow statement from borsapy. Tries XI_29 then UFRS for banks."""
         try:
-            data = self._get_financial_data(ticker_kodu, period_type, 'cashflow', last_n)
+            data, indexing_risk = self._get_financial_data(ticker_kodu, period_type, 'cashflow', last_n)
             records = self._financial_statement_to_dict_list(data)
-            return {"tablo": records}
+            return {"tablo": records, "yil_sonu_endeks_riski": indexing_risk}
         except Exception as e:
             logger.exception(f"Error fetching cash flow from borsapy for {ticker_kodu}")
             return {"error": str(e)}
