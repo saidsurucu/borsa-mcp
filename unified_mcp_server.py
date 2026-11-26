@@ -659,7 +659,7 @@ async def get_financial_statements(
         default="annual"
     )] = "annual",
     last_n: Annotated[Optional[int], Field(
-        description="Number of periods to fetch (BIST only). Default 5 (returns ~4 recent quarters or ~4 years). Use 20 for ~5 years of quarterly data, 40 for max. IMPORTANT: If user asks for older data (e.g. '2023 Q2' or 'last 3 years'), increase last_n accordingly.",
+        description="Number of periods to fetch (BIST only). Default 5 (the 5 most recently published quarters or years). Use 20 for ~5 years of quarterly data, 40 for max. IMPORTANT: If user asks for older data (e.g. '2023 Q2' or 'last 3 years'), increase last_n accordingly.",
         default=None,
         ge=1,
         le=40,
@@ -675,7 +675,7 @@ async def get_financial_statements(
     BIST uses borsapy (primary) with Yahoo Finance fallback.
     US uses Yahoo Finance directly.
 
-    IMPORTANT: Default returns only ~4 most recent periods. If user asks for older data
+    IMPORTANT: Default returns only the 5 most recent periods (BIST). If user asks for older data
     (e.g. "2023 financials", "last 3 years quarterly"), set last_n=20 or higher.
 
     Examples:
