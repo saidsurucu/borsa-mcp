@@ -5,7 +5,7 @@ fetching company info, financials, and historical data.
 """
 import yfinance as yf
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import pandas as pd
 import datetime
 import asyncio
@@ -158,6 +158,22 @@ class YahooFinanceProvider:
         except Exception as e:
             logger.exception(f"Error fetching cash flow statement from yfinance for {ticker_kodu}")
             return {"error": str(e)}
+
+    async def get_fx_rate(self, from_currency: str, to_currency: str) -> Optional[float]:
+        """Latest rate for one unit of from_currency in to_currency, or None if unavailable."""
+        pair = f"{from_currency}{to_currency}=X"
+        try:
+            # Five days, so that a weekend or holiday still returns the last close.
+            closes = yf.Ticker(pair).history(period="5d")
+            if closes.empty:
+                return None
+            closes = closes["Close"].dropna()
+            if closes.empty or closes.iloc[-1] <= 0:
+                return None
+            return float(closes.iloc[-1])
+        except Exception:
+            logger.exception(f"Error fetching exchange rate {pair} from yfinance")
+            return None
 
     async def get_finansal_veri(
         self,

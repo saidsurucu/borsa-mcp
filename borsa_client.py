@@ -982,7 +982,7 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
     async def calculate_dcf_fisher(
         self,
         ticker_kodu: str,
-        owner_earnings_quarterly: float,
+        owner_earnings_annual: float,
         nominal_rate: Optional[float] = None,
         expected_inflation: Optional[float] = None,
         growth_rate_real: Optional[float] = None,
@@ -992,7 +992,7 @@ Detaylı mevzuat için SPK resmi web sitesini ziyaret edin.
     ) -> Dict[str, Any]:
         """Calculate DCF with Fisher Effect using dynamic parameters."""
         return await self.buffett_provider.calculate_dcf_fisher(
-            ticker_kodu, owner_earnings_quarterly,
+            ticker_kodu, owner_earnings_annual,
             nominal_rate, expected_inflation,
             growth_rate_real, terminal_growth_real,
             risk_premium, forecast_years

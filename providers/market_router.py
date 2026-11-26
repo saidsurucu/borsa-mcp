@@ -1733,6 +1733,8 @@ class MarketRouter:
                         }
                         insights.extend(result.get("key_insights") or [])
                         ratio_warnings.extend(result.get("warnings") or [])
+                        if result.get("error") and not result.get("warnings"):
+                            ratio_warnings.append(f"Buffett analysis error: {result['error']}")
                 except Exception as e:
                     ratio_warnings.append(f"Buffett analysis error: {str(e)}")
 
