@@ -18,8 +18,12 @@ from models import (
     KazancTarihi, KazancTakvimi, KazancBuyumeVerileri
 )
 from providers.volume_sanitizer import sanitize_volume
+from providers import borsapy_periods
 
 logger = logging.getLogger(__name__)
+
+# borsapy's own period choice misses published quarters; see the module.
+borsapy_periods.install()
 
 # borsapy takes yfinance-style periods natively. It does NOT reject unknown
 # values -- it silently falls back to a ~30-bar default -- so anything not in
