@@ -1329,7 +1329,7 @@ async def get_bond_yields(
     )] = "TR"
 ) -> str:
     """
-    Get Turkish government bond yields via borsapy.
+    Get Turkish government bond yields from doviz.com.
 
     Turkish bonds: 2Y, 5Y, 10Y yields
     Risk-free rate for DCF calculations
@@ -1360,17 +1360,21 @@ async def get_bond_yields(
             if result.get("tahvil_lookup"):
                 risk_free = result["tahvil_lookup"].get("10Y")
 
-        return shape({
+        payload = {
             "metadata": {
                 "market": "fx",
                 "symbols": ["bonds"],
-                "source": "borsapy",
+                "source": "doviz.com",
                 "timestamp": datetime.now().isoformat()
             },
             "country": country,
             "yields": yields,
             "risk_free_rate": risk_free
-        })
+        }
+        if result.get("uyarilar"):
+            payload["warnings"] = result["uyarilar"]
+
+        return shape(payload)
     except Exception as e:
         logger.exception("Error in get_bond_yields")
         raise classify_tool_error(e, "Bond yields fetch") from e
